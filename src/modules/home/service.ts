@@ -6,7 +6,8 @@ import { db } from "@/lib/db";
 import { formatDate, formatMonth, todayIST, fromISODate } from "@/lib/dates";
 import { locksDue, sectionScope, todayBoard } from "@/modules/attendance/service";
 import { ensureCredits, ledgerBalances } from "@/modules/leave/balance";
-import { can, scopeFor } from "@/lib/auth/access";
+import { can, canAll, scopeFor } from "@/lib/auth/access";
+import { RUN_GROUPS } from "@/modules/payroll/compute";
 
 const fmtDays = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
@@ -30,7 +31,7 @@ export interface Tile {
   value: string | number;
   href?: string;
   tone?: "green" | "amber" | "red" | "gray" | "blue";
-  icon: "users" | "sections" | "employees" | "history" | "inbox" | "probation" | "joining" | "attendance" | "lock" | "leave";
+  icon: "users" | "sections" | "employees" | "history" | "inbox" | "probation" | "joining" | "attendance" | "lock" | "leave" | "payroll";
 }
 
 export async function myWork(actor: Actor): Promise<WorkItem[]> {
@@ -108,6 +109,13 @@ export async function homeTiles(actor: Actor): Promise<Tile[]> {
     tiles.push({ key: "presentToday", value: `${board.total.present} / ${board.total.staff}`, href: "/attendance", icon: "attendance", tone: "green" });
     const due = await locksDue(actor);
     if (due) tiles.push({ key: "locksDue", value: due.open.length, href: `/attendance?tab=lock&month=${due.month}`, icon: "lock", tone: due.open.length ? (due.overdue ? "red" : "amber") : "gray" });
+  }
+  // S-40: how far this month's payroll has got, for the people who run, check or sign it.
+  if (canAll(actor, "payroll", "view") && actor.loginType !== "EMPLOYEE") {
+    const month = todayIST().slice(0, 7);
+    const runs = await db.payrollRun.findMany({ where: { boardId: actor.boardId, month, payGroup: { in: [...RUN_GROUPS] } }, select: { status: true } });
+    const approved = runs.filter((r) => ["APPROVED", "PAID", "CLOSED"].includes(r.status)).length;
+    tiles.push({ key: "payrollMonth", value: `${approved} / ${RUN_GROUPS.length}`, href: "/payroll", icon: "payroll", tone: approved === RUN_GROUPS.length ? "green" : "amber" });
   }
   if (can(actor, "audit_trail", "view")) {
     const start = new Date(fromISODate(todayIST()).getTime() - 5.5 * 3600_000);

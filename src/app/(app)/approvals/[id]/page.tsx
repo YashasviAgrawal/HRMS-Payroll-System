@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowUpRight, Clock, UserRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { LinkButton } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { Table, Td, Th, THead, Tr } from "@/components/ui/table";
@@ -95,7 +96,16 @@ export default async function ApprovalDetailPage({ params }: { params: Promise<{
           )}
         </Card>
 
-        {task.status === "PENDING" && mayDecide ? (
+        {task.status === "PENDING" && mayDecide && details.decideAt ? (
+          <Card>
+            <CardBody className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-ink-700">{t("approvals.decideThere")}</p>
+              <LinkButton href={details.decideAt} variant="primary" icon={<ArrowUpRight className="size-4" />}>
+                {t("approvals.openToDecide")}
+              </LinkButton>
+            </CardBody>
+          </Card>
+        ) : task.status === "PENDING" && mayDecide ? (
           <DecisionPanel taskId={task.id} makerName={task.makerName} />
         ) : (
           <Card>

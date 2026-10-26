@@ -16,6 +16,7 @@ import { hashPassword } from "../src/lib/password";
 import { verhoeffCheckDigit } from "../src/lib/validators";
 import { seedAttendance } from "./seed-attendance";
 import { seedLeaveTypes } from "./seed-leave";
+import { seedPayrollDemo, seedPayrollRules } from "./seed-payroll";
 
 const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) });
 const DEMO = process.env.NODE_ENV !== "production" || process.env.SEED_DEMO === "1";
@@ -158,6 +159,8 @@ async function main() {
 
   // The leave rules table (PRD §7 defaults) belongs to every installation, demo or not.
   await seedLeaveTypes(db, board.id);
+  // So are the pay matrix, the dated rates and the pay heads (PRD §8).
+  await seedPayrollRules(db, board.id);
 
   const passwordHash = await hashPassword(DEMO_PASSWORD);
 
@@ -235,7 +238,8 @@ async function main() {
       wageRate: e.type === "CONTRACT" ? 21917 : e.type === "DAILY_WAGE" ? 843 : e.type === "REEMPLOYED" ? 45000 : null,
       wageBasis: e.type === "DAILY_WAGE" ? "DAILY" : ["CONTRACT", "REEMPLOYED"].includes(e.type) ? "MONTHLY" : null,
       contractStart: ["CONTRACT", "REEMPLOYED"].includes(e.type) ? fromISODate(e.doj) : null,
-      contractEnd: ["CONTRACT", "REEMPLOYED"].includes(e.type) ? fromISODate(addYears(e.doj, 2)) : null,
+      // Contracts run to the end of the financial year and are renewed each April.
+      contractEnd: ["CONTRACT", "REEMPLOYED"].includes(e.type) ? fromISODate("2027-03-31") : null,
       biometricId: e.code.slice(3),
       probationEndDate: ["PERMANENT_OPS", "PERMANENT_NPS"].includes(e.type) && e.doj > "2020-01-01" ? fromISODate(addDays(addYears(e.doj, 2), -1)) : null,
     };
@@ -316,6 +320,13 @@ async function main() {
     new Map(employeeLogins.map((u) => [u.loginId, { id: u.id, name: u.displayName }])),
     { id: hrUser.id, name: hrUser.displayName },
   );
+
+  // Payroll: standing pay items and the last two months closed (Module 6).
+  const userOf = async (loginId: string) => {
+    const u = await db.user.findUniqueOrThrow({ where: { boardId_loginType_loginId: { boardId: board.id, loginType: loginId === "DCB10002" ? "ADMIN" : "HR_ACCOUNTS", loginId } } });
+    return { id: u.id, name: u.displayName };
+  };
+  await seedPayrollDemo(db, board.id, employeeIds, { payroll: await userOf("DCB10004"), checker: await userOf("DCB10006"), signer: await userOf("DCB10002") });
 
   // A demo vacancy (advertised, with applicants) so the recruitment screens have something to show.
   if ((await db.vacancy.count({ where: { boardId: board.id } })) === 0) {

@@ -71,7 +71,7 @@ test.describe("Module 1 — foundation", () => {
 
   test("not-yet-built screens show a friendly placeholder, unknown ones a 404", async ({ page }) => {
     await signIn(page, { as: "HR & Accounts", id: "DCB10004" });
-    await page.goto("/payroll");
+    await page.goto("/statutory");
     await expect(page.getByText("Coming up next")).toBeVisible();
     await page.goto("/no-such-page");
     await expect(page.getByText("This page does not exist.")).toBeVisible();

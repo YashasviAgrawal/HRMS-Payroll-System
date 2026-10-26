@@ -187,6 +187,16 @@ export async function verifyLogin(input: { challengeId: string; otp: string }, m
   return { ...session, language: user.language, mustChangePassword: user.mustChangePassword };
 }
 
+/**
+ * The approve-and-sign OTP (PRD §8 flow step 5): sent to the signer's own mobile and tied to the item being
+ * signed, so an OTP for one pay bill cannot sign another.
+ */
+export async function startSignOtp(actor: Actor, meta: RequestMeta, context: { kind: string; id: string; what: string }) {
+  const user = await db.user.findUnique({ where: { id: actor.userId } });
+  if (!user || user.status !== "ACTIVE") throw forbidden();
+  return issueOtp(actor.boardId, { id: user.id, mobile: user.mobile, language: user.language }, "APPROVE_SIGN", meta, context, { what: context.what });
+}
+
 /** Checks an OTP and marks it used. Wrong codes count against the challenge. */
 export async function checkOtp(challengeId: string, otp: string, purpose: OtpPurpose, userId?: string) {
   const challenge = await db.otpChallenge.findUnique({ where: { id: challengeId } });
@@ -232,7 +242,7 @@ export async function resendOtp(challengeId: string, meta: RequestMeta): Promise
   });
   if (challenge.user) {
     const lang = challenge.user.language === "hi" ? "hi" : "en";
-    const sent = await sendSms(board.id, challenge.user.mobile, challenge.purpose === "APPROVE_SIGN" ? "approveOtp" : "otp", { otp: code, what: "" }, lang);
+    const sent = await sendSms(board.id, challenge.user.mobile, challenge.purpose === "APPROVE_SIGN" ? "approveOtp" : "otp", { otp: code, what: String((challenge.context as { what?: string } | null)?.what ?? "") }, lang);
     if (!sent.ok) throw new AppError(502, "sms_failed", "errors.smsFailed");
   }
   return {

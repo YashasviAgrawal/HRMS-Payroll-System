@@ -10,10 +10,10 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 | 1 | Foundation & platform | 🟢 Done & verified (2 items carried to later modules, see PLAN.md) |
 | 2 | Employee master | 🟢 Done & verified |
 | 3 | Recruitment & onboarding | 🟢 Done & verified |
-| 4 | Attendance & holidays | 🟢 Done & verified (AT-06 wages in Module 6) |
+| 4 | Attendance & holidays | 🟢 Done & verified |
 | 5 | Leave | 🟢 Done & verified |
-| 6 | Rates & rules + monthly payroll | 🟡 Next |
-| 7 | Pay changes, arrears, loans & salary slips | ⚪ Pending |
+| 6 | Rates & rules + monthly payroll | 🟢 Done & verified (Pensioners pay group in Module 9) |
+| 7 | Pay changes, arrears, loans & salary slips | 🟡 Next |
 | 8 | Statutory & tax | ⚪ Pending |
 | 9 | Pension | ⚪ Pending |
 | 10 | Reports, dashboards, migration & go-live | ⚪ Pending |
@@ -23,6 +23,51 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 ---
 
 ## Change log (newest first)
+
+### 2026-10-26 — Module 6: Rates & rules + monthly payroll ✅
+**Built**
+- Schema: PayMatrix (dated, level → cells), PayRate (dated rates), PayHead (formula, posts, account head, versioned),
+  EmployeePayItem (standing amounts per person), PayrollRun (one per pay group and month, five stages), Payslip (every
+  head as a line, days, bank last 4, change against last month, credit status), PayrollException (PR-10 with resolution).
+- Pure pay engine (`modules/payroll/engine.ts`): Basic from the matrix, NPA, DA, HRA (with the minimum), TA by level with DA
+  on TA, fixed post allowances, wages (monthly or days worked), NPS / GPF / GIS / EPF / ESIC and employer shares, standing
+  items; pro-rata for days on the rolls; last month's dies-non and no-pay leave cut pay, half-pay leave halves Basic and DA
+  (D-17). Each head rounded to the rupee.
+- S-81 Rates and rules: rates with history and future-dated values, pay heads, the pay matrix (current matrix as an Excel
+  template; a new commission's matrix uploaded from Excel). HR & Accounts propose; an Admin approves every change.
+- Pay items: Payroll adds or ends a standing allowance or deduction (GPF subscription, licence fee, TDS, society, loan
+  instalment, court attachment, recovery…); a Checker checks it.
+- S-40 Payroll month: Run (works out a pay group in well under a second) → Fix exceptions (no bank, negative net, pay after
+  retirement or contract end, duplicate bank account, no pay level, suspended, last month not locked, net change over 25%;
+  fix the record and work it out again — remarks carried over — or withhold / explain / waive) → Check (Checker reviews
+  totals by section and every change over 25%, forwards or returns with remarks; the maker can take it back) → Approve
+  and sign (Admin with Pay bill signer, OTP to their mobile tied to that payroll) → Pay (bank file through the file
+  registry, released by an Admin; the bank's return file marks failed credits; re-pay file; month close builds the
+  accounting summary). PR-13 reopen by an Admin with a reason until the bank file is released.
+- Prints (PR-11): pay bill (abstract by head with account heads, amount in words, certificates, maker / checker / signer /
+  DDO), salary register by section (landscape), one schedule per recovery head (with PRAN / GPF / UAN), acquittance roll —
+  bilingual PDFs with a DRAFT band until approval.
+- Bank files (PR-12) in five layouts (generic CSV, SBI CMP, PNB, BoB, Canara) chosen in System settings; return-file
+  template; accounting summary (PR-14) balanced debit / credit by account head.
+- Approvals inbox: payroll tasks open the payroll screen to decide (the OTP lives there); the inbox cannot approve a payroll
+  without it. Home tile "Pay groups approved this month".
+- Seed: 7th CPC matrix, PRD rates (DA 58% from Jul 2025, 60% from Jan 2026), pay heads for every installation; demo pay
+  items and the last two months closed for all three pay groups — this month is left to run (Health's unlocked
+  September and a one-off recovery show the exceptions).
+
+**Verified**
+- 251 unit + integration tests (26 new: the pay engine with the PRD worked example, pre-checks, bank and return files; on a real database: the worked example on OPS,
+  loss days from locked attendance, blocked hand-over until exceptions are resolved, own pay refused, resolutions kept on a
+  re-run, Checker return / forward and take-back, OTP-only approval, reopen before and not after release, bank file
+  content, return-file mismatch, re-pay, balanced accounting summary, rate and pay-item approvals), typecheck, lint, build.
+- 25 Playwright checks (3 new: the whole five-stage month with four logins, a DA change through an Admin, a pay item through
+  a Checker; every payroll screen fits a phone).
+- Every PDF checked by eye; screens reviewed in English, Hindi and on a phone.
+
+**Fixed while verifying**
+- Demo contracts ended in 2025, which flagged contract staff as paid after their contract end — they now run to 31 March
+  2027 like the Board's yearly renewals.
+- Signatures on the pay bill and acquittance roll no longer fall alone onto a second page.
 
 ### 2026-10-26 — Module 5: Leave ✅
 **Built**
@@ -176,11 +221,13 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 ---
 
 ## Pending / next up
-- Module 6: Rates & rules + monthly payroll (PR-01…05, PR-10…14, S-40, S-81): dated pay matrix / DA / HRA / TA tables,
-  pay groups, five-stage payroll (run → fix exceptions → check → approve and sign with OTP → pay), pay from locked
-  attendance (payable days, half-pay and no-pay leave, wages from days worked), pro-rata first salary, bank file.
-- Carried items: pensioner view of the Employee login (Module 9); email sending (Module 7); reports 7–10 (attendance and
-  leave reports) and the formal accessibility pass (Module 10); leave encashment (Module 9 pension).
+- Module 7: Pay changes, arrears, loans & salary slips (PR-06…09, SL-01…05, S-41…44): increment due list, pay fixation on
+  promotion / MACP, arrears "due vs drawn" (a past-dated DA order now starts them), supplementary bills (pay withheld at a
+  pre-check, joiners missed by the regular bill, subsistence allowance), loans with recovery stopping at zero, payslips in
+  Hindi and English with email / SMS.
+- Carried items: pensioner view and the Pensioners pay group (Module 9); email sending (Module 7); employee screens still
+  show Basic from the built-in 7th CPC table while payroll reads the dated matrix — moves to the dated table with pay
+  fixation (Module 7); reports 7–19 and the formal accessibility pass (Module 10); leave encashment (Module 9).
 
 ## Decisions taken (and why)
 | # | Decision | Reason |
@@ -207,8 +254,13 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 | D-21 | Leave balances live in a ledger (sum of entries), never in a stored number | The printed leave account and the balance can never disagree; corrections are new entries |
 | D-22 | Leave credits run when leave is first looked at each day (and are safe to repeat), not by a separate scheduler | No extra process to run on the Board's server; a per-person, per-period key stops double credits |
 | D-23 | Leave decisions follow PRD §14: reporting officer (own section, within the limit set per leave type), Admin beyond it, for leave without an officer and for officers' own leave; HR paper entries follow the same route; opening balances (migration) go to a Checker | The Checker has no role in the §14 leave row; migration has |
+| D-24 | A month's pay uses the matrix and rates in force on the 1st of that month; a past-dated change never rewrites a closed month — it becomes arrears (PR-08, Module 7) | Closed pay bills stay exactly as signed |
+| D-25 | Approve and sign = an Admin holding Pay bill signer and Approver, with an OTP tied to that one payroll; the approval kind itself checks the OTP was just used, so no other screen can approve a payroll | PRD §8 flow step 5; one OTP cannot sign another bill |
+| D-26 | The salary bank file is released by an Admin through the file registry (ST-09); that release is the PR-13 line — reopen is possible until then, never after | "Before the bank file is released" made precise and enforceable |
+| D-27 | Blocking pre-checks are fixed in the record (then "work out again", remarks carried over) or the person's pay is withheld and paid in a supplementary bill; a section that has not locked last month can be paid without its loss days (recovered next month) or held; a net change over 25% needs a remark | Lets the month go out on time without hiding any exception from the Checker |
+| D-28 | Re-employed pensioners are paid in the Contract pay group on their wage rate; their contract end (not the old retirement date) is the end of pay | PR-05 has four groups; re-employed staff are on contract terms |
 | D-08 | Delhi Cantt logo could not be downloaded from inside the build environment (network policy). A placeholder emblem sits at `public/brand/logo.svg`; drop the real logo at the same path | — |
 
 ## Known gaps / risks
-- Exact bank bulk-file, CRA contribution, e-Chhawani and Form 24Q layouts must be confirmed against real samples before go-live (PRD §18 open questions). They are built as switchable templates.
+- Exact bank bulk-file, CRA contribution, e-Chhawani and Form 24Q layouts, the pay bill / register / schedule formats (CBAR 2020) and the e-Chhawani account heads must be confirmed against real samples before go-live (PRD §18 open questions). They are built as switchable templates.
 - Leave, pension and tax defaults follow central rules and are marked "to confirm for DCB" in the rules tables.

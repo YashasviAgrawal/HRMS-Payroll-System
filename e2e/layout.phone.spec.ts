@@ -33,3 +33,22 @@ test("reporting officer screens fit a phone screen", async ({ page }) => {
     await expectNoSidewaysScroll(page, path);
   }
 });
+
+test("payroll screens fit a phone screen", async ({ page }) => {
+  await signIn(page, { as: "HR & Accounts", id: "DCB10004" });
+  for (const path of ["/payroll", "/payroll/items", "/admin/rates", "/admin/rates?tab=heads", "/admin/rates?tab=matrix"]) {
+    await expectNoSidewaysScroll(page, path);
+  }
+  // A closed month from the demo history: every tab and one pay sheet.
+  const overview = (await (await page.request.get("/api/v1/payroll/runs")).json()).data as { history: { id: string; payGroup: string }[] };
+  const run = `/payroll/${overview.history.find((r) => r.payGroup === "NPS")!.id}`;
+  for (const tab of ["people", "sections", "heads", "prints", "exceptions"]) await expectNoSidewaysScroll(page, `${run}?tab=${tab}`);
+  await page.goto(`${run}?tab=people`);
+  await page.getByRole("link", { name: "Priya Singh" }).first().click();
+  await page.waitForURL(/\/people\//);
+  await expectNoSidewaysScroll(page, new URL(page.url()).pathname);
+  await page.goto("/payroll/items");
+  await page.getByRole("combobox", { name: "Employee" }).selectOption({ label: "DCB10002 · Sunita Verma" });
+  await page.waitForURL(/employee=/);
+  await expectNoSidewaysScroll(page, new URL(page.url()).pathname + new URL(page.url()).search);
+});

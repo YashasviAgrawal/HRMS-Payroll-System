@@ -7,4 +7,6 @@ export interface ApprovalDetails {
   /** Short explanation shown above the rows. */
   summary?: string;
   summaryHi?: string;
+  /** Decided on its own screen (e.g. a payroll with OTP), not with the generic buttons. */
+  decideAt?: string;
 }

@@ -1,0 +1,72 @@
+import "server-only";
+import type { z } from "zod";
+import { defineApprovalKind } from "@/lib/approvals/registry";
+import type { ISODate } from "@/lib/dates";
+// Registers the bank-file release hooks (salary paid, failed credits re-paid).
+import "./pay";
+import { applyHead, applyMatrix, applyPayItem, applyRate, type headProposalSchema, type payItemSchema, type rateProposalSchema } from "./rates";
+import { onApproved, onChecked, onSentBack } from "./run";
+
+/** PR-01/PR-02, S-81: rates, pay heads and pay matrices change only when an Admin approves. */
+defineApprovalKind<z.infer<typeof rateProposalSchema>>({
+  kind: "rate.change",
+  requiredPermission: "APPROVER",
+  async onApprove({ tx, payload, actor }) {
+    await applyRate(tx, actor.boardId, actor, payload);
+  },
+});
+
+defineApprovalKind<z.infer<typeof headProposalSchema>>({
+  kind: "payhead.change",
+  requiredPermission: "APPROVER",
+  async onApprove({ tx, payload, actor }) {
+    await applyHead(tx, actor.boardId, payload);
+  },
+});
+
+defineApprovalKind<{ name: string; effectiveFrom: ISODate; levels: Record<string, number[]> }>({
+  kind: "matrix.add",
+  requiredPermission: "APPROVER",
+  async onApprove({ tx, payload, actor }) {
+    await applyMatrix(tx, actor.boardId, actor, payload);
+  },
+});
+
+/** A standing allowance or deduction for one person changes pay, so a Checker checks it. */
+defineApprovalKind<z.infer<typeof payItemSchema>>({
+  kind: "payitem.change",
+  requiredPermission: "CHECKER",
+  sensitive: true,
+  async onApprove({ tx, payload, actor, task }) {
+    await applyPayItem(tx, actor.boardId, task.makerId, payload);
+  },
+});
+
+/** S-40 stage 3: the Checker forwards the payroll to the Admin, or returns it. */
+defineApprovalKind<{ runId: string }>({
+  kind: "payroll.check",
+  requiredPermission: "CHECKER",
+  sensitive: true,
+  async onApprove({ tx, task, payload, actor }) {
+    await onChecked(tx, task, actor, payload.runId);
+  },
+  async onReject({ tx, payload }) {
+    await onSentBack(tx, payload.runId);
+  },
+  async onCancel({ tx, payload }) {
+    await onSentBack(tx, payload.runId);
+  },
+});
+
+/** S-40 stage 4: an Admin (Approver + Pay bill signer) approves with an OTP, or returns it. */
+defineApprovalKind<{ runId: string }>({
+  kind: "payroll.approve",
+  requiredPermission: "PAY_BILL_SIGNER",
+  sensitive: true,
+  async onApprove({ tx, payload, actor }) {
+    await onApproved(tx, actor, payload.runId);
+  },
+  async onReject({ tx, payload }) {
+    await onSentBack(tx, payload.runId);
+  },
+});

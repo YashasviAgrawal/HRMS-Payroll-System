@@ -67,7 +67,7 @@ _Goal: a secure, bilingual shell that every later module plugs into._
 
 **Design system (white + green, premium, simple words)**
 - [x] Theme tokens (brand green scale, neutrals, success/warn/danger), Inter + Noto Sans Devanagari
-- [x] Components: Button (one dark primary per screen), Input, Select, Textarea, Checkbox, Card, Badge, Tabs, Table (keyboard-first rows), Dialog, Toast, EmptyState, PageHeader, StatTile, Segmented, OTP input, Pagination, Skeleton — _Stepper comes with the payroll screen (Module 6)_
+- [x] Components: Button (one dark primary per screen), Input, Select, Textarea, Checkbox, Card, Badge, Tabs, Table (keyboard-first rows), Dialog, Toast, EmptyState, PageHeader, StatTile, Segmented, OTP input, Pagination, Skeleton — Stepper added with the payroll screen (Module 6)
 - [x] Logo slot — drop the official file at `public/brand/logo.png`; placeholder emblem until then
 - [~] Accessibility basics: focus rings, labelled fields, skip link, AA colours, rem sizing (§16) — _formal GIGW/WCAG pass in Module 10_
 
@@ -144,7 +144,7 @@ _Goal: a secure, bilingual shell that every later module plugs into._
 - [x] AT-03 Daily status: Present, Late, Half day, Absent, Missed punch, On duty, On leave, Holiday, Weekly off (+ Dies-non after the officer decides) — office start, grace and half-day time are settings
 - [x] AT-04 Missed-punch / on-duty request by the employee (this month and last); the section's reporting officer decides (an officer's own request goes to HR); approved days are regularised
 - [x] AT-05 Month lock by the reporting officer (own section) or HR (any section), due by the lock day (setting, 25th) for last month; blocked while requests or muster entries wait; every absent / missed-punch / half day must be decided (present, on duty or dies-non) before the lock; totals frozen for payroll; reopening goes to a Checker; "treat as leave" added in Module 5
-- [~] AT-06 Days worked for contract and daily-wage workers are counted and frozen at lock (`AttendanceMonth.workedDays`) — _wages computed from them in Module 6_
+- [x] AT-06 Days worked for contract and daily-wage workers are counted and frozen at lock (`AttendanceMonth.workedDays`); daily wages are paid on them in Module 6
 - [x] AT-07 Today board: present, late, not in yet, on leave / duty, off — by section, with the list of people not in yet; Home tiles
 - [x] AT-08 Holiday calendar per year (gazetted + restricted), set by HR and approved by a Checker; months already locked cannot change; working week (weekly off) and attendance mode per section
 - [x] S-30 Attendance (Today · Month register · Month lock · Requests · Import) · S-32 Holiday calendar · My attendance (employee) · Team attendance (reporting officer)
@@ -163,20 +163,21 @@ _Goal: a secure, bilingual shell that every later module plugs into._
 - [x] S-31 Leave (employee) · Team leave (reporting officer) · Leave for HR & Accounts (applications, balances, enter leave, opening balances, rules) · Home tiles (leave balance, leave waiting)
 
 ## Module 6 — Rates & rules + monthly payroll (§8)
-- [ ] PR-01 7th CPC pay matrix as a dated table (level × cell); a new commission matrix can be added with a new date
-- [ ] PR-02 DA / HRA / TA dated rate table: DA 60% from 1 Jan 2026, HRA 30% (Delhi, X city), TA by level with DA on TA
-- [ ] PR-03 Pay heads master (Basic, DA, HRA, TA, NPA, special, washing, uniform, conservancy, risk…) each with formula + account head
-- [ ] PR-04 Deductions: GPF/CPF, NPS 10%, income tax, group insurance, licence fee, loans, court attachment, society dues, overpayment recovery
-- [ ] PR-05 Pay groups: Permanent-OPS, Permanent-NPS, Contract & daily wage, Pensioners
-- [ ] PR-10 Pre-checks: no bank account, negative net, pay after retirement, net change > 25%, duplicate bank account
-- [ ] PR-11 Pay bill, schedules, acquittance roll, salary register (CBAR 2020 formats)
-- [ ] PR-12 Bank file in bank's format; return file of failed credits imported and re-paid
-- [ ] PR-13 Reopen only by Admin with a reason, only before bank file release
-- [ ] PR-14 Accounting summary by account head for e-Chhawani
-- [ ] S-81 Rates & rules (HR proposes, Admin approves, effective dates)
-- [ ] S-40 Payroll month — five stages: Run → Fix exceptions → Check → Approve & sign (OTP) → Pay
-- [ ] Worked example passes exactly: L6 C1 NPS Delhi → gross ₹73,020, NPS ₹5,664
-- [ ] Full payroll run under 30 minutes (§16) — target: seconds
+- [x] PR-01 7th CPC pay matrix as a dated table (level × cell); a new commission matrix can be added with a new date (Excel upload → Admin approves)
+- [x] PR-02 DA / HRA / TA dated rate table: DA 60% from 1 Jan 2026, HRA 30% (Delhi, X city), TA by level with DA on TA — plus the statutory rates (NPS, GPF, GIS, EPF, ESIC, pension fund)
+- [x] PR-03 Pay heads master (Basic, DA, HRA, TA, NPA, special, washing, uniform, conservancy, risk…) each with formula + account head; changes and new heads through an Admin, versioned
+- [x] PR-04 Deductions: GPF/CPF, NPS 10%, income tax, group insurance, licence fee, loans, court attachment, society dues, overpayment recovery — standing amounts per person as pay items, checked by a Checker
+- [x] PR-05 Pay groups: Permanent-OPS (with deputation), Permanent-NPS, Contract & daily wage (with re-employed) — _the Pensioners group runs with the pension payroll in Module 9_
+- [x] PR-10 Pre-checks: no bank account, negative net, pay after retirement (or contract end), net change > 25%, duplicate bank account — plus no pay level, suspension and last month's attendance not locked
+- [x] PR-11 Pay bill, schedules, acquittance roll, salary register as bilingual PDFs — _layouts to be matched to DCB's printed formats (PRD §18)_
+- [x] PR-12 Bank file in the bank's format (generic, SBI CMP, PNB, BoB, Canara) through the file registry; return file of failed credits read; re-pay file
+- [x] PR-13 Reopen only by Admin with a reason, only before bank file release
+- [x] PR-14 Accounting summary by account head for e-Chhawani (balanced debit / credit CSV at month close, through the file registry)
+- [x] S-81 Rates & rules (HR proposes, Admin approves, effective dates)
+- [x] S-40 Payroll month — five stages: Run → Fix exceptions → Check → Approve & sign (OTP) → Pay
+- [x] Pay items screen (standing allowances and deductions per person) · pay sheet per person · Home tile (pay groups approved this month) · approvals inbox opens the payroll to decide
+- [x] Worked example passes exactly: L6 C1 NPS Delhi → gross ₹73,020, NPS ₹5,664
+- [x] Full payroll run under 30 minutes (§16) — a pay group works out in well under a second for the demo Board
 
 ## Module 7 — Pay changes, arrears, loans & salary slips (§8)
 - [ ] PR-06 Increment due list on 1 Jan / 1 Jul; HR confirms, Checker verifies, pay + service book updated

@@ -22,12 +22,10 @@ const UPCOMING: Record<string, number> = {
   recruitment: 3,
   attendance: 4,
   leave: 5,
-  payroll: 6,
   statutory: 8,
   pension: 9,
   reports: 10,
   migration: 10,
-  admin: 6,
 };
 
 export default async function UpcomingPage({ params }: { params: Promise<{ soon: string[] }> }) {

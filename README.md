@@ -55,6 +55,8 @@ Employees and pensioners can also choose **"With mobile OTP only"**.
 
 **Things to try in the demo:** Rajesh (`DCB10008`) has a missed-punch request and a CL application from Suresh waiting, and last month's Health attendance to lock (an unexplained day can be treated as leave); Anil (`DCB10001`, Admin) has a 5-day EL application from Pooja; Suresh (`DCB10010`) can apply for leave with a live balance; Neha (`DCB10007`) sees today's attendance board, the month register and the punch import; the holiday calendar is under Attendance → Holiday calendar. Every write goes to a second person (Checker or Admin) — sign in as `DCB10006` to check.
 
+**Payroll (Module 6):** sign in as Mohit (`DCB10004`, HR & Accounts → Payroll) and run this month's payroll for a pay group — the last two months are already closed, so the change against last month shows. Fix the exceptions (Health has not locked last month; Manoj has a one-off recovery), send it to the Checker (`DCB10006`), approve and sign it as Sunita (`DCB10002`, Admin — the OTP shows on screen in demo mode), make the bank file, release it as Anil (`DCB10001`), then read a return file and close the month. Rates, pay heads and the pay matrix are under Payroll → Rates and rules (HR proposes, an Admin approves); standing deductions per person are under Payroll → Pay items (a Checker checks).
+
 ## Commands
 
 | Command | What it does |
