@@ -8,6 +8,8 @@ import { locksDue, sectionScope, todayBoard } from "@/modules/attendance/service
 import { ensureCredits, ledgerBalances } from "@/modules/leave/balance";
 import { can, canAll, scopeFor } from "@/lib/auth/access";
 import { RUN_GROUPS } from "@/modules/payroll/compute";
+import { dueSoon, sendDueReminders } from "@/modules/statutory/calendar-service";
+import { currentFy } from "@/modules/statutory/tax";
 
 const fmtDays = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
@@ -31,7 +33,7 @@ export interface Tile {
   value: string | number;
   href?: string;
   tone?: "green" | "amber" | "red" | "gray" | "blue";
-  icon: "users" | "sections" | "employees" | "history" | "inbox" | "probation" | "joining" | "attendance" | "lock" | "leave" | "payroll";
+  icon: "users" | "sections" | "employees" | "history" | "inbox" | "probation" | "joining" | "attendance" | "lock" | "leave" | "payroll" | "statutory";
 }
 
 export async function myWork(actor: Actor): Promise<WorkItem[]> {
@@ -62,6 +64,33 @@ export async function myWork(actor: Actor): Promise<WorkItem[]> {
       href: isOfficer ? `/attendance/lock?section=${due.open[0].id}&month=${due.month}` : `/attendance?tab=lock&month=${due.month}`,
       tone: due.overdue ? "red" : "amber",
     });
+  }
+  // ST-08: filings due within 5 days (and any overdue) for the people who prepare them; the day's SMS reminders.
+  void sendDueReminders(actor.boardId).catch((e) => console.error("[statutory] reminders failed", e));
+  for (const d of await dueSoon(actor)) {
+    const late = d.state === "OVERDUE";
+    items.push({
+      key: `due-${d.code}-${d.dueOn}`,
+      title: `${d.name} (${d.period}) — ${late ? `overdue since ${formatDate(d.dueOn)}` : `due ${formatDate(d.dueOn)}`}`,
+      titleHi: `${d.nameHi} (${d.period}) — ${late ? `${formatDate(d.dueOn, "hi")} से बकाया` : `देय ${formatDate(d.dueOn, "hi")}`}`,
+      href: d.href,
+      tone: late ? "red" : "amber",
+    });
+  }
+  // ST-02, ST-03: the employee's own tax declaration — the regime at the start of the year, proofs before January.
+  if (actor.loginType === "EMPLOYEE" && actor.employeeId) {
+    const fy = currentFy();
+    const today = todayIST();
+    const month = Number(today.slice(5, 7));
+    const decl = await db.taxDeclaration.findUnique({ where: { employeeId_fy: { employeeId: actor.employeeId, fy } } });
+    if (decl?.status === "RETURNED") {
+      items.unshift({ key: "tax-returned", title: "Your tax declaration was sent back — please correct it", titleHi: "आपकी कर घोषणा वापस भेजी गई — कृपया सुधारें", href: "/my/tax", tone: "red" });
+    } else if ((!decl || decl.status === "DRAFT") && month >= 4 && month <= 7) {
+      items.push({ key: "tax-regime", title: `Choose your tax regime for ${fy}`, titleHi: `${fy} के लिए अपनी कर व्यवस्था चुनें`, href: "/my/tax", tone: "blue" });
+    } else if (decl?.regime === "OLD" && decl.status !== "VERIFIED" && (month === 11 || month === 12)) {
+      const due = `${fy.slice(0, 4)}-12-31`;
+      items.push({ key: "tax-proofs", title: `Send your investment proofs by ${formatDate(due)}`, titleHi: `${formatDate(due, "hi")} तक अपने निवेश प्रमाण भेजें`, href: "/my/tax", tone: "amber" });
+    }
   }
   return items;
 }
@@ -116,6 +145,11 @@ export async function homeTiles(actor: Actor): Promise<Tile[]> {
     const runs = await db.payrollRun.findMany({ where: { boardId: actor.boardId, month, payGroup: { in: [...RUN_GROUPS] } }, select: { status: true } });
     const approved = runs.filter((r) => ["APPROVED", "PAID", "CLOSED"].includes(r.status)).length;
     tiles.push({ key: "payrollMonth", value: `${approved} / ${RUN_GROUPS.length}`, href: "/payroll", icon: "payroll", tone: approved === RUN_GROUPS.length ? "green" : "amber" });
+  }
+  // ST-08: open filings due in the next 5 days.
+  if (canAll(actor, "statutory", "create")) {
+    const due = await dueSoon(actor);
+    tiles.push({ key: "statutoryDue", value: due.length, href: "/statutory", icon: "statutory", tone: due.some((d) => d.state === "OVERDUE") ? "red" : due.length ? "amber" : "gray" });
   }
   if (can(actor, "audit_trail", "view")) {
     const start = new Date(fromISODate(todayIST()).getTime() - 5.5 * 3600_000);

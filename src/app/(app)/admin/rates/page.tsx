@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Download, Grid3x3, Layers, Percent } from "lucide-react";
+import { CalendarClock, Download, Grid3x3, Landmark, Layers, Percent } from "lucide-react";
 import { NoAccess } from "@/components/no-access";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
@@ -14,13 +14,16 @@ import { getT } from "@/lib/i18n/server";
 import { cn } from "@/lib/utils";
 import { levelOrder } from "@/modules/payroll/compute";
 import { rulesOverview } from "@/modules/payroll/rates";
+import { dueRulesScreen, taxRulesScreen } from "@/modules/statutory/rules";
 import { HeadsTable } from "./heads-table";
 import { MatrixUpload } from "./matrix-upload";
+import { DueRuleButton } from "./due-rule-button";
 import { RateButton } from "./rate-button";
+import { TaxRuleButton } from "./tax-rule-button";
 
 export const metadata: Metadata = { title: "Rates and rules" };
 
-const TABS = ["rates", "heads", "matrix"] as const;
+const TABS = ["rates", "heads", "matrix", "tax", "dues"] as const;
 type Tab = (typeof TABS)[number];
 
 /** S-81: the dated tables the pay engine reads. HR & Accounts propose, an Admin approves. */
@@ -30,7 +33,7 @@ export default async function RatesPage({ searchParams }: { searchParams: Promis
   const { t, locale } = await getT();
   const sp = await searchParams;
   const tab: Tab = (TABS as readonly string[]).includes(sp.tab ?? "") ? (sp.tab as Tab) : "rates";
-  const data = await rulesOverview(actor);
+  const [data, taxRules, dueRules] = await Promise.all([rulesOverview(actor), tab === "tax" ? taxRulesScreen(actor) : null, tab === "dues" ? dueRulesScreen(actor) : null]);
   const today = todayIST();
   const pendingKeys = new Set(data.pending.map((p) => `${p.kind}|${p.entityId}`));
   const fmt = (unit: string, v: number) => (unit === "PERCENT" ? t("rates.percent", { value: v }) : t("rates.rupees", { value: v.toLocaleString("en-IN") }));
@@ -97,6 +100,83 @@ export default async function RatesPage({ searchParams }: { searchParams: Promis
             </Table>
           </Card>
         ))}
+
+      {taxRules &&
+        taxRules.years.map((y) => (
+          <Card key={y.fy} className="mb-5">
+            <CardHeader title={t("statutory.rules.taxTitle", { fy: y.fy })} description={t("statutory.rules.taxHelp")} icon={<Landmark className="size-4.5" aria-hidden="true" />} />
+            <CardBody className="grid gap-5 lg:grid-cols-2">
+              {y.regimes.map((r) => (
+                <div key={r.regime} className="rounded-2xl border border-ink-200 p-4" data-testid={`tax-${y.fy}-${r.regime}`}>
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <p className="font-semibold text-ink-900">
+                      {t(`statutory.tax.regimes.${r.regime}`)}
+                      {!r.saved && <span className="ml-2 text-xs font-normal text-ink-500">{t("statutory.rules.notSaved")}</span>}
+                    </p>
+                    {r.waiting ? <Badge tone="amber">{t("rates.pending")}</Badge> : taxRules.canPropose && <TaxRuleButton fy={y.fy} regime={r.regime} rules={r.rules} />}
+                  </div>
+                  <table className="w-full text-sm">
+                    <tbody>
+                      {r.rules.slabs.map((s, i) => (
+                        <tr key={i} className="border-b border-ink-100 last:border-0">
+                          <td className="py-1 text-ink-600">
+                            {i === 0 ? "₹0" : `₹${r.rules.slabs[i - 1].upTo!.toLocaleString("en-IN")}`} – {s.upTo === null ? t("statutory.rules.above") : `₹${s.upTo.toLocaleString("en-IN")}`}
+                          </td>
+                          <td className="tabular py-1 text-right font-medium text-ink-900">{s.rate}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <dl className="mt-3 grid gap-1 text-sm">
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-ink-600">{t("statutory.rules.standardDeduction")}</dt>
+                      <dd className="tabular">₹{r.rules.standardDeduction.toLocaleString("en-IN")}</dd>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-ink-600">{t("statutory.rules.rebate")}</dt>
+                      <dd className="tabular text-right">{t("statutory.rules.rebateText", { max: `₹${r.rules.rebateMax.toLocaleString("en-IN")}`, limit: `₹${r.rules.rebateIncomeLimit.toLocaleString("en-IN")}` })}</dd>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-ink-600">{t("statutory.rules.cess")}</dt>
+                      <dd className="tabular">{r.rules.cessPercent}%</dd>
+                    </div>
+                  </dl>
+                </div>
+              ))}
+            </CardBody>
+          </Card>
+        ))}
+
+      {dueRules && (
+        <Card>
+          <CardHeader title={t("statutory.rules.duesTitle")} description={t("statutory.rules.duesHelp")} icon={<CalendarClock className="size-4.5" aria-hidden="true" />} />
+          <Table stack>
+            <THead>
+              <tr>
+                <Th>{t("statutory.calendar.what")}</Th>
+                <Th>{t("statutory.rules.when")}</Th>
+                <Th />
+              </tr>
+            </THead>
+            <tbody>
+              {dueRules.rules.map((r) => (
+                <Tr key={r.code}>
+                  <Td>
+                    <span className="font-medium text-ink-900">{locale === "hi" ? r.nameHi : r.name}</span>
+                    <span className="block text-xs text-ink-400">{r.code}</span>
+                  </Td>
+                  <Td label={t("statutory.rules.when")}>
+                    {r.kind === "MONTHLY" ? t("statutory.rules.whenMonthly", { day: r.day }) : r.kind === "AFTER_PAY" ? t("statutory.rules.whenAfterPay", { day: r.day }) : r.dates.join(", ")}
+                  </Td>
+                  <Td align="right" actions>
+                    {r.waiting ? <Badge tone="amber">{t("rates.pending")}</Badge> : dueRules.canPropose && <DueRuleButton code={r.code} name={locale === "hi" ? r.nameHi : r.name} kind={r.kind} day={r.day} dates={r.dates} />}
+                  </Td>
+                </Tr>
+              ))}
+            </tbody>
+          </Table>
+        </Card>
+      )}
 
       {tab === "heads" && (
         <Card>

@@ -160,6 +160,24 @@ export default async function PaySheetPage({ params }: { params: Promise<{ id: s
         </Card>
       )}
 
+      {s.detail.tax && s.detail.tax.annualTax > 0 && (
+        <Card className="mb-5" data-testid="tax-working">
+          <CardBody className="space-y-1 text-sm text-ink-700">
+            <p className="font-medium text-ink-900">{t("payroll.slip.taxTitle", { fy: s.detail.tax.fy })}</p>
+            <p>
+              {t("payroll.slip.taxLine", {
+                regime: t(`statutory.tax.regimes.${s.detail.tax.regime}`),
+                gross: formatINR(s.detail.tax.projectedGross),
+                taxable: formatINR(s.detail.tax.taxable),
+                tax: formatINR(s.detail.tax.annualTax),
+              })}
+            </p>
+            <p>{t("payroll.slip.taxSpread", { deducted: formatINR(s.detail.tax.deductedSoFar), months: s.detail.tax.monthsLeft, monthly: formatINR(s.detail.tax.monthly) })}</p>
+            <p className="text-xs text-ink-500">{t(`statutory.tax.basis.${s.detail.tax.basis}`)}</p>
+          </CardBody>
+        </Card>
+      )}
+
       <div className="grid gap-5 lg:grid-cols-2">
         {block(t("payroll.kinds.EARNING"), s.earnings, s.gross)}
         <div className="grid content-start gap-5">

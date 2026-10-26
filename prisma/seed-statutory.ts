@@ -3,11 +3,15 @@
  * the statutory due dates — and, for the demo, the Board's portal identities, GPF balances brought from the old system,
  * a GPF advance and a few tax declarations.
  */
+import { createHash, randomBytes } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
 import type { Prisma, PrismaClient } from "../src/generated/prisma/client";
 import { formatINR } from "../src/lib/money";
 import { fromISODate, shiftMonth, todayIST } from "../src/lib/dates";
 import { DUE_DEFAULTS } from "../src/modules/statutory/calendar";
 import { gpfInstalment, monthsOfFy } from "../src/modules/statutory/gpf-rules";
+import { buildStatFile, STAT_KINDS, SUM_LABEL } from "../src/modules/statutory/stat-build";
 import { EMPTY_ITEMS, fyOfMonth, TAX_DEFAULTS, taxWorking, type DeclaredItems } from "../src/modules/statutory/tax-rules";
 import { addParts, headFlags, monthsStillToCome, partsOf, ZERO_PARTS } from "../src/modules/statutory/tds-projection";
 import { computeRun, RUN_GROUPS } from "../src/modules/payroll/compute";
@@ -201,4 +205,59 @@ export async function seedGpfOpenings(db: PrismaClient, boardId: string, months:
     }
   }
   if (rows.length) await db.gpfEntry.createMany({ data: rows });
+}
+
+/** A generated file written where the app keeps them (same key shape as lib/storage). */
+async function storeFile(area: string, buffer: Buffer, ext: string) {
+  const now = new Date();
+  const key = `${area}/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, "0")}/${randomBytes(18).toString("base64url")}.${ext}`;
+  const full = path.join(path.resolve(process.env.STORAGE_DIR ?? "./storage"), key);
+  await mkdir(path.dirname(full), { recursive: true });
+  await writeFile(full, buffer, { mode: 0o640 });
+  return { key, sha256: createHash("sha256").update(buffer).digest("hex"), size: buffer.length };
+}
+
+/**
+ * After the demo pay history, the office has done its filings for those months, as it would have: the TDS of each month
+ * deposited by challan on the 5th, and the NPS, ECR, ESIC and pension fund files made and released by an Admin.
+ */
+export async function seedStatutoryHistory(db: PrismaClient, boardId: string, months: string[], users: { payroll: Who; signer: Who }) {
+  let serial = 41;
+  for (const month of months) {
+    const slips = await db.payslip.findMany({ where: { boardId, month, status: "INCLUDED", run: { status: { in: ["APPROVED", "PAID", "CLOSED"] } } }, select: { lines: true } });
+    const tds = slips.reduce((s, x) => s + (x.lines as unknown as PayLine[]).filter((l) => l.code === "IT").reduce((a, l) => a + l.amount, 0), 0);
+    const next = shiftMonth(month, 1);
+    if (tds > 0) {
+      const cess = Math.round((tds * 4) / 104);
+      await db.tdsChallan.create({ data: { boardId, fy: fyOfMonth(month), month, bsrCode: "0510308", challanNo: String(serial++).padStart(5, "0"), depositedOn: fromISODate(`${next}-05`), tax: tds - cess, cess, interest: 0, createdById: users.payroll.id } });
+    }
+    for (const kind of STAT_KINDS) {
+      const b = await buildStatFile(db, boardId, kind, month);
+      if (!b.ready || !b.rows.length) continue;
+      const stored = await storeFile("files", Buffer.from(b.text, "utf8"), b.ext);
+      const day = kind === "stat.pension" ? `${month}-28` : `${next}-0${kind === "stat.nps" ? 4 : 9}`;
+      await db.fileRecord.create({
+        data: {
+          boardId,
+          direction: "OUTGOING",
+          kind,
+          period: month,
+          fileName: b.fileName,
+          mimeType: b.mime,
+          size: stored.size,
+          sha256: stored.sha256,
+          storageKey: stored.key,
+          status: "DOWNLOADED",
+          meta: JSON.parse(JSON.stringify({ preview: { columns: b.columns, rows: b.rows.slice(0, 50), totalRows: b.rows.length, totals: Object.fromEntries(b.sums.map(([k, v]) => [SUM_LABEL[k], formatINR(v)])) }, link: `/statutory/files?month=${month}` })),
+          createdById: users.payroll.id,
+          createdByName: users.payroll.name,
+          approvedById: users.signer.id,
+          approvedAt: new Date(`${day}T06:00:00Z`),
+          downloadCount: 1,
+          lastDownloadAt: new Date(`${day}T07:00:00Z`),
+          createdAt: new Date(`${day}T05:00:00Z`),
+        },
+      });
+    }
+  }
 }

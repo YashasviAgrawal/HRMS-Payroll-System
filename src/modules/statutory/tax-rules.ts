@@ -90,7 +90,7 @@ export function taxOnIncome(taxable: number, rules: TaxRuleSet, regime: Regime) 
 }
 
 export interface AnnualSalary {
-  /** Taxable earnings for the year (paid so far + projected). */
+  /** Taxable earnings for the year (paid so far + projected), without the Board's NPS share. */
   gross: number;
   /** Basic + DA for the year — for the HRA exemption. */
   basicDa: number;
@@ -106,6 +106,7 @@ export interface AnnualSalary {
 
 export interface TaxWorking {
   regime: Regime;
+  /** Salary u/s 17(1), the Board's NPS share included. */
   gross: number;
   standardDeduction: number;
   hraExempt: number;
@@ -133,10 +134,12 @@ export function taxWorking(sal: AnnualSalary, regime: Regime, items: DeclaredIte
       }
     : { sec80C: 0, sec80D: 0, sec80CCD1B: 0, homeLoanInterest: 0 };
   const professionalTax = old ? sal.professionalTax : 0;
+  // The Board's NPS share is salary u/s 17(1)(viii) and then deducted u/s 80CCD(2): it adds to gross and comes off again.
+  const gross = sal.gross + sal.employerNps;
   const deductions = rules.standardDeduction + hraExempt + professionalTax + sal.employerNps + chapterVIA.sec80C + chapterVIA.sec80D + chapterVIA.sec80CCD1B + chapterVIA.homeLoanInterest;
-  const taxable = Math.max(0, sal.gross + items.otherIncome - deductions);
+  const taxable = Math.max(0, gross + items.otherIncome - deductions);
   const t = taxOnIncome(taxable, rules, regime);
-  return { regime, gross: r(sal.gross), standardDeduction: rules.standardDeduction, hraExempt: r(hraExempt), professionalTax: r(professionalTax), employerNps: r(sal.employerNps), chapterVIA, otherIncome: items.otherIncome, taxable: t.income, tax: t.tax, rebate: t.rebate, cess: t.cess, total: t.total };
+  return { regime, gross: r(gross), standardDeduction: rules.standardDeduction, hraExempt: r(hraExempt), professionalTax: r(professionalTax), employerNps: r(sal.employerNps), chapterVIA, otherIncome: items.otherIncome, taxable: t.income, tax: t.tax, rebate: t.rebate, cess: t.cess, total: t.total };
 }
 
 /** ST-04: the year's tax less what is already deducted, spread over the months left (this one included). */

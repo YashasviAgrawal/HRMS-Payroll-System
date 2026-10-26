@@ -32,12 +32,13 @@ describe("ST-04 income tax on the slabs", () => {
     expect(taxOnIncome(1600009, NEW, "NEW").income).toBe(1600000);
   });
 
-  it("new regime: standard deduction and the Board's NPS share only", () => {
+  it("new regime: standard deduction and the Board's NPS share only (counted in salary, then deducted u/s 80CCD(2))", () => {
     const w = taxWorking(salary(1500000, { employerNps: 100000, gpf: 50000 }), "NEW", { ...EMPTY_ITEMS, sec80C: 150000, rentPaid: 200000 }, NEW);
-    expect(w.taxable).toBe(1325000);
+    expect(w.gross).toBe(1600000);
+    expect(w.taxable).toBe(1425000);
     expect(w.chapterVIA.sec80C).toBe(0);
     expect(w.hraExempt).toBe(0);
-    expect(w.total).toBe(Math.round((20000 + 40000 + 125000 * 0.15) * 1.04));
+    expect(w.total).toBe(Math.round((20000 + 40000 + 225000 * 0.15) * 1.04));
   });
 
   it("old regime: HRA exemption is the least of HRA, rent less 10% of pay, and 50% of pay in a metro", () => {

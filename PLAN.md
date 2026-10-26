@@ -192,22 +192,22 @@ _Goal: a secure, bilingual shell that every later module plugs into._
 - [x] S-41 Increments & fixation · S-42 Arrears & supplementary bills · S-43 Loans · S-44 Payslips (HR & Accounts and My payslips)
 
 ## Module 8 — Statutory & tax (§9)
-- [ ] GPF ledger (min 6%, annual cap ₹5 lakh, advances, withdrawals, interest, annual statement)
-- [ ] NPS employee 10% + employer share, CRA contribution file, CRA statement reconciliation
-- [ ] Board pension fund 10% employer contribution for OPS staff (CBAR 2020)
-- [ ] EPF 12% + 12% with ₹15,000 ceiling, EPS split, ECR file
-- [ ] ESIC employee/employer shares, monthly contribution file
-- [ ] Professional tax switch (off for Delhi)
-- [ ] ST-01 Rates, ceilings and due dates as dated, editable tables
-- [ ] ST-02 Tax regime per employee per year (new regime default)
-- [ ] ST-03 Investment declarations + proofs before January, verified by HR & Accounts
-- [ ] ST-04 Monthly TDS projected on full-year income, adjusted monthly and in Q4
-- [ ] ST-05 Challan details against each month's TDS
-- [ ] ST-06 Form 24Q quarterly file (Protean / TRACES FVU)
-- [ ] ST-07 Form 16 Part B generated; Part A imported; both published to employee
-- [ ] ST-08 Statutory calendar on dashboard, reminders 5 days before due
-- [ ] ST-09 Every file previewed, Admin-approved, logged with checksum
-- [ ] S-50 GPF & NPS · S-51 Tax declarations · S-52 Statutory files · S-53 Form 16
+- [x] GPF ledger (min 6%, annual cap ₹5 lakh, advances, withdrawals, interest, annual statement) — _GPF final payment on retirement in Module 9_
+- [x] NPS employee 10% + employer share, CRA contribution file, CRA statement reconciliation
+- [x] Board pension fund 10% employer contribution for OPS staff (CBAR 2020)
+- [x] EPF 12% + 12% with ₹15,000 ceiling, EPS split, ECR file
+- [x] ESIC employee/employer shares, monthly contribution file
+- [x] Professional tax switch (off for Delhi)
+- [x] ST-01 Rates, ceilings and due dates as dated, editable tables
+- [x] ST-02 Tax regime per employee per year (new regime default)
+- [x] ST-03 Investment declarations + proofs before January, verified by HR & Accounts
+- [x] ST-04 Monthly TDS projected on full-year income, adjusted monthly and in Q4
+- [x] ST-05 Challan details against each month's TDS
+- [x] ST-06 Form 24Q quarterly file (Protean / TRACES FVU) — _layout to be run through the FVU before the first filing (PRD §18)_
+- [x] ST-07 Form 16 Part B generated; Part A imported; both published to employee
+- [x] ST-08 Statutory calendar on dashboard, reminders 5 days before due
+- [x] ST-09 Every file previewed, Admin-approved, logged with checksum
+- [x] S-50 GPF & NPS · S-51 Tax declarations · S-52 Statutory files · S-53 Form 16
 
 ## Module 9 — Pension (§10)
 - [ ] PN-01 Pensioner record: PPO, type, basic pension, commuted amount & date, DOB, bank, family

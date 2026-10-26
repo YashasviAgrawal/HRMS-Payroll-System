@@ -10,7 +10,7 @@ import { seventhCpcMatrix } from "../src/modules/payroll/matrix-7cpc";
 import { incrementDatesAround, incrementMonthFor } from "../src/modules/payroll/pay-rules";
 import { RATE_DEFAULTS } from "../src/modules/payroll/rate-catalog";
 import { recordGpf } from "../src/modules/statutory/gpf-posting";
-import { seedGpfOpenings, seedStatutoryBeforePayroll } from "./seed-statutory";
+import { seedGpfOpenings, seedStatutoryBeforePayroll, seedStatutoryHistory } from "./seed-statutory";
 
 /** Matrix, rates and pay heads. Existing rows are left alone: after the first load the tables belong to the Board. */
 export async function seedPayrollRules(db: PrismaClient, boardId: string) {
@@ -139,4 +139,5 @@ export async function seedPayrollDemo(db: PrismaClient, boardId: string, people:
     }
   }
   await seedGpfOpenings(db, boardId, months, users.payroll.id);
+  await seedStatutoryHistory(db, boardId, months, { payroll: users.payroll, signer: users.signer });
 }

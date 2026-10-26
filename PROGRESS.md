@@ -14,8 +14,8 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 | 5 | Leave | 🟢 Done & verified |
 | 6 | Rates & rules + monthly payroll | 🟢 Done & verified (Pensioners pay group in Module 9) |
 | 7 | Pay changes, arrears, loans & salary slips | 🟢 Done & verified |
-| 8 | Statutory & tax | 🟡 Next |
-| 9 | Pension | ⚪ Pending |
+| 8 | Statutory & tax | 🟢 Done & verified (24Q / CRA / ECR / ESIC layouts to check with one real upload — PRD §18) |
+| 9 | Pension | 🟡 Next |
 | 10 | Reports, dashboards, migration & go-live | ⚪ Pending |
 
 🟢 Done & verified · 🟡 In progress · ⚪ Pending
@@ -23,6 +23,64 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 ---
 
 ## Change log (newest first)
+
+### 2026-10-27 — Module 8: Statutory & tax ✅
+**Built**
+- Income tax as editable rules (ST-01): slabs, standard deduction, 87A rebate (with marginal relief in the new regime) and
+  cess per year and regime, Finance Act 2025 defaults for this year and last; changes go to an Admin (Rates and rules →
+  Income tax). Due dates for every filing are an editable table too (Rates and rules → Due dates).
+- ST-02 / ST-03 / S-51: under Payslips and Form 16 → My tax, each employee sees the year's tax worked out both ways side by
+  side, chooses the regime (new by default), declares old-regime deductions (80C, 80D, 80CCD(1B), home-loan interest, rent
+  for HRA, other income) and attaches proofs; a Checker verifies or sends it back. HR & Accounts see everyone's regime,
+  status and tax for the year, one person's figures and proofs, and enter salary and TDS carried in from the old system
+  or a previous employer (Form 12B) through a Checker.
+- ST-04: TDS is no longer a typed pay item. Each month the payroll projects the year — approved bills so far + carried-in
+  salary + this month + a full month for each month to come (to March or the month of leaving) — works out the year's
+  tax under the chosen regime and spreads what is left over the months left. Declared figures count until December,
+  only verified ones from January. The working is on the pay sheet and the payslip.
+- GPF (§9, S-50): approved bills post subscriptions and advance instalments to the account (reopening takes them out);
+  advances (12–60 instalments, recovered from the next month's pay as a worked-out deduction) and withdrawals within
+  the share of the balance in force, Checker then Admin; interest on month-end balances at the notified rate, credited
+  for a finished year after an Admin approves; annual statement PDF; GPF pay items held to 6% of Basic and the ₹5 lakh
+  yearly cap.
+- Monthly files (ST-06, ST-09, S-52): NPS contributions for the CRA, EPF ECR (EPS split, NCP days), ESIC and the Board
+  pension fund statement, from the month's approved bills, people with a missing PRAN / UAN / IP number listed; each
+  previewed and released by an Admin with its checksum. NPS: the CRA statement upload matches every PRAN and month with
+  the bills (matched / amount differs / not credited / not ours).
+- ST-05 / ST-06: TDS deducted vs deposited month by month, challans (BSR, serial, date; cess split worked out), and the
+  quarterly Form 24Q text file — built only when every rupee of the quarter sits under a challan, with Annexure II in Q4.
+- ST-07 / S-53: Form 16 Part B generated from the year's bills (a marked draft until 31 March), Part A PDFs imported by
+  the PAN in each TRACES file name, published after an Admin approves; each person gets an SMS and finds both parts under
+  Payslips and Form 16.
+- ST-08: the statutory calendar (due dates from the rules, each marked done from the record that satisfies it), "My work"
+  items and a Home tile for Payroll, and an SMS to Payroll 5 days before each open due date (once per date).
+- Settings: the Board's TAN, PAN, responsible person, NPS DDO registration, EPF and ESIC codes; HRA metro rule; the
+  professional-tax switch with slabs (off in Delhi; a worked-out deduction when switched on).
+- Seed: this year's declarations (one waiting for a Checker), salary and TDS of April–July carried in from the old system,
+  GPF balances brought forward with a running advance, and the history months filed — TDS deposited, files released.
+
+**Verified**
+- 302 unit + integration tests (35 new: both regimes, rebate and marginal relief, HRA exemption, caps, the Board's NPS in
+  salary and 80CCD(2), monthly spread, GPF interest on month-end balances with a withdrawal and a rate change, CRA / ECR /
+  24Q layouts, the calendar across the year end; on a real database: declaration → Checker → TDS from verified figures,
+  later months counting what was deducted, GPF posting, the 6% minimum and the yearly cap, an advance through Checker and
+  Admin recovered and undone on reopen, interest credited once for a finished year only, challans covering a quarter
+  before its 24Q and locked once released, all four monthly files, CRA matching, Form 16 Part B / Part A / publish,
+  reminders sent once, a slab change through an Admin), typecheck, lint, build.
+- 36 Playwright checks (6 new: declaration with a proof verified by a Checker, GPF advance through Checker and Admin with
+  the statement PDF, revised NPS file released by an Admin and a CRA statement checked, the finished quarter's 24Q,
+  Form 16 Part B; every statutory screen and My tax / My GPF–NPS fit a phone).
+- Tax checked by hand (old regime ₹19,88,680 taxable → ₹4,25,468; new regime ₹19,41,960 → ₹1,95,928; marginal relief at
+  ₹12,10,000 → ₹10,400); GPF interest checked by hand (₹33.6 lakh at 7.1% → about ₹19,900 a month); Form 16 Part B, the
+  GPF statement and the 24Q file read through; screens checked in Hindi and on a phone.
+
+**Fixed while verifying**
+- The Board's NPS share was deducted under 80CCD(2) without first being counted in salary (s. 17(1)(viii)), which
+  under-taxed NPS staff.
+- The calendar showed ESIC as overdue for months in which nobody was within the ESIC ceiling; a filing is now "nothing
+  due" when its deduction was not made that month.
+- File-type names contained a dot, which the text lookup read as nesting; the TDS table no longer lists the months before
+  the first pay bill made here.
 
 ### 2026-10-27 — Module 7: Pay changes, arrears, loans & salary slips ✅
 **Built**
@@ -271,12 +329,14 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 ---
 
 ## Pending / next up
-- Module 8: Statutory & tax (§9): GPF ledger (subscriptions from payroll, advances, withdrawals, interest, annual
-  statement), NPS contributions and CRA file, Board pension fund, EPF / ESIC files, professional tax switch, tax regime,
-  declarations and proofs, monthly TDS projection (replacing the TDS pay item), challans, 24Q, Form 16, statutory calendar.
-- Carried items: pensioner view and the Pensioners pay group (Module 9); reports 7–19 and the formal accessibility pass
-  (Module 10); leave encashment (Module 9); employee screens still show Basic from the built-in 7th CPC table (payroll
-  and fixation read the dated matrix) — one switch in Module 10 hardening; dev-tool audit items (Module 10).
+- Module 9: Pension (§10): pensioner record, the Pensioners pay group (basic + DR + medical − commutation, same five
+  stages), commutation restoration, additional pension at 80+, DR arrears, life certificates, retirement alerts and
+  no-dues, the new pension case calculator and PPO, death and family pension, pension slips and pensioner login.
+- Carried items: reports 7–19 and the formal accessibility pass (Module 10); leave encashment and GPF final payment
+  (Module 9); employee screens still show Basic from the built-in 7th CPC table (payroll and fixation read the dated
+  matrix) — one switch in Module 10 hardening; dev-tool audit items (Module 10); mid-year cut-over also needs the old
+  system's GPF subscriptions for 80C (the carry-in holds salary and TDS) and its 24Q deductee rows for the cut-over
+  quarter (migration console, Module 10).
 
 ## Decisions taken (and why)
 | # | Decision | Reason |
@@ -315,9 +375,18 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 | D-33 | Loans: principal first in equal instalments, then simple interest on the reducing balance in instalments of the same size; a recovery is recorded when its payroll is approved and removed if it is reopened | Central government advance rules; the loan account always matches what the bills paid |
 | D-34 | Payslips become visible and notices go out on credit day — when the salary bank file is released — after the release is saved; sending is safe to repeat | The slip is never shown for pay that may still be reopened (PR-13) |
 | D-35 | Increments and fixation are prepared by HR & Accounts users who hold Payroll (or HR with payroll access); fixation goes Checker → Admin like other promotion entries | Keeps §13/§14 menus as they are; PR-07 promotion is an Approver event in the service book |
+| D-36 | TDS is worked out by the payroll every month from the year's projection (paid so far + carried in + this month + a full month for each month to come), never typed; declared deductions count until December, verified ones from January | ST-04 "projected on full-year income, adjusted each month and in the final quarter" with nothing to keep in step by hand |
+| D-37 | Salary and TDS of the year paid outside the system (old system before cut-over, previous employer) are one Checker-checked record per person and year | A mid-year go-live would otherwise under-project everyone's tax; the same record serves Form 12B joiners |
+| D-38 | GPF interest = Σ month-end balance × rate ÷ 1200 at the rate in force each month (recoveries count from their month; money taken out stops earning from its month), rounded once a year; credited for a finished year only, after an Admin approves | GPF Rules r. 11 in its usual monthly-product form; interest is a once-a-year posting the Board signs off |
+| D-39 | A monthly filing is "done" when its file is released by an Admin (or its challans cover the month's TDS); "nothing due" when no one had that deduction that month | The calendar is driven by records, not ticks, so it cannot say done when nothing went out |
+| D-40 | Form 16 Part B can be generated any time as a marked draft, but publishing to employees opens only after 31 March and needs an Admin | Lets HR check figures early without an employee ever seeing a mid-year "Form 16" |
 | D-08 | Delhi Cantt logo could not be downloaded from inside the build environment (network policy). A placeholder emblem sits at `public/brand/logo.svg`; drop the real logo at the same path | — |
 
 ## Known gaps / risks
 - Exact bank bulk-file, CRA contribution, e-Chhawani and Form 24Q layouts, the pay bill / register / schedule formats (CBAR 2020) and the e-Chhawani account heads must be confirmed against real samples before go-live (PRD §18 open questions). They are built as switchable templates.
 - Leave, pension and tax defaults follow central rules and are marked "to confirm for DCB" in the rules tables.
+- Form 24Q (including Annexure II), the CRA contribution file, ECR and the ESIC file follow the published layouts but must
+  pass the Protean FVU / one real portal upload before the first filing; the 24Q of the cut-over quarter covers only the
+  months paid through this system.
+- Surcharge (income above ₹50 lakh) is not applied — no Board salary reaches it; relief u/s 89 is shown as nil.
 - Pay fixation options (FR 22(I)(a)(1)) and the FR 26 postponement of increments for leave without pay (flagged, not applied automatically) to be confirmed with DCB Accounts; stagnation increments beyond the last cell are not granted automatically.

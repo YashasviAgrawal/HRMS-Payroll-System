@@ -22,14 +22,14 @@ test("HR screens fit a phone screen", async ({ page }) => {
 
 test("employee screens fit a phone screen", async ({ page }) => {
   await signIn(page, { as: "Employee / Pensioner", id: "DCB10014" });
-  for (const path of ["/home", "/my/record", "/my/requests", "/my/attendance", "/my/payslips", "/leave", "/leave/apply", "/leave/ledger/me", "/profile"]) {
+  for (const path of ["/home", "/my/record", "/my/requests", "/my/attendance", "/my/payslips", "/my/tax", "/my/funds", "/leave", "/leave/apply", "/leave/ledger/me", "/profile"]) {
     await expectNoSidewaysScroll(page, path);
   }
 });
 
 test("reporting officer screens fit a phone screen", async ({ page }) => {
   await signIn(page, { as: "Employee / Pensioner", id: "DCB10008" });
-  for (const path of ["/my/team", "/my/team/attendance", "/my/team/leave"]) {
+  for (const path of ["/my/team", "/my/team/attendance", "/my/team/leave", "/my/funds"]) {
     await expectNoSidewaysScroll(page, path);
   }
 });
@@ -51,4 +51,19 @@ test("payroll screens fit a phone screen", async ({ page }) => {
   await page.getByRole("combobox", { name: "Employee" }).selectOption({ label: "DCB10002 · Sunita Verma" });
   await page.waitForURL(/employee=/);
   await expectNoSidewaysScroll(page, new URL(page.url()).pathname + new URL(page.url()).search);
+});
+
+test("statutory screens fit a phone screen", async ({ page }) => {
+  await signIn(page, { as: "HR & Accounts", id: "DCB10004" });
+  for (const path of ["/statutory", "/statutory/files", "/statutory/tds", "/statutory/declarations", "/statutory/form16", "/statutory/funds", "/statutory/funds?view=nps", "/admin/rates?tab=tax", "/admin/rates?tab=dues"]) {
+    await expectNoSidewaysScroll(page, path);
+  }
+  await page.goto("/statutory/declarations");
+  await page.getByRole("link", { name: "Dr. Alok Mishra" }).click();
+  await page.waitForURL(/\/statutory\/declarations\/.+/);
+  await expectNoSidewaysScroll(page, new URL(page.url()).pathname);
+  await page.goto("/statutory/funds");
+  await page.getByRole("link", { name: "Rajesh Kumar" }).click();
+  await page.waitForURL(/\/statutory\/funds\/.+/);
+  await expectNoSidewaysScroll(page, new URL(page.url()).pathname);
 });

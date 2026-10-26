@@ -69,24 +69,28 @@ export async function tdsYear(actor: Actor, fyParam?: string) {
   const today = todayIST();
   const fy = fyParam && /^\d{4}-\d{2}$/.test(fyParam) ? fyParam : fyOfMonth(today.slice(0, 7));
   const [from, to] = fyMonths(fy);
-  const [rows, challans, files, rule, people] = await Promise.all([
+  const [rows, challans, files, rule, people, billed] = await Promise.all([
     deducted(actor.boardId, from, to),
     db.tdsChallan.findMany({ where: { boardId: actor.boardId, fy }, orderBy: [{ month: "asc" }, { depositedOn: "asc" }] }),
     db.fileRecord.findMany({ where: { boardId: actor.boardId, kind: "tds.24q", period: { startsWith: fy } }, orderBy: { createdAt: "desc" } }),
     db.dueRule.findUnique({ where: { boardId_code: { boardId: actor.boardId, code: "TDS_DEPOSIT" } } }),
     db.employee.findMany({ where: { boardId: actor.boardId }, select: { id: true, panLast4: true } }),
+    db.payrollRun.findMany({ where: { boardId: actor.boardId, month: { gte: from, lte: to }, kind: "REGULAR", status: { in: [...PAID] } }, select: { month: true }, distinct: ["month"] }),
   ]);
+  const billedMonths = new Set(billed.map((b) => b.month));
+  // Months before the first pay bill made here were paid by the old system (their TDS is carried in), so they start the list only once billed.
+  const firstBilled = [...billedMonths, ...challans.map((c) => c.month)].sort()[0];
   const hasPan = new Map(people.map((p) => [p.id, Boolean(p.panLast4)]));
   const day = rule?.day ?? 7;
   const months: string[] = [];
-  for (let m = from; m <= to && m <= today.slice(0, 7); m = shiftM(m, 1)) months.push(m);
+  for (let m = firstBilled && firstBilled > from ? firstBilled : from; m <= to && m <= today.slice(0, 7); m = shiftM(m, 1)) months.push(m);
   const monthRows = months.map((m) => {
     const here = rows.filter((r) => r.month === m);
     const tds = here.reduce((s, r) => s + r.tds, 0);
     const ch = challans.filter((c) => c.month === m);
     const deposited = ch.reduce((s, c) => s + num(c.tax) + num(c.cess) + num(c.interest), 0);
     const dueOn = `${shiftM(m, 1)}-${String(Math.min(day, 28)).padStart(2, "0")}`;
-    const status = tds === 0 ? "NOTHING" : deposited >= tds ? "DEPOSITED" : deposited > 0 ? "SHORT" : today > dueOn ? "OVERDUE" : "DUE";
+    const status = tds === 0 ? (billedMonths.has(m) ? "NOTHING" : "PENDING") : deposited >= tds ? "DEPOSITED" : deposited > 0 ? "SHORT" : today > dueOn ? "OVERDUE" : "DUE";
     return {
       month: m,
       people: new Set(here.map((r) => r.employeeId)).size,

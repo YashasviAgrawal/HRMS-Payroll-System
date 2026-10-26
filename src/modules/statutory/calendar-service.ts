@@ -16,6 +16,8 @@ import { DUE_DEFAULTS, dueItems, type DueItem, type DueKind, type DueRuleDef } f
 const canSee = (actor: Actor) => canAll(actor, "statutory", "view");
 const REMIND_DAYS = 5;
 const RELEASED = ["APPROVED", "DOWNLOADED"] as const;
+/** The pay head whose deduction makes a monthly filing due. */
+const HEAD_OF: Record<string, string> = { NPS_CRA: "NPS", EPF_ECR: "EPF", ESIC: "ESIC", PENSION_FUND: "PENSION_ER" };
 const FILE_KIND: Record<string, string> = { NPS_CRA: "stat.nps", EPF_ECR: "stat.ecr", ESIC: "stat.esic", PENSION_FUND: "stat.pension", FORM_24Q: "tds.24q" };
 
 export type DueState = "DONE" | "OPEN" | "OVERDUE" | "NOTHING";
@@ -71,10 +73,15 @@ export async function calendarFor(boardId: string, from: ISODate, to: ISODate, t
   const deposited = new Map(challans.map((c) => [c.month, Number(c._sum.tax ?? 0) + Number(c._sum.cess ?? 0) + Number(c._sum.interest ?? 0)]));
   const tds = new Map<string, number>();
   const groups = new Map<string, Set<string>>();
+  // Heads actually deducted in each month's approved bills: no ESIC deducted means no ESIC return is due.
+  const heads = new Map<string, Set<string>>();
   for (const s of slips) {
     const lines = s.lines as unknown as { code: string; amount: number }[];
     tds.set(s.month, (tds.get(s.month) ?? 0) + lines.filter((l) => l.code === "IT").reduce((a, l) => a + l.amount, 0));
     groups.set(s.month, (groups.get(s.month) ?? new Set()).add(s.payGroup));
+    const h = heads.get(s.month) ?? new Set<string>();
+    for (const l of lines) if (l.amount > 0) h.add(l.code);
+    heads.set(s.month, h);
   }
   const published = new Set(forms.map((f) => f.fy));
   return items.map((i) => {
@@ -83,7 +90,8 @@ export async function calendarFor(boardId: string, from: ISODate, to: ISODate, t
     else if (i.code === "FORM_16") state = published.has(i.period) ? "DONE" : "OPEN";
     else if (i.code === "TAX_PROOFS") state = i.dueOn < today && waitingDecl === 0 ? "DONE" : "OPEN";
     else if (FILE_KIND[i.code]) {
-      const nothing = (i.code === "EPF_ECR" || i.code === "ESIC") && groups.has(i.period) && !groups.get(i.period)!.has("CONTRACT");
+      const head = HEAD_OF[i.code];
+      const nothing = Boolean(head) && groups.has(i.period) && !heads.get(i.period)!.has(head!);
       state = released.has(`${FILE_KIND[i.code]}|${i.period}`) ? "DONE" : nothing ? "NOTHING" : "OPEN";
     }
     if (state === "OPEN" && i.dueOn < today) state = "OVERDUE";

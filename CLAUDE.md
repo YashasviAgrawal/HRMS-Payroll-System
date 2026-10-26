@@ -17,3 +17,6 @@
 - **Attendance:** rules are pure (`modules/attendance/rules.ts`) and shared by service, screens, seed and tests; punches are stored raw and a day's status is worked out when shown — only decisions are saved.
 - **Payroll:** the pay engine is pure (`modules/payroll/engine.ts`); `compute.ts` reads the records and saves a run (no "server-only", the seed uses it);
   `run.ts` is the five stages, `pay.ts` the bank / return files and close, `outputs.ts` the PDFs. A month uses the rates and matrix in force on the 1st.
+- **Statutory & tax:** pure rules in `modules/statutory/` (`tax-rules.ts`, `gpf-rules.ts`, `formats.ts`, `calendar.ts`); TDS is projected
+  inside `computeRun` (`tds-projection.ts`, no "server-only") — never a pay item; `gpf-posting.ts` posts GPF from approved bills;
+  `stat-build.ts` builds the monthly files (seed-safe). Worked-out deductions (LOAN, GPF_REFUND, IT, PT) pass to the engine in `items`.

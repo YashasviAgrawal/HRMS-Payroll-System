@@ -17,6 +17,7 @@ import { fullName } from "@/modules/employees/present";
 import { EXCEPTION_RULES, type ExceptionCode, type Resolution } from "./checks";
 import { applyDuePayChanges, applyResolutions, computeRun, recordLoanRecoveries, RUN_GROUPS, runTitle, saveRun, titleOf, undoLoanRecoveries, type RunGroup } from "./compute";
 import { recordGpf, undoGpf } from "@/modules/statutory/gpf-posting";
+import type { TaxDetail } from "@/modules/statutory/tds-projection";
 import type { PayLine } from "./engine";
 
 export { RUN_GROUPS, runTitle, type RunGroup };
@@ -465,7 +466,7 @@ export async function getPayslip(actor: Actor, runId: string, slipId: string) {
   return {
     id: slip.id,
     run: { id: slip.run.id, month: slip.run.month, payGroup: slip.run.payGroup as RunGroup, status: slip.run.status, kind: slip.run.kind, title: titleOf(slip.run), titleHi: titleOf(slip.run, "hi") },
-    detail: (slip.detail ?? {}) as { loans?: { loanId: string; principal: number; interest: number }[]; arrears?: { month: string; lines: { code: string; name: string; nameHi: string; due: number; drawn: number; diff: number }[] }[]; joinerMonth?: string; withheldMonth?: string },
+    detail: (slip.detail ?? {}) as { loans?: { loanId: string; principal: number; interest: number }[]; arrears?: { month: string; lines: { code: string; name: string; nameHi: string; due: number; drawn: number; diff: number }[] }[]; joinerMonth?: string; withheldMonth?: string; tax?: TaxDetail },
     employee: { ...slip.employee, name: fullName(slip.employee) },
     payLevel: slip.payLevel,
     payCell: slip.payCell,

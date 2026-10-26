@@ -212,7 +212,7 @@ export async function gpfInterestSummary(actor: Actor, fy: string) {
   const pending = await db.approvalTask.findFirst({ where: { boardId: actor.boardId, kind: "gpf.interest", status: "PENDING", entityId: fy } });
   return {
     fy,
-    accounts: rows.length,
+    accounts: rows.filter((r) => r.interest > 0).length,
     interest: rows.reduce((s, r) => s + r.interest, 0),
     credited: rows.some((r) => r.credited !== 0),
     yearOver: todayIST().slice(0, 7) > last,

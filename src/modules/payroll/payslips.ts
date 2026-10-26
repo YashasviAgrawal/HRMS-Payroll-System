@@ -14,6 +14,7 @@ import { fullName } from "@/modules/employees/present";
 import { ensureCredits, ledgerBalances } from "@/modules/leave/balance";
 import type { ArrearMonth } from "./arrears";
 import { titleOf } from "./compute";
+import type { TaxDetail } from "@/modules/statutory/tds-projection";
 import type { PayLine } from "./engine";
 
 /**
@@ -80,7 +81,8 @@ async function slipHtml(s: Slip, lang: Lang) {
   await ensureCredits(e.boardId);
   const [balances, funds] = await Promise.all([ledgerBalances(e.id), fundsToDate(e.id, s.month)]);
   const leave = ["EL", "HPL", "CL"].filter((c) => balances.has(c)).map((c) => `${c} ${balances.get(c)}`).join(" · ");
-  const detail = (s.detail ?? {}) as { arrears?: ArrearMonth[]; joinerMonth?: string; withheldMonth?: string };
+  const detail = (s.detail ?? {}) as { arrears?: ArrearMonth[]; joinerMonth?: string; withheldMonth?: string; tax?: TaxDetail };
+  const tax = detail.tax && detail.tax.annualTax > 0 ? detail.tax : null;
   const rows = Math.max(earn.length, ded.length);
   const table = Array.from({ length: rows }, (_, i) => {
     const a = earn[i];
@@ -113,6 +115,7 @@ async function slipHtml(s: Slip, lang: Lang) {
       ${leave ? `<div>${L(lang, "Leave balance today", "आज अवकाश शेष")}: <b>${esc(leave)}</b></div>` : ""}
       ${e.type === "PERMANENT_NPS" ? `<div>${L(lang, "NPS to date (from pay bills)", "अब तक एनपीएस (वेतन बिलों से)")}: <b>${L(lang, "yours", "आपका")} ₹${rs(funds.npsOwn)} · ${L(lang, "Board", "परिषद")} ₹${rs(funds.npsBoard)}</b></div>` : ""}
       ${e.type === "PERMANENT_OPS" ? `<div>${L(lang, "GPF subscribed this financial year", "इस वित्त वर्ष जीपीएफ अंशदान")}: <b>₹${rs(funds.gpf)}</b></div>` : ""}
+      ${tax ? `<div>${L(lang, `Income tax ${tax.fy} (${tax.regime === "OLD" ? "old regime" : "new regime"})`, `आयकर ${tax.fy} (${tax.regime === "OLD" ? "पुरानी व्यवस्था" : "नई व्यवस्था"})`)}: <b>₹${rs(tax.annualTax)} ${L(lang, "for the year", "वर्ष का")}</b> · ${L(lang, "deducted before this month", "इस माह से पहले कटा")} ₹${rs(tax.deductedSoFar)}</div>` : ""}
       ${s.creditStatus === "FAILED" ? `<div class="warn">${L(lang, "The bank could not credit this payment; it is being paid again.", "बैंक यह भुगतान जमा नहीं कर सका; इसे फिर से भेजा जा रहा है।")}</div>` : ""}
     </div>
     <footer>${L(lang, "Computer-generated slip; no signature needed.", "कंप्यूटर से बनी पर्ची; हस्ताक्षर की आवश्यकता नहीं।")} · DCB HRMS · ${esc(formatDateTime(new Date(), lang))}</footer>

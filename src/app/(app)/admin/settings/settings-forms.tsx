@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, DatabaseBackup, Fingerprint, Mail, MessageSquareText, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
+import { Building2, DatabaseBackup, Fingerprint, Landmark, Mail, MessageSquareText, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardFooter, CardHeader } from "@/components/ui/card";
-import { Input, Select } from "@/components/ui/field";
+import { Checkbox, Input, Select } from "@/components/ui/field";
 import { useToast } from "@/components/ui/toast";
 import { ApiError, api } from "@/lib/http";
 import { tDynamic } from "@/lib/i18n";
@@ -45,6 +45,9 @@ export function SettingsForms({ initial, readOnly, smsForcedConsole }: { initial
   const bank = useSection("bank", initial.bank);
   const general = useSection("general", initial.general);
   const attendance = useSection("attendance", initial.attendance);
+  const statutory = useSection("statutory", initial.statutory);
+  const st = statutory.value;
+  const setSt = (patch: Partial<typeof st>) => statutory.setValue({ ...st, ...patch });
 
   const footer = (save: () => void, busy: boolean) =>
     !readOnly && (
@@ -240,6 +243,41 @@ export function SettingsForms({ initial, readOnly, smsForcedConsole }: { initial
             </div>
           </CardBody>
           {footer(attendance.save, attendance.busy)}
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <CardHeader title={t("settings.statutory")} description={t("settings.statutoryHint")} icon={<Landmark className="size-4.5" aria-hidden="true" />} />
+          <CardBody className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <Input label={t("settings.deductorName")} value={st.deductorName} disabled={readOnly} onChange={(e) => setSt({ deductorName: e.target.value })} error={statutory.errors.deductorName} maxLength={75} />
+            <Input label={t("settings.tan")} value={st.tan} disabled={readOnly} onChange={(e) => setSt({ tan: e.target.value.toUpperCase() })} error={statutory.errors.tan} maxLength={10} />
+            <Input label={t("settings.boardPan")} value={st.pan} disabled={readOnly} onChange={(e) => setSt({ pan: e.target.value.toUpperCase() })} error={statutory.errors.pan} maxLength={10} />
+            <Input label={t("settings.deductorAddress")} value={st.address} disabled={readOnly} onChange={(e) => setSt({ address: e.target.value })} error={statutory.errors.address} containerClassName="sm:col-span-2 lg:col-span-3" maxLength={200} />
+            <Input label={t("settings.responsibleName")} value={st.responsibleName} disabled={readOnly} onChange={(e) => setSt({ responsibleName: e.target.value })} error={statutory.errors.responsibleName} maxLength={75} />
+            <Input label={t("settings.responsibleDesignation")} value={st.responsibleDesignation} disabled={readOnly} onChange={(e) => setSt({ responsibleDesignation: e.target.value })} error={statutory.errors.responsibleDesignation} maxLength={50} />
+            <Input label={t("settings.ddoRegNo")} value={st.ddoRegNo} disabled={readOnly} onChange={(e) => setSt({ ddoRegNo: e.target.value.toUpperCase() })} error={statutory.errors.ddoRegNo} maxLength={20} />
+            <Input label={t("settings.epfCode")} value={st.epfCode} disabled={readOnly} onChange={(e) => setSt({ epfCode: e.target.value.toUpperCase() })} error={statutory.errors.epfCode} maxLength={30} />
+            <Input label={t("settings.esicCode")} value={st.esicCode} disabled={readOnly} onChange={(e) => setSt({ esicCode: e.target.value })} error={statutory.errors.esicCode} maxLength={30} />
+            <Checkbox label={t("settings.metroHra")} checked={st.metroHra} disabled={readOnly} onChange={(e) => setSt({ metroHra: e.target.checked })} />
+            <Checkbox label={t("settings.professionalTax")} description={t("settings.professionalTaxHelp")} checked={st.professionalTax} disabled={readOnly} onChange={(e) => setSt({ professionalTax: e.target.checked })} className="sm:col-span-2" />
+            {st.professionalTax && (
+              <div className="space-y-2 sm:col-span-2 lg:col-span-3">
+                <p className="text-sm font-medium text-ink-800">{t("settings.ptSlabs")}</p>
+                {st.ptSlabs.map((slab, i) => (
+                  <div key={i} className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
+                    <Input label={t("settings.ptUpTo")} inputMode="numeric" value={slab.upTo ?? ""} disabled={readOnly} onChange={(e) => setSt({ ptSlabs: st.ptSlabs.map((x, j) => (j === i ? { ...x, upTo: e.target.value === "" ? null : Number(e.target.value.replace(/\D/g, "")) } : x)) })} />
+                    <Input label={t("settings.ptAmount")} inputMode="numeric" value={slab.amount} disabled={readOnly} onChange={(e) => setSt({ ptSlabs: st.ptSlabs.map((x, j) => (j === i ? { ...x, amount: Number(e.target.value.replace(/\D/g, "")) } : x)) })} />
+                    {!readOnly && <Button variant="ghost" size="sm" aria-label={t("common.remove")} icon={<Trash2 className="size-4" />} onClick={() => setSt({ ptSlabs: st.ptSlabs.filter((_, j) => j !== i) })} />}
+                  </div>
+                ))}
+                {!readOnly && st.ptSlabs.length < 10 && (
+                  <Button size="sm" variant="ghost" icon={<Plus className="size-4" />} onClick={() => setSt({ ptSlabs: [...st.ptSlabs, { upTo: null, amount: 0 }] })}>
+                    {t("statutory.rules.addSlab")}
+                  </Button>
+                )}
+              </div>
+            )}
+          </CardBody>
+          {footer(statutory.save, statutory.busy)}
         </Card>
 
         <Card>

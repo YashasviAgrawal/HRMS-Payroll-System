@@ -9,11 +9,13 @@ import { createOutgoingFile } from "@/lib/files";
 import { formatINR } from "@/lib/money";
 import { saveFile } from "@/lib/storage";
 import { fullName } from "@/modules/employees/present";
-import { ratesOn } from "@/modules/payroll/compute";
 import type { PayLine } from "@/modules/payroll/engine";
 import { readTable } from "@/modules/payroll/pay";
-import { craContributionFile, ecrFile, esicFile, parseCraStatement, pensionFundFile } from "./formats";
+import { parseCraStatement } from "./formats";
 import { statutorySettings } from "./settings";
+import { buildStatFile, STAT_KINDS, SUM_LABEL, type StatKind } from "./stat-build";
+
+export { STAT_KINDS, type StatKind } from "./stat-build";
 
 /**
  * ST-06, ST-09, S-52: the monthly statutory files, built from the month's approved pay bills (regular and supplementary)
@@ -21,124 +23,11 @@ import { statutorySettings } from "./settings";
  * 2020, due within 4 days of the pay bill). Each is previewed and released by an Admin, with its checksum logged.
  * Also: the CRA statement upload that reconciles what the CRA credited with what the pay bills deducted (§9 NPS).
  */
-export const STAT_KINDS = ["stat.nps", "stat.ecr", "stat.esic", "stat.pension"] as const;
-export type StatKind = (typeof STAT_KINDS)[number];
-
-const num = (v: { toString(): string } | null | undefined) => (v === null || v === undefined ? 0 : Number(v));
 const PAID = ["APPROVED", "PAID", "CLOSED"] as const;
 const canSee = (actor: Actor) => canAll(actor, "statutory", "view");
 const canManage = (actor: Actor) => canAll(actor, "statutory", "create");
-const GROUP: Record<StatKind, "NPS" | "CONTRACT" | "OPS"> = { "stat.nps": "NPS", "stat.ecr": "CONTRACT", "stat.esic": "CONTRACT", "stat.pension": "OPS" };
 const sum = (lines: PayLine[], ...codes: string[]) => lines.filter((l) => codes.includes(l.code)).reduce((s, l) => s + l.amount, 0);
-
-interface Built {
-  /** The pay group's regular bill for the month is approved. */
-  ready: boolean;
-  columns: string[];
-  rows: (string | number)[][];
-  missing: { code: string; name: string }[];
-  totals: Record<string, string | number>;
-  text: string;
-  fileName: string;
-  ext: "csv" | "txt";
-  mime: string;
-}
-
-/** Builds one file's rows for a month (used for the screen's counts and for the file itself). */
-async function build(boardId: string, kind: StatKind, month: string): Promise<Built> {
-  const group = GROUP[kind];
-  const regular = await db.payrollRun.findFirst({ where: { boardId, payGroup: group, month, kind: "REGULAR", status: { in: [...PAID] } } });
-  const slips = await db.payslip.findMany({
-    where: { boardId, month, payGroup: group, status: "INCLUDED", run: { status: { in: [...PAID] } } },
-    include: { employee: { select: { id: true, employeeCode: true, firstName: true, middleName: true, lastName: true, pran: true, uan: true, esicNumber: true, type: true, wageBasis: true, exitDate: true } } },
-    orderBy: { employee: { employeeCode: "asc" } },
-  });
-  // One row a person: a month's regular and supplementary bills together.
-  const people = new Map<string, { e: (typeof slips)[number]["employee"]; lines: PayLine[]; gross: number; days: number; ncp: number; dim: number }>();
-  for (const s of slips) {
-    const p = people.get(s.employeeId) ?? { e: s.employee, lines: [], gross: 0, days: 0, ncp: 0, dim: s.daysInMonth };
-    p.lines.push(...(s.lines as unknown as PayLine[]));
-    p.gross += num(s.gross);
-    if (num(s.daysOnRoll) > 0) {
-      p.days = s.workedDays !== null && s.employee.wageBasis === "DAILY" ? num(s.workedDays) : num(s.daysOnRoll) - num(s.lossDays);
-      p.ncp = Math.max(0, Math.round(num(s.lossDays) + num(s.daysInMonth) - num(s.daysOnRoll)));
-    }
-    people.set(s.employeeId, p);
-  }
-  const settings = await statutorySettings(db, boardId);
-  const missing: { code: string; name: string }[] = [];
-  const mm = `${month.slice(5, 7)}${month.slice(0, 4)}`;
-  if (kind === "stat.nps") {
-    const rows = [...people.values()].map((p) => ({ p, employee: sum(p.lines, "NPS"), employer: sum(p.lines, "NPS_ER") })).filter((r) => r.employee + r.employer > 0);
-    const ok = rows.filter((r) => (r.p.e.pran ?? "").length === 12);
-    for (const r of rows) if (!ok.includes(r)) missing.push({ code: r.p.e.employeeCode ?? "", name: fullName(r.p.e) });
-    const own = ok.reduce((s, r) => s + r.employee, 0);
-    const board = ok.reduce((s, r) => s + r.employer, 0);
-    return {
-      ready: Boolean(regular),
-      columns: ["PRAN", "Name", "Employee (₹)", "Board (₹)"],
-      rows: ok.map((r) => [r.p.e.pran!, fullName(r.p.e), r.employee, r.employer]),
-      missing,
-      totals: { "Employee share (₹)": formatINR(own), "Board share (₹)": formatINR(board), "Total (₹)": formatINR(own + board) },
-      text: craContributionFile(ok.map((r) => ({ pran: r.p.e.pran!, name: fullName(r.p.e), employee: r.employee, employer: r.employer })), month, settings.ddoRegNo),
-      fileName: `NPS-CRA-${settings.ddoRegNo || "DDO"}-${mm}.csv`,
-      ext: "csv",
-      mime: "text/csv",
-    };
-  }
-  if (kind === "stat.ecr") {
-    const rates = await ratesOn(boardId, `${month}-01`, db);
-    const ceiling = rates.EPF_CEILING ?? 15000;
-    const rows = [...people.values()].map((p) => {
-      const wages = sum(p.lines, "WAGES");
-      const epfWages = Math.min(wages, ceiling);
-      const eps = Math.round((epfWages * (rates.EPS_PERCENT ?? 8.33)) / 100);
-      const er = sum(p.lines, "EPF_ER");
-      return { p, gross: Math.round(p.gross), epfWages, eps: Math.min(eps, er), employee: sum(p.lines, "EPF"), diff: Math.max(0, er - Math.min(eps, er)) };
-    }).filter((r) => r.employee > 0);
-    const ok = rows.filter((r) => (r.p.e.uan ?? "").length === 12);
-    for (const r of rows) if (!ok.includes(r)) missing.push({ code: r.p.e.employeeCode ?? "", name: fullName(r.p.e) });
-    return {
-      ready: Boolean(regular),
-      columns: ["UAN", "Name", "Gross (₹)", "EPF wages (₹)", "EPF employee (₹)", "EPS (₹)", "EPF employer (₹)", "NCP days"],
-      rows: ok.map((r) => [r.p.e.uan!, fullName(r.p.e), r.gross, r.epfWages, r.employee, r.eps, r.diff, r.p.ncp]),
-      missing,
-      totals: { "EPF employee (₹)": formatINR(ok.reduce((s, r) => s + r.employee, 0)), "EPS (₹)": formatINR(ok.reduce((s, r) => s + r.eps, 0)), "EPF employer (₹)": formatINR(ok.reduce((s, r) => s + r.diff, 0)) },
-      text: ecrFile(ok.map((r) => ({ uan: r.p.e.uan!, name: fullName(r.p.e), gross: r.gross, epfWages: r.epfWages, epsWages: r.epfWages, edliWages: r.epfWages, epfEmployee: r.employee, eps: r.eps, epfEpsDiff: r.diff, ncpDays: r.p.ncp }))),
-      fileName: `ECR-${settings.epfCode || "EPF"}-${mm}.txt`,
-      ext: "txt",
-      mime: "text/plain",
-    };
-  }
-  if (kind === "stat.esic") {
-    const rows = [...people.values()].map((p) => ({ p, employee: sum(p.lines, "ESIC"), employer: sum(p.lines, "ESIC_ER") })).filter((r) => r.employee + r.employer > 0);
-    const ok = rows.filter((r) => (r.p.e.esicNumber ?? "").length === 10);
-    for (const r of rows) if (!ok.includes(r)) missing.push({ code: r.p.e.employeeCode ?? "", name: fullName(r.p.e) });
-    return {
-      ready: Boolean(regular),
-      columns: ["IP number", "Name", "Days paid", "Wages (₹)", "Employee (₹)", "Employer (₹)"],
-      rows: ok.map((r) => [r.p.e.esicNumber!, fullName(r.p.e), r.p.days, Math.round(r.p.gross), r.employee, r.employer]),
-      missing,
-      totals: { "Wages (₹)": formatINR(ok.reduce((s, r) => s + r.p.gross, 0)), "Employee share (₹)": formatINR(ok.reduce((s, r) => s + r.employee, 0)), "Employer share (₹)": formatINR(ok.reduce((s, r) => s + r.employer, 0)) },
-      text: esicFile(ok.map((r) => ({ ipNumber: r.p.e.esicNumber!, name: fullName(r.p.e), days: r.p.days, wages: r.p.gross, lastWorkingDay: r.p.e.exitDate ? r.p.e.exitDate.toISOString().slice(0, 10).split("-").reverse().join("/") : null }))),
-      fileName: `ESIC-${settings.esicCode || "ESIC"}-${mm}.csv`,
-      ext: "csv",
-      mime: "text/csv",
-    };
-  }
-  const rows = [...people.values()].map((p) => ({ p, basicDa: sum(p.lines, "BASIC", "DA", "NPA"), contribution: sum(p.lines, "PENSION_ER") })).filter((r) => r.contribution > 0);
-  return {
-    ready: Boolean(regular),
-    columns: ["Employee ID", "Name", "Basic + DA (₹)", "Board contribution (₹)"],
-    rows: rows.map((r) => [r.p.e.employeeCode ?? "", fullName(r.p.e), r.basicDa, r.contribution]),
-    missing,
-    totals: { "Basic + DA (₹)": formatINR(rows.reduce((s, r) => s + r.basicDa, 0)), "Board contribution (₹)": formatINR(rows.reduce((s, r) => s + r.contribution, 0)) },
-    text: pensionFundFile(rows.map((r) => ({ code: r.p.e.employeeCode ?? "", name: fullName(r.p.e), basicDa: r.basicDa, contribution: r.contribution })), month),
-    fileName: `Pension-fund-${month}.csv`,
-    ext: "csv",
-    mime: "text/csv",
-  };
-}
+const build = (boardId: string, kind: StatKind, month: string) => buildStatFile(db, boardId, kind, month);
 
 /** S-52 files tab: for a month, each file's people, totals, who is left out and the latest file made. */
 export async function monthFiles(actor: Actor, monthParam?: string) {
@@ -156,7 +45,7 @@ export async function monthFiles(actor: Actor, monthParam?: string) {
     cards: STAT_KINDS.map((kind, i) => {
       const b = built[i];
       const latest = files.find((f) => f.kind === kind);
-      return { kind, ready: b.ready, people: b.rows.length, totals: b.totals, missing: b.missing, latest: latest ? { id: latest.id, status: latest.status, fileName: latest.fileName, sha256: latest.sha256, createdAt: latest.createdAt.toISOString() } : null };
+      return { kind, ready: b.ready, people: b.rows.length, sums: b.sums, missing: b.missing, latest: latest ? { id: latest.id, status: latest.status, fileName: latest.fileName, sha256: latest.sha256, createdAt: latest.createdAt.toISOString() } : null };
     }),
     files: files.map((f) => ({ id: f.id, kind: f.kind, status: f.status, fileName: f.fileName, sha256: f.sha256, createdAt: f.createdAt.toISOString(), createdByName: f.createdByName })),
     canManage: canManage(actor),
@@ -188,7 +77,7 @@ export async function makeStatFile(actor: Actor, kind: StatKind, month: string) 
     ext: b.ext,
     mimeType: b.mime,
     buffer: Buffer.from(b.text, "utf8"),
-    preview: { columns: b.columns, rows: b.rows.slice(0, 50), totalRows: b.rows.length, totals: { ...b.totals, ...(b.missing.length ? { "Left out (number missing)": b.missing.map((m) => m.code).join(", ") } : {}) } },
+    preview: { columns: b.columns, rows: b.rows.slice(0, 50), totalRows: b.rows.length, totals: { ...Object.fromEntries(b.sums.map(([k, v]) => [SUM_LABEL[k], formatINR(v)])), ...(b.missing.length ? { "Left out (number missing)": b.missing.map((m) => m.code).join(", ") } : {}) } },
     title: `${en} — ${formatMonth(month)}`,
     titleHi: `${hi} — ${formatMonth(month, "hi")}`,
     link: `/statutory/files?month=${month}`,

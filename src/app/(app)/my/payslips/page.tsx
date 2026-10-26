@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import { Download, Receipt } from "lucide-react";
+import { Download, FileBadge, Receipt } from "lucide-react";
 import { NoAccess } from "@/components/no-access";
 import { Badge } from "@/components/ui/badge";
 import { buttonClass } from "@/components/ui/button";
-import { Card, CardBody } from "@/components/ui/card";
+import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { requireActor } from "@/lib/auth/session";
@@ -11,6 +11,8 @@ import { formatMonth } from "@/lib/dates";
 import { getT } from "@/lib/i18n/server";
 import { formatINR } from "@/lib/money";
 import { myPayslips } from "@/modules/payroll/payslips";
+import { myForm16 } from "@/modules/statutory/form16";
+import { MyMoneyTabs } from "../_components/my-money-tabs";
 
 export const metadata: Metadata = { title: "My payslips" };
 
@@ -19,11 +21,40 @@ export default async function MyPayslipsPage() {
   const actor = await requireActor();
   if (!actor.employeeId) return <NoAccess />;
   const { t, locale } = await getT();
-  const slips = await myPayslips(actor);
+  const [slips, forms] = await Promise.all([myPayslips(actor), myForm16(actor)]);
 
   return (
     <div className="mx-auto max-w-3xl">
       <PageHeader title={t("payroll.payslips.myTitle")} description={t("payroll.payslips.mySubtitle")} />
+      <MyMoneyTabs active="payslips" t={t} />
+      {forms.length > 0 && (
+        <Card className="mb-5">
+          <CardHeader title={t("statutory.my.form16")} description={t("statutory.my.form16Help")} icon={<FileBadge className="size-4.5" aria-hidden="true" />} />
+          <CardBody>
+            <ul className="divide-y divide-ink-100">
+              {forms.map((f) => (
+                <li key={f.id} className="flex flex-wrap items-center justify-between gap-3 py-2">
+                  <span className="font-semibold text-ink-950">
+                    {t("statutory.fy")} {f.fy}
+                  </span>
+                  <span className="flex gap-2">
+                    {f.partA && (
+                      <a href={`/api/v1/me/form16/${f.id}/A`} target="_blank" rel="noopener" className={buttonClass("secondary", "sm")}>
+                        <Download className="size-4" aria-hidden="true" /> {t("statutory.my.partA")}
+                      </a>
+                    )}
+                    {f.partB && (
+                      <a href={`/api/v1/me/form16/${f.id}/B`} target="_blank" rel="noopener" className={buttonClass("primary", "sm")}>
+                        <Download className="size-4" aria-hidden="true" /> {t("statutory.my.partB")}
+                      </a>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </CardBody>
+        </Card>
+      )}
       {slips.length === 0 ? (
         <Card>
           <EmptyState icon={<Receipt className="size-6" aria-hidden="true" />} title={t("payroll.payslips.myNone")} description={t("payroll.payslips.myNoneHelp")} />
@@ -58,6 +89,12 @@ export default async function MyPayslipsPage() {
             </li>
           ))}
         </ul>
+      )}
+      {forms.length === 0 && (
+        <p className="mt-5 flex items-center gap-2 text-sm text-ink-500">
+          <FileBadge className="size-4" aria-hidden="true" />
+          {t("statutory.my.form16None")}
+        </p>
       )}
     </div>
   );
