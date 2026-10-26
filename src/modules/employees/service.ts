@@ -386,6 +386,21 @@ export async function createEmployee(actor: Actor, raw: unknown, opts: { tx?: Tx
   return duplicateGuard(() => (opts.tx ? work(opts.tx) : db.$transaction(work)));
 }
 
+/**
+ * Puts a draft employee on the rolls: allocates the Employee ID (unless one came from FoxPro), sets the
+ * record ACTIVE and records it. Used by the Checker's approval of a new record, a bulk batch or a joining.
+ */
+export async function issueEmployeeId(tx: Tx, actor: Actor, employeeId: string) {
+  const e = await tx.employee.findUniqueOrThrow({ where: { id: employeeId } });
+  const code = e.employeeCode ?? (await nextEmployeeCode(tx, e.boardId));
+  const updated = await tx.employee.update({ where: { id: e.id }, data: { status: "ACTIVE", employeeCode: code } });
+  await tx.employeeFieldHistory.create({
+    data: { employeeId: e.id, field: "employeeCode", oldValue: null, newValue: code, approvedById: actor.userId, approvedBy: actor.name },
+  });
+  await audit(tx, actor, { action: "ISSUE_ID", entityType: "Employee", entityId: e.id, summary: `Employee ID ${code} issued to ${fullName(e)}` });
+  return updated;
+}
+
 /** Allocates the next Employee ID inside the caller's transaction ("DCB" + running number). */
 export async function nextEmployeeCode(tx: Tx, boardId: string) {
   const board = await tx.board.findUniqueOrThrow({ where: { id: boardId } });

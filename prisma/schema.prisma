@@ -585,3 +585,122 @@ model SanctionedPost {
 
   @@unique([boardId, sectionId, postId])
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Module 3 — Recruitment and onboarding
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum VacancyStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  ADVERTISED
+  CLOSED
+  CANCELLED
+  REJECTED
+}
+
+enum SelectionStatus {
+  OPEN
+  PENDING_APPROVAL
+  APPROVED
+}
+
+/// A vacancy is created only against a vacant sanctioned post and approved by an Admin before it is advertised (RO-01, RO-02).
+model Vacancy {
+  id              String          @id @default(cuid())
+  boardId         String
+  referenceNo     String
+  sectionId       String
+  postId          String
+  payLevel        String
+  seats           Int
+  /// Reservation break-up { GEN, OBC, SC, ST, EWS } — seats per category (RO-02).
+  reservation     Json
+  advertNumber    String?
+  advertDate      DateTime?       @db.Date
+  lastDate        DateTime?       @db.Date
+  status          VacancyStatus   @default(DRAFT)
+  selectionStatus SelectionStatus @default(OPEN)
+  notes           String?
+  createdById     String
+  approvedById    String?
+  approvedAt      DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  applicants Applicant[]
+  joinings   Joining[]
+
+  @@unique([boardId, referenceNo])
+  @@index([boardId, status])
+}
+
+enum ApplicantStatus {
+  APPLIED
+  ELIGIBLE
+  SHORTLISTED
+  SELECTED
+  WAITLISTED
+  REJECTED
+}
+
+/// RO-03: applicants added one by one or by Excel import. The exam or interview happens outside; only its result is recorded.
+model Applicant {
+  id                    String          @id @default(cuid())
+  vacancyId             String
+  applicationNo         String
+  name                  String
+  nameHi                String?
+  fatherName            String?
+  gender                String
+  dateOfBirth           DateTime        @db.Date
+  category              String
+  mobile                String?
+  email                 String?
+  address               String?
+  qualification         String?
+  score                 Decimal?        @db.Decimal(7, 2)
+  meritRank             Int?
+  status                ApplicantStatus @default(APPLIED)
+  remarks               String?
+  appointmentLetterNo   String?
+  appointmentLetterDate DateTime?       @db.Date
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  vacancy Vacancy  @relation(fields: [vacancyId], references: [id], onDelete: Cascade)
+  joining Joining?
+
+  @@unique([vacancyId, applicationNo])
+  @@index([vacancyId, status])
+}
+
+enum JoiningStatus {
+  IN_PROGRESS
+  SUBMITTED
+  COMPLETED
+  CANCELLED
+}
+
+/// RO-05/RO-06/RO-09: turns a selected candidate (or a contract / daily-wage worker hired directly) into an employee.
+/// The person's record is a draft employee from the start; "Complete joining" sends it to the Checker.
+model Joining {
+  id          String        @id @default(cuid())
+  boardId     String
+  applicantId String?       @unique
+  vacancyId   String?
+  employeeId  String        @unique
+  /// { documents, medical, police, oath, bank, pan, aadhaarConsent } → { done, documentId, note, by, at }
+  checklist   Json
+  status      JoiningStatus @default(IN_PROGRESS)
+  createdById String
+  completedAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  applicant Applicant? @relation(fields: [applicantId], references: [id])
+  vacancy   Vacancy?   @relation(fields: [vacancyId], references: [id])
+
+  @@index([boardId, status])
+}

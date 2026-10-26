@@ -11,7 +11,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import type { EmployeeType, LoginType, Permission } from "../src/generated/prisma/enums";
 import { sealWith } from "../src/lib/crypto-core";
-import { addYears, fromISODate, retirementDate } from "../src/lib/dates";
+import { addDays, addYears, fromISODate, retirementDate } from "../src/lib/dates";
 import { hashPassword } from "../src/lib/password";
 import { verhoeffCheckDigit } from "../src/lib/validators";
 
@@ -97,7 +97,7 @@ const EMPLOYEES: DemoEmployee[] = [
   { code: "DCB10011", first: "Meena", last: "Devi", hi: "मीना देवी", gender: "F", dob: "1987-05-25", doj: "2014-06-16", section: "HLT", post: "SK", type: "PERMANENT_NPS", cell: 9, mobile: "9810000011" },
   { code: "DCB10012", first: "Vikas", last: "Malhotra", hi: "विकास मल्होत्रा", gender: "M", dob: "1984-07-17", doj: "2009-10-05", section: "ENG", post: "JE", type: "PERMANENT_NPS", cell: 10, mobile: "9810000012" },
   { code: "DCB10013", first: "Arun", last: "Joshi", hi: "अरुण जोशी", gender: "M", dob: "1975-10-03", doj: "2001-12-10", section: "ENG", post: "AE", type: "PERMANENT_OPS", cell: 13, mobile: "9810000013" },
-  { code: "DCB10014", first: "Pooja", last: "Bhatia", hi: "पूजा भाटिया", gender: "F", dob: "1993-03-28", doj: "2019-07-01", section: "EDU", post: "PRT", type: "PERMANENT_NPS", cell: 5, mobile: "9810000014" },
+  { code: "DCB10014", first: "Pooja", last: "Bhatia", hi: "पूजा भाटिया", gender: "F", dob: "1993-03-28", doj: "2024-11-18", section: "EDU", post: "PRT", type: "PERMANENT_NPS", cell: 3, mobile: "9810000014" },
   { code: "DCB10015", first: "Sanjay", last: "Rawat", hi: "संजय रावत", gender: "M", dob: "1981-08-08", doj: "2006-04-03", section: "WTR", post: "PMP", type: "PERMANENT_NPS", cell: 12, mobile: "9810000015" },
   { code: "DCB10016", first: "Geeta", last: "Negi", hi: "गीता नेगी", gender: "F", dob: "1980-02-14", doj: "2004-03-15", section: "HSP", post: "SN", type: "PERMANENT_NPS", cell: 13, mobile: "9810000016" },
   { code: "DCB10017", first: "Dr. Alok", last: "Mishra", hi: "डॉ. आलोक मिश्रा", gender: "M", dob: "1976-11-30", doj: "2005-08-22", section: "HSP", post: "MO", type: "PERMANENT_NPS", cell: 15, mobile: "9810000017" },
@@ -231,7 +231,7 @@ async function main() {
       wageBasis: e.type === "DAILY_WAGE" ? "DAILY" : ["CONTRACT", "REEMPLOYED"].includes(e.type) ? "MONTHLY" : null,
       contractStart: ["CONTRACT", "REEMPLOYED"].includes(e.type) ? fromISODate(e.doj) : null,
       contractEnd: ["CONTRACT", "REEMPLOYED"].includes(e.type) ? fromISODate(addYears(e.doj, 2)) : null,
-      probationEndDate: matrix && e.doj > "2020-01-01" ? fromISODate(addYears(e.doj, 2)) : null,
+      probationEndDate: ["PERMANENT_OPS", "PERMANENT_NPS"].includes(e.type) && e.doj > "2020-01-01" ? fromISODate(addDays(addYears(e.doj, 2), -1)) : null,
     };
     const row = await db.employee.upsert({ where: { boardId_employeeCode: { boardId: board.id, employeeCode: e.code } }, create: data, update: data });
     employeeIds.set(e.code, row.id);
@@ -298,6 +298,46 @@ async function main() {
       create: data,
       update: { displayName: data.displayName, displayNameHi: data.displayNameHi, permissions: data.permissions, employeeId: data.employeeId },
     });
+  }
+
+  // A demo vacancy (advertised, with applicants) so the recruitment screens have something to show.
+  if ((await db.vacancy.count({ where: { boardId: board.id } })) === 0) {
+    const rev = sectionIds.get("REV")!;
+    const ldc = postIds.get("LDC")!;
+    await db.sanctionedPost.upsert({
+      where: { boardId_sectionId_postId: { boardId: board.id, sectionId: rev, postId: ldc.id } },
+      create: { boardId: board.id, sectionId: rev, postId: ldc.id, sanctioned: 4, orderRef: "MoD letter 2019 (demo)" },
+      update: { sanctioned: 4 },
+    });
+    const vacancy = await db.vacancy.create({
+      data: {
+        boardId: board.id,
+        referenceNo: "DCB/REC/2026/001",
+        sectionId: rev,
+        postId: ldc.id,
+        payLevel: "2",
+        seats: 2,
+        reservation: { GEN: 1, OBC: 1, SC: 0, ST: 0, EWS: 0 },
+        advertNumber: "DCB/ADV/07/2026",
+        advertDate: fromISODate("2026-08-14"),
+        lastDate: fromISODate("2026-09-15"),
+        status: "ADVERTISED",
+        createdById: "seed",
+      },
+    });
+    const applicants: [string, string, string, string, string, string][] = [
+      ["Kiran Bala", "किरण बाला", "F", "1998-06-14", "OBC", "9811200001"],
+      ["Rohit Saxena", "रोहित सक्सेना", "M", "1997-03-02", "GEN", "9811200002"],
+      ["Anjali Meena", "अंजलि मीणा", "F", "1999-11-23", "ST", "9811200003"],
+      ["Farhan Ali", "फ़रहान अली", "M", "1996-01-30", "GEN", "9811200004"],
+    ];
+    for (const [i, [name, nameHi, gender, dob, category, mobile]] of applicants.entries()) {
+      await db.applicant.create({
+        data: { vacancyId: vacancy.id, applicationNo: `A-${String(i + 1).padStart(4, "0")}`, name, nameHi, gender, dateOfBirth: fromISODate(dob), category, mobile, qualification: "Graduate, typing 35 wpm", status: i < 3 ? "SHORTLISTED" : "APPLIED" },
+      });
+    }
+    await db.sequence.upsert({ where: { boardId_name: { boardId: board.id, name: "vacancy-2026" } }, create: { boardId: board.id, name: "vacancy-2026", next: 2 }, update: {} });
+    await db.sequence.upsert({ where: { boardId_name: { boardId: board.id, name: `applicant-${vacancy.id}` } }, create: { boardId: board.id, name: `applicant-${vacancy.id}`, next: 5 }, update: {} });
   }
 
   await db.sequence.upsert({

@@ -9,8 +9,8 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 |---|--------|--------|
 | 1 | Foundation & platform | 🟢 Done & verified (2 items carried to later modules, see PLAN.md) |
 | 2 | Employee master | 🟢 Done & verified |
-| 3 | Recruitment & onboarding | 🟡 Next |
-| 4 | Attendance & holidays | ⚪ Pending |
+| 3 | Recruitment & onboarding | 🟢 Done & verified |
+| 4 | Attendance & holidays | 🟡 Next |
 | 5 | Leave | ⚪ Pending |
 | 6 | Rates & rules + monthly payroll | ⚪ Pending |
 | 7 | Pay changes, arrears, loans & salary slips | ⚪ Pending |
@@ -23,6 +23,38 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 ---
 
 ## Change log (newest first)
+
+### 2026-10-26 — Module 3: Recruitment & onboarding ✅
+**Built**
+- Schema: Vacancy (reservation break-up, advert, selection status), Applicant (marks, merit rank, appointment letter no.),
+  Joining (checklist with who/when/document per item, one joining per draft employee).
+- Vacancy against a vacant sanctioned post only (sanctioned − filled − open vacancies − joinings in progress), Admin
+  approval before advertising, reference `DCB/REC/YYYY/NNN`, close vacancy.
+- Applicants one by one or from an Excel template with row-level errors; status, marks and merit rank per row.
+- Selection list to the Admin (seats and unreserved-seat rules checked); bilingual appointment letter PDF (Hindi page,
+  English page, letterhead, pay in figures and words, terms, CEO signature), every print audited.
+- Joining: draft employee created from the applicant (NPS for joiners after 2004, cell 1, probation 2 years − 1 day),
+  7-item checklist, ID/bank check, "Complete joining" → Checker → Employee ID, APPOINTMENT service-book entry, Employee
+  login and welcome SMS. Direct onboarding for contract and daily-wage workers (RO-09).
+- Probation tracker with the 30-day alert (Home tile + list) and confirmation through the Checker into the service book.
+- Outgoing file registry (ST-09) first used here: PRAN registration CSV and EPF/ESIC registration file → preview →
+  Admin approves → SHA-256 checksum → audited download.
+- Tables marked `stack` turn into one card per row on phones (applicants, vacancies, joinings, probation, files).
+
+**Verified**
+- 186 unit + integration tests (recruitment flow end to end on a real database), typecheck, lint, build clean.
+- 13 Playwright checks, now on their own database (`hrms_e2e`, rebuilt and seeded each run, server on :3100):
+  vacancy → Admin approval → advert → applicants → selection → Admin approval → letter → joining checklist → Checker →
+  Employee ID; new phone check that no main HR or employee screen scrolls sideways.
+- Appointment letter PDF checked page by page (Hindi shaping, amount in words, letter number).
+- Screens reviewed in English, Hindi and on a phone.
+
+**Fixed while verifying**
+- A blank number in a form (marks, wage rate, pay cell) was saved as 0 — blank now stays blank (`optionalNumber`).
+- Card header buttons could push a phone screen sideways — they now wrap (guarded by the new phone check).
+- Vacancy title showed a bare seat count; a finished joining still said "draft record"; pay cell had no label.
+- Demo data: probation now applies to permanent staff only (the CEO is on deputation); one teacher's probation ends
+  within 30 days so the alert can be seen.
 
 ### 2026-10-26 — Module 2: Employee master ✅
 **Built**
@@ -83,10 +115,10 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 ---
 
 ## Pending / next up
-- Module 3: Recruitment & onboarding (RO-01…09, S-20…S-22): vacancy against vacant sanctioned post, applicants,
-  selection list, appointment letter (Hindi + English), joining checklist, "Complete joining", PRAN / EPF-ESIC files.
-- Carried items: pensioner view of the Employee login (Module 9), email sending (Module 7), outgoing-file approval flow
-  (first used in Module 3), formal accessibility pass (Module 10).
+- Module 4: Attendance & holidays (AT-01…08, S-30, S-32): holiday calendar, daily/monthly attendance by section,
+  reporting-officer approval and lock on the lock day (setting, default 25th), LWP days to payroll, own attendance view.
+- Carried items: pensioner view of the Employee login (Module 9), email sending (Module 7), pro-rata first salary from
+  the date of joining (Module 6 payroll run), formal accessibility pass (Module 10).
 
 ## Decisions taken (and why)
 | # | Decision | Reason |
@@ -104,6 +136,8 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 | D-12 | Every employee-record change (not only pay/bank/identity) goes to a Checker | PRD §4 intro: "Changes go through maker-checker and keep their old value in history" |
 | D-13 | Bulk upload is all-or-nothing and goes to the Checker as one batch | Migration safety: no half-loaded files; one decision issues all IDs |
 | D-14 | HR, Checker, Payroll and Approver can reveal a full PAN / bank number (audited); Aadhaar is never shown in full | Checkers must compare numbers with documents; Aadhaar Act limits display |
+| D-15 | Browser checks run against their own database (`hrms_e2e`) and server (:3100), rebuilt and seeded on every run | Repeatable runs that never touch the demo data; set `BASE_URL` to point them at another copy |
+| D-16 | Exam / interview marks are entered as results only; the exam itself is outside the system | PRD §5 covers the vacancy → joining flow, not running the exam |
 | D-08 | Delhi Cantt logo could not be downloaded from inside the build environment (network policy). A placeholder emblem sits at `public/brand/logo.svg`; drop the real logo at the same path | — |
 
 ## Known gaps / risks

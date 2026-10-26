@@ -4,9 +4,9 @@ import { cn } from "@/lib/utils";
  * Data table. Keyboard-first (PRD §16): rows that open something are focusable and respond to Enter.
  * Wide tables scroll inside their card, never the whole page.
  */
-export function Table({ className, children }: { className?: string; children: React.ReactNode }) {
+export function Table({ className, children, stack }: { className?: string; children: React.ReactNode; stack?: boolean }) {
   return (
-    <div className={cn("scrollbar-thin overflow-x-auto", className)}>
+    <div className={cn("scrollbar-thin overflow-x-auto", stack && "stack-table", className)}>
       <table className="w-full border-separate border-spacing-0 text-left text-sm">{children}</table>
     </div>
   );
@@ -33,9 +33,19 @@ export function Th({ className, children, align = "left", ...rest }: React.ThHTM
   );
 }
 
-export function Td({ className, children, align = "left", ...rest }: React.TdHTMLAttributes<HTMLTableCellElement> & { align?: "left" | "right" | "center" }) {
+/** In a `stack` table, `label` names the value on phones and `actions` marks the buttons cell. */
+export function Td({
+  className,
+  children,
+  align = "left",
+  label,
+  actions,
+  ...rest
+}: React.TdHTMLAttributes<HTMLTableCellElement> & { align?: "left" | "right" | "center"; label?: string; actions?: boolean }) {
   return (
     <td
+      data-label={label}
+      data-actions={actions ? "" : undefined}
       className={cn(
         "border-b border-ink-100 px-4 py-3 align-middle text-ink-800 first:pl-5 last:pr-5 sm:first:pl-6 sm:last:pr-6",
         align === "right" && "tabular text-right",

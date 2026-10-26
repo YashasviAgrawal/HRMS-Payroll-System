@@ -61,7 +61,7 @@ Employees and pensioners can also choose **"With mobile OTP only"**.
 | `npm run build` / `npm start` | Production build / server |
 | `npm run typecheck` · `npm run lint` | Static checks |
 | `npm test` | Unit tests plus integration tests (needs `TEST_DATABASE_URL`, a throw-away database) |
-| `npm run test:e2e` | Browser checks (app running on `BASE_URL`, demo seed loaded) |
+| `npm run test:e2e` | Browser checks — run after `npm run build`; uses its own database (`E2E_DATABASE_URL`, rebuilt and seeded each run) and server on :3100. Set `BASE_URL` to test a running copy instead |
 | `npm run db:migrate` | Create or apply a migration while developing |
 | `npm run db:deploy` | Apply migrations (servers) |
 | `npm run db:seed` | Load the Board, sections and posts, plus demo data outside production |

@@ -11,4 +11,5 @@
 - **Permissions:** `lib/auth/access.ts` is PRD §14 as data — never hard-code role checks in pages. Menus: `lib/auth/menu.ts` (≤ 8 items).
 - **Text:** every visible string lives in `lib/i18n/en.ts` and `hi.ts` (same keys — a unit test enforces it). Simple words.
 - **Money:** `lib/money.ts` (paise maths, rupee rounding). **Dates:** `lib/dates.ts` (ISO strings, India time).
-- **Checks before commit:** `npm run typecheck && npm run lint && npm test && npm run build`; browser checks: `npm run test:e2e` (app running, demo seed).
+- **Checks before commit:** `npm run typecheck && npm run lint && npm test && npm run build`; browser checks: `npm run test:e2e` (after a build — it rebuilds and seeds `E2E_DATABASE_URL` and starts its own server on :3100).
+- **Phone layout:** wide tables use `<Table stack>` with `<Td label>` so they become cards; `e2e/layout.phone.spec.ts` fails if a page scrolls sideways.

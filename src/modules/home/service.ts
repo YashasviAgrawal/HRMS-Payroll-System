@@ -26,7 +26,7 @@ export interface Tile {
   value: string | number;
   href?: string;
   tone?: "green" | "amber" | "red" | "gray" | "blue";
-  icon: "users" | "sections" | "employees" | "history" | "inbox";
+  icon: "users" | "sections" | "employees" | "history" | "inbox" | "probation" | "joining";
 }
 
 export async function myWork(actor: Actor): Promise<WorkItem[]> {
@@ -64,6 +64,16 @@ export async function homeTiles(actor: Actor): Promise<Tile[]> {
   if (can(actor, "employee_master", "view") && actor.loginType !== "EMPLOYEE") {
     const employees = await db.employee.count({ where: { boardId: actor.boardId, status: { in: ["ACTIVE", "SUSPENDED"] } } });
     tiles.push({ key: "employeesCount", value: employees, icon: "employees", tone: "green" });
+  }
+  if (can(actor, "recruitment", "view") && actor.loginType === "HR_ACCOUNTS") {
+    const today = todayIST();
+    const in30 = new Date(fromISODate(today).getTime() + 30 * 86_400_000);
+    const [probation, joining] = await Promise.all([
+      db.employee.count({ where: { boardId: actor.boardId, status: "ACTIVE", confirmationDate: null, probationEndDate: { not: null, lte: in30 } } }),
+      db.joining.count({ where: { boardId: actor.boardId, status: { in: ["IN_PROGRESS", "SUBMITTED"] } } }),
+    ]);
+    tiles.push({ key: "probationDue", value: probation, href: "/recruitment?tab=probation", icon: "probation", tone: probation ? "amber" : "gray" });
+    tiles.push({ key: "joiningsOpen", value: joining, href: "/recruitment?tab=joining", icon: "joining", tone: "blue" });
   }
   if (can(actor, "audit_trail", "view")) {
     const start = new Date(fromISODate(todayIST()).getTime() - 5.5 * 3600_000);

@@ -47,3 +47,6 @@ next-env.d.ts
 /storage
 /test-results
 /playwright-report
+
+# git bundles handed to the owner while GitHub push is unavailable
+/backups-out

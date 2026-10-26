@@ -91,7 +91,7 @@ _Goal: a secure, bilingual shell that every later module plugs into._
 - [x] Maker-checker engine: nobody approves their own entry (rule 1); nobody processes their own pay, loan or arrears (rule 2)
 - [x] S-04 Approvals inbox: everything waiting for me, oldest first (+ raised by me, decided by me)
 - [~] Connector framework (file now / API later) + SMS gateway (console mode / HTTP provider with DLT ids) (§12) — _email sending arrives with payslips (Module 7)_
-- [~] File registry table in place — _preview → Admin approve → checksum → download flow is built with the first generated file (Module 3 PRAN file)_
+- [x] Outgoing file registry: preview → Admin approves → SHA-256 checksum → audited download (ST-09) — _built in Module 3 with the PRAN and EPF/ESIC files_
 - [ ] Document storage (PDF / image ≤ 5 MB) with checksum — _moved to Module 2 (EM-05)_
 
 **Screens**
@@ -126,17 +126,17 @@ _Goal: a secure, bilingual shell that every later module plugs into._
 - [x] Full PAN / bank number can be revealed by HR, Checker, Payroll, Approver to check documents — every look audited; Aadhaar never shown in full
 
 ## Module 3 — Recruitment & onboarding (§5)
-- [ ] RO-01 Vacancy only against a vacant sanctioned post; Admin approves before advertising
-- [ ] RO-02 Vacancy: post, level, seats, reservation break-up, advert no. & date, last date
-- [ ] RO-03 Applicants one by one or Excel import; Applied → Eligible → Shortlisted → Selected → Waitlisted → Rejected
-- [ ] RO-04 Selection list approved by Admin; appointment letter from template (Hindi + English)
-- [ ] RO-05 Joining checklist: documents, medical, police verification, oath, bank, PAN, Aadhaar consent — each ticked with upload
-- [ ] RO-06 "Complete joining" creates Employee ID, fixes initial pay, adds to next payroll pro-rata from DOJ
-- [ ] RO-07 NPS (PRAN) registration data file for NPS joiners; EPF/ESIC registration data for contract joiners
-- [ ] RO-08 Probation tracker, alert 30 days before end; confirmation into service book
-- [ ] RO-09 Contract / daily-wage onboarding without vacancy (agency, wage rate, contract dates)
-- [ ] Flow: Checker verifies documents & initial pay → Employee ID issued → login sent by SMS
-- [ ] S-20 Vacancies · S-21 Applicants & selection · S-22 Joining
+- [x] RO-01 Vacancy only against a vacant sanctioned post (seats ≤ sanctioned − filled − open vacancies − joinings in progress); Admin approves before advertising
+- [x] RO-02 Vacancy: post, level, seats, reservation break-up (must add up to the seats), advert no. & date, last date; reference DCB/REC/YYYY/NNN
+- [x] RO-03 Applicants one by one or Excel import (template, row-level errors); Applied → Eligible → Shortlisted → Selected → Waitlisted → Rejected; marks and merit rank recorded (exam is outside the system)
+- [x] RO-04 Selection list (≤ seats, General-category selections ≤ unreserved seats) approved by Admin; appointment letter from template, Hindi page + English page, numbered `<ref>/APT/NN`, print audited
+- [x] RO-05 Joining checklist: documents, medical, police verification, oath, bank, PAN, Aadhaar consent — each ticked by name and date, with an optional attached document
+- [x] RO-06 "Complete joining" issues the Employee ID and fixes initial pay (level, cell 1) — _the pro-rata salary from the date of joining is worked out by the payroll run (Module 6), which reads the DOJ_
+- [x] RO-07 NPS (PRAN) registration data file for NPS joiners without a PRAN; EPF/ESIC registration file for contract / daily-wage joiners without UAN/ESIC — both through the file registry (preview → Admin approves → checksum → download)
+- [x] RO-08 Probation tracker (2 years − 1 day for direct recruits), alert 30 days before end on Home and in the list; confirmation recorded into the service book through the Checker
+- [x] RO-09 Contract / daily-wage onboarding without vacancy (agency, wage rate and basis, contract dates)
+- [x] Flow: Checker verifies documents & initial pay → Employee ID issued → APPOINTMENT entry in the service book → Employee login created → welcome SMS
+- [x] S-20 Vacancies · S-21 Applicants & selection · S-22 Joining (+ Probation and Registration files tabs); applicant and list tables become cards on a phone
 
 ## Module 4 — Attendance & holidays (§6)
 - [ ] AT-01 Import punches by device sync or daily CSV/Excel (eSSL, Mantra, ZKTeco, AEBAS layouts), validated before saving

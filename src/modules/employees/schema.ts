@@ -15,6 +15,7 @@ import {
   isValidUan,
   MOBILE_RE,
   normaliseMobile,
+  optionalNumber,
 } from "@/lib/validators";
 import { cellCount, PAY_LEVELS } from "@/modules/payroll/matrix-7cpc";
 
@@ -120,11 +121,11 @@ export const jobSchema = z.object({
   postId: z.string().min(1, "validation.required"),
   dateOfJoining: z.string().refine(isISODate, "validation.date"),
   payLevel: optEnum(PAY_LEVELS as unknown as [string, ...string[]]),
-  payCell: z.coerce.number().int().min(1).max(40).nullish().or(z.literal("").transform(() => null)),
+  payCell: optionalNumber(z.number().int().min(1).max(40)),
   probationEndDate: optDate,
   confirmationDate: optDate,
   agencyName: optText(120),
-  wageRate: z.coerce.number().min(0).max(1_000_000).nullish().or(z.literal("").transform(() => null)),
+  wageRate: optionalNumber(z.number().min(0).max(1_000_000)),
   wageBasis: optEnum(["MONTHLY", "DAILY"] as const),
   contractStart: optDate,
   contractEnd: optDate,

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, Clock, History, IdCard, Inbox, LayoutGrid, Users } from "lucide-react";
+import { ArrowRight, CheckCircle2, Clock, History, Hourglass, IdCard, Inbox, LayoutGrid, UserPlus, Users } from "lucide-react";
 import { Card, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatTile } from "@/components/ui/stat-tile";
@@ -12,7 +12,7 @@ import { homeTiles, myWork } from "@/modules/home/service";
 
 export const metadata: Metadata = { title: "Home" };
 
-const TILE_ICONS = { users: Users, sections: LayoutGrid, employees: IdCard, history: History, inbox: Inbox };
+const TILE_ICONS = { users: Users, sections: LayoutGrid, employees: IdCard, history: History, inbox: Inbox, probation: Hourglass, joining: UserPlus };
 
 function greetingKey(now = new Date()) {
   const hour = Number(new Intl.DateTimeFormat("en-IN", { hour: "numeric", hour12: false, timeZone: "Asia/Kolkata" }).format(now));

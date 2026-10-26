@@ -127,6 +127,62 @@
   }
 }
 
+/*
+ * Tables marked `stack` turn into one card per row on phones: the header hides, labelled cells show
+ * "label … value" lines, unlabelled cells (name, actions) span the row. Unlayered so it wins over
+ * the cell padding utilities.
+ */
+@media (max-width: 767px) {
+  .stack-table {
+    overflow-x: visible;
+  }
+  .stack-table table,
+  .stack-table tbody,
+  .stack-table tr {
+    display: block;
+  }
+  .stack-table thead {
+    display: none;
+  }
+  .stack-table tr {
+    display: flex;
+    flex-direction: column;
+    padding: 0.875rem 1.25rem;
+    border-bottom: 1px solid var(--color-ink-100);
+  }
+  .stack-table tr:last-child {
+    border-bottom: 0;
+  }
+  .stack-table td {
+    display: block;
+    padding: 0.125rem 0;
+    border: 0;
+    text-align: left;
+  }
+  .stack-table td[data-label] {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    text-align: right;
+  }
+  .stack-table td[data-label]::before {
+    content: attr(data-label);
+    font-size: 0.75rem;
+    color: var(--color-ink-500);
+    text-align: left;
+  }
+  .stack-table td[data-actions] {
+    padding-top: 0.625rem;
+  }
+  .stack-table td[data-actions] > div {
+    justify-content: flex-start;
+  }
+  .stack-table td:empty {
+    display: none;
+  }
+}
+
 @media print {
   body {
     background: white;

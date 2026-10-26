@@ -27,6 +27,14 @@ export const loginIdField = z
 
 export const otpField = z.string().trim().regex(/^\d{6}$/, "validation.otp");
 
+/**
+ * Optional number from a form: "", null or undefined become null. Checks the blank case first,
+ * because `z.coerce.number()` would quietly turn "" into 0.
+ */
+export function optionalNumber(rule: z.ZodNumber) {
+  return z.preprocess((v) => (v === "" || v === null || v === undefined || (typeof v === "string" && v.trim() === "") ? null : v), z.coerce.number().pipe(rule).nullable());
+}
+
 export const PAN_RE = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 export const IFSC_RE = /^[A-Z]{4}0[A-Z0-9]{6}$/;
 export const AADHAAR_RE = /^\d{12}$/;

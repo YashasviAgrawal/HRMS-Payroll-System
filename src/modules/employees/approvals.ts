@@ -3,10 +3,9 @@ import { chainTask } from "@/lib/approvals/engine";
 import { defineApprovalKind } from "@/lib/approvals/registry";
 import { audit } from "@/lib/audit";
 import { emit } from "@/lib/outbox";
-import { fullName } from "./present";
 import { replaceFamily } from "./records";
 import type { FamilyInput } from "./schema";
-import { applyEmployeeChange, nextEmployeeCode } from "./service";
+import { applyEmployeeChange, issueEmployeeId, nextEmployeeCode } from "./service";
 
 type Change = { field: string; old: string | null; new: string | null; sensitive: boolean };
 
@@ -16,14 +15,8 @@ defineApprovalKind<{ employeeId: string }>({
   requiredPermission: "CHECKER",
   sensitive: true,
   async onApprove({ tx, payload, actor }) {
-    const e = await tx.employee.findUniqueOrThrow({ where: { id: payload.employeeId } });
-    const code = e.employeeCode ?? (await nextEmployeeCode(tx, e.boardId));
-    await tx.employee.update({ where: { id: e.id }, data: { status: "ACTIVE", employeeCode: code } });
-    await tx.employeeFieldHistory.create({
-      data: { employeeId: e.id, field: "employeeCode", oldValue: null, newValue: code, approvedById: actor.userId, approvedBy: actor.name },
-    });
-    await audit(tx, actor, { action: "ISSUE_ID", entityType: "Employee", entityId: e.id, summary: `Employee ID ${code} issued to ${fullName(e)}` });
-    await emit(tx, e.boardId, "employee.created", { type: "Employee", id: e.id }, { employeeCode: code });
+    const e = await issueEmployeeId(tx, actor, payload.employeeId);
+    await emit(tx, e.boardId, "employee.created", { type: "Employee", id: e.id }, { employeeCode: e.employeeCode });
   },
 });
 
@@ -115,6 +108,10 @@ defineApprovalKind<{ entryId: string; needsApprover: boolean; step?: "approver" 
       return;
     }
     const entry = await tx.serviceBookEntry.update({ where: { id: payload.entryId }, data: { status: "APPROVED", approvedById: actor.userId } });
+    // RO-08: recording the confirmation in the service book also confirms the person.
+    if (entry.event === "CONFIRMATION") {
+      await tx.employee.update({ where: { id: entry.employeeId }, data: { confirmationDate: entry.eventDate } });
+    }
     await emit(tx, task.boardId, "service_book.recorded", { type: "Employee", id: entry.employeeId }, { event: entry.event, entryId: entry.id });
   },
   async onReject({ tx, payload }) {
