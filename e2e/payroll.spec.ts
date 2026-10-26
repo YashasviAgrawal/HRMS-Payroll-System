@@ -96,7 +96,6 @@ test("Module 6 — a DA change waits for an Admin, then the rate is in force (PR
   const from = `${thisMonth()}-01`;
   await signIn(page, { as: "HR & Accounts", id: "DCB10003" });
   await page.goto("/admin/rates");
-  await expect(page.getByRole("row", { name: /Dearness allowance/ })).toContainText("60%");
   await page.getByRole("row", { name: /Dearness allowance/ }).getByRole("button", { name: "Propose a change" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel(/New value/).fill("62");

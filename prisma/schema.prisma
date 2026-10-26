@@ -136,6 +136,8 @@ model Employee {
   postId           String
   payLevel         String?
   payCell          Int?
+  /// 1 (January) or 7 (July): the annual increment date (PR-06). Empty means worked out from the date of joining.
+  incrementMonth   Int?
   mobile           String?
   email            String?
 
@@ -194,6 +196,8 @@ model Employee {
   serviceBook ServiceBookEntry[]
   history     EmployeeFieldHistory[]
   payslips    Payslip[]
+  payHistory  PayHistory[]
+  loans       Loan[]
 
   @@unique([boardId, employeeCode])
   @@unique([boardId, biometricId])
@@ -1132,12 +1136,24 @@ enum PayrollStatus {
   CLOSED
 }
 
+/// REGULAR: the month's pay bill. SUPPLEMENTARY: arrears, pay withheld earlier, or a joiner's missed month (PR-08, S-42).
+enum RunKind {
+  REGULAR
+  SUPPLEMENTARY
+}
+
 model PayrollRun {
   id             String        @id @default(cuid())
   boardId        String
   payGroup       PayGroup
   /// "YYYY-MM"
   month          String
+  kind           RunKind       @default(REGULAR)
+  /// 0 for the regular bill; 1, 2… for that month's supplementary bills.
+  seq            Int           @default(0)
+  title          String?
+  /// What a supplementary bill pays: { type: "ARREARS" | "WITHHELD" | "JOINER", … } — kept so it can be worked out again.
+  source         Json?
   status         PayrollStatus @default(DRAFT)
   /// How many times the run was worked out again.
   version        Int           @default(1)
@@ -1161,6 +1177,8 @@ model PayrollRun {
   returnAt       DateTime?
   /// PR-14 accounting summary built at month close.
   summaryFileId  String?
+  /// SL-04: when payslip notices (SMS link and email) went out.
+  payslipsSentAt DateTime?
   closedAt       DateTime?
   reopenedAt     DateTime?
   reopenNote     String?
@@ -1170,7 +1188,7 @@ model PayrollRun {
   payslips   Payslip[]
   exceptions PayrollException[]
 
-  @@unique([boardId, payGroup, month])
+  @@unique([boardId, payGroup, month, kind, seq])
 }
 
 enum PayslipStatus {
@@ -1218,6 +1236,10 @@ model Payslip {
   creditNote     String?
   /// The re-pay bank file for a failed credit (PR-12).
   repayFileId    String?
+  /// Month-by-month arrears (due vs drawn) for a supplementary bill, and the loan instalments in a regular one.
+  detail         Json?
+  /// SL-04: when the payslip notice was sent.
+  sentAt         DateTime?
   createdAt      DateTime      @default(now())
 
   run      PayrollRun @relation(fields: [runId], references: [id], onDelete: Cascade)
@@ -1258,3 +1280,98 @@ model PayrollException {
 
   @@index([runId])
 }
+
+// ─── Module 7: pay changes, arrears, loans and salary slips (PRD §8) ───────────────
+
+enum PayChangeReason {
+  INITIAL
+  INCREMENT
+  PROMOTION
+  MACP
+  CORRECTION
+}
+
+/// Pay level and cell from a date (PR-06, PR-07). The payroll reads the row in force on a month's 1st and arrears compare
+/// it with what was drawn. A row dated in the future waits; `applied` is set once the employee record shows it.
+model PayHistory {
+  id             String          @id @default(cuid())
+  boardId        String
+  employeeId     String
+  effectiveFrom  DateTime        @db.Date
+  payLevel       String
+  payCell        Int
+  postId         String?
+  reason         PayChangeReason
+  /// For a fixation: the rule used and the figures the Checker saw.
+  details        Json?
+  serviceEntryId String?
+  applied        Boolean         @default(false)
+  createdById    String?
+  createdAt      DateTime        @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId, effectiveFrom])
+  @@index([boardId, reason, effectiveFrom])
+}
+
+enum LoanType {
+  HBA
+  VEHICLE
+  COMPUTER
+  FESTIVAL
+  OTHER
+}
+
+enum LoanStatus {
+  PENDING
+  RUNNING
+  CLOSED
+  REJECTED
+}
+
+/// PR-09: a loan or advance — principal first in equal instalments, then the simple interest; recovery stops at zero.
+model Loan {
+  id               String     @id @default(cuid())
+  boardId          String
+  employeeId       String
+  type             LoanType
+  purpose          String?
+  principal        Decimal    @db.Decimal(12, 2)
+  /// Simple interest, % a year, on the principal still due each month; 0 for interest-free advances.
+  interestRate     Decimal    @default(0) @db.Decimal(6, 3)
+  instalments      Int
+  instalmentAmount Decimal    @db.Decimal(12, 2)
+  sanctionDate     DateTime   @db.Date
+  orderNumber      String?
+  /// "YYYY-MM": the first month an instalment is recovered.
+  startMonth       String
+  status           LoanStatus @default(PENDING)
+  closedMonth      String?
+  createdById      String
+  createdByName    String
+  createdAt        DateTime   @default(now())
+
+  employee   Employee       @relation(fields: [employeeId], references: [id])
+  recoveries LoanRecovery[]
+
+  @@index([employeeId])
+  @@index([boardId, status])
+}
+
+/// An instalment recovered through an approved payroll; removed again if that payroll is reopened (PR-13).
+model LoanRecovery {
+  id        String   @id @default(cuid())
+  loanId    String
+  runId     String
+  month     String
+  principal Decimal  @db.Decimal(12, 2)
+  interest  Decimal  @db.Decimal(12, 2)
+  createdAt DateTime @default(now())
+
+  loan Loan @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  @@unique([loanId, runId])
+  @@index([runId])
+}
+

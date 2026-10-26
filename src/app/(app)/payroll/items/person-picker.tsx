@@ -8,7 +8,7 @@ export function PersonPicker({ people, value }: { people: { id: string; label: s
   const t = useT();
   const router = useRouter();
   return (
-    <Select label={t("payroll.items.employee")} value={value} onChange={(e) => router.push(e.target.value ? `/payroll/items?employee=${e.target.value}` : "/payroll/items")} className="max-w-md">
+    <Select label={t("payroll.items.employee")} value={value} onChange={(e) => router.push(e.target.value ? `/payroll/items?employee=${e.target.value}` : "/payroll/items")} containerClassName="max-w-md">
       <option value="">{t("payroll.items.pick")}</option>
       {people.map((p) => (
         <option key={p.id} value={p.id}>

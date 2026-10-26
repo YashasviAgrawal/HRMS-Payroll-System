@@ -50,7 +50,7 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
           )
         }
       />
-      <PayrollTabs active="runs" labels={{ runs: t("payroll.tabs.runs"), items: t("payroll.tabs.items") }} showItems={canAll(actor, "payroll", "create") || actor.permissions.includes("CHECKER")} />
+      <PayrollTabs active="runs" principal={actor} t={t} />
 
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <MonthNav month={data.month} hrefFor={(m) => `/payroll?month=${m}`} maxMonth={thisMonth} locale={locale} labels={{ prev: t("payroll.prevMonth"), next: t("payroll.nextMonth") }} />
@@ -111,6 +111,25 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
         })}
       </div>
 
+      {data.supplementary.length > 0 && (
+        <Card className="mt-6">
+          <CardHeader title={t("payroll.supplementary.thisMonth")} />
+          <ul className="divide-y divide-ink-100">
+            {data.supplementary.map((r) => (
+              <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 sm:px-6">
+                <Link href={`/payroll/${r.id}`} className="min-w-0 font-medium text-ink-900 hover:text-brand-700">
+                  {locale === "hi" ? r.titleHi : r.title}
+                </Link>
+                <span className="flex items-center gap-3 text-sm">
+                  <span className="tabular font-semibold">{formatINR(r.net)}</span>
+                  <Badge tone={STATUS_TONE[r.status]}>{tDynamic(t, `payroll.status.${r.status}`)}</Badge>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
       <Card className="mt-6">
         <CardHeader title={t("payroll.history")} icon={<History className="size-4.5" aria-hidden="true" />} />
         {data.history.length === 0 ? (
@@ -137,7 +156,10 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
                       {formatMonth(r.month, locale)}
                     </Link>
                   </Td>
-                  <Td label={t("payroll.payGroup")}>{tDynamic(t, `payroll.groups.${r.payGroup}`)}</Td>
+                  <Td label={t("payroll.payGroup")}>
+                    {tDynamic(t, `payroll.groups.${r.payGroup}`)}
+                    {r.kind === "SUPPLEMENTARY" && <span className="block text-xs text-violet-700">{t("payroll.supplementary.short", { n: r.seq })}</span>}
+                  </Td>
                   <Td label={t("payroll.people")} align="right">
                     {r.employees}
                   </Td>

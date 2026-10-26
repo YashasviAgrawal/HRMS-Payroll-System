@@ -140,7 +140,7 @@ export default async function PayrollRunPage({ params, searchParams }: { params:
                     </p>
                   </Td>
                   <Td label={t("payroll.columns.days")} className="text-sm">
-                    <span className="block">{t("payroll.daysShort", { onRoll: p.daysOnRoll })}</span>
+                    {p.daysOnRoll > 0 ? <span className="block">{t("payroll.daysShort", { onRoll: p.daysOnRoll })}</span> : <span className="block text-ink-400">—</span>}
                     {p.lossDays > 0 && <span className="block text-xs text-red-700">{t("payroll.lossShort", { days: p.lossDays })}</span>}
                     {p.halfPayDays > 0 && <span className="block text-xs text-amber-700">{t("payroll.halfShort", { days: p.halfPayDays })}</span>}
                     {p.workedDays !== null && p.type === "DAILY_WAGE" && <span className="block text-xs text-ink-500">{t("payroll.workedShort", { days: p.workedDays })}</span>}

@@ -167,10 +167,10 @@ export function HeadsTable({ heads, pending, canPropose }: { heads: HeadRow[]; p
                   ))}
                 </Select>
                 {edit.row.calc !== "ITEM" && <Input label={t("rates.heads.value")} inputMode="decimal" value={String(edit.row.value)} onChange={(e) => set({ value: Number(e.target.value) || 0 })} error={errors.value} />}
-                <Input label={t("rates.heads.posts")} hint={t("rates.heads.postsHelp")} value={edit.posts} onChange={(e) => setEdit({ ...edit, posts: e.target.value.toUpperCase() })} error={errors.postCodes} className="sm:col-span-2" />
+                <Input label={t("rates.heads.posts")} hint={t("rates.heads.postsHelp")} value={edit.posts} onChange={(e) => setEdit({ ...edit, posts: e.target.value.toUpperCase() })} error={errors.postCodes} containerClassName="sm:col-span-2" />
               </>
             )}
-            <Input label={t("rates.heads.accountHead")} value={edit.row.accountHead} onChange={(e) => set({ accountHead: e.target.value })} error={errors.accountHead} className="sm:col-span-2" required />
+            <Input label={t("rates.heads.accountHead")} value={edit.row.accountHead} onChange={(e) => set({ accountHead: e.target.value })} error={errors.accountHead} containerClassName="sm:col-span-2" required />
             <Checkbox label={t("rates.heads.prorate")} checked={edit.row.prorate} onChange={(e) => set({ prorate: e.target.checked })} />
             <Checkbox label={t("rates.heads.taxable")} checked={edit.row.taxable} onChange={(e) => set({ taxable: e.target.checked })} />
             <Checkbox label={t("rates.heads.active")} checked={edit.row.isActive} onChange={(e) => set({ isActive: e.target.checked })} />

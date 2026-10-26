@@ -26,7 +26,7 @@ export default async function PayItemsPage({ searchParams }: { searchParams: Pro
   return (
     <div>
       <PageHeader title={t("payroll.title")} description={t("payroll.items.subtitle")} />
-      <PayrollTabs active="items" labels={{ runs: t("payroll.tabs.runs"), items: t("payroll.tabs.items") }} showItems />
+      <PayrollTabs active="items" principal={actor} t={t} />
       <Card className="mb-5">
         <CardBody>
           <PersonPicker people={data.people.map((p) => ({ id: p.id, label: `${p.code} · ${locale === "hi" && p.nameHi ? p.nameHi : p.name}` }))} value={data.chosen?.id ?? ""} />

@@ -7,7 +7,7 @@ import { getSetting } from "@/modules/settings/service";
  * SMS gateway — the only live connection in Release 1, because OTP needs it (PRD §12).
  * Message texts must match the templates registered on the DLT platform, so they live here in one place.
  */
-export type SmsTemplate = "otp" | "approveOtp" | "welcome" | "alert";
+export type SmsTemplate = "otp" | "approveOtp" | "welcome" | "alert" | "payslip";
 
 const TEXTS: Record<SmsTemplate, { en: string; hi: string }> = {
   otp: {
@@ -21,6 +21,10 @@ const TEXTS: Record<SmsTemplate, { en: string; hi: string }> = {
   welcome: {
     en: "Welcome to DCB HRMS. Sign in at {url} with your mobile number and OTP. - Delhi Cantonment Board",
     hi: "डीसीबी एचआरएमएस में आपका स्वागत है। {url} पर अपने मोबाइल नंबर और ओटीपी से साइन इन करें। - दिल्ली छावनी परिषद",
+  },
+  payslip: {
+    en: "Your salary slip for {month} is ready. Net pay Rs {net} sent to your bank account. See it at {url} - Delhi Cantonment Board",
+    hi: "{month} की आपकी वेतन पर्ची तैयार है। शुद्ध वेतन रु {net} आपके बैंक खाते में भेजा गया। यहाँ देखें: {url} - दिल्ली छावनी परिषद",
   },
   alert: {
     en: "{text} - Delhi Cantonment Board",

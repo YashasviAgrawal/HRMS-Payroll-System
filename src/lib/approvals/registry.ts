@@ -10,6 +10,8 @@ export interface DecisionContext<P> {
   payload: P;
   actor: Actor;
   note: string | null;
+  /** Work to do once the decision is saved (sending SMS or email) — it never runs if the decision rolls back. */
+  afterCommit(fn: () => Promise<void>): void;
 }
 
 /** One kind of item that goes through maker-checker (an employee change, a leave application, a payroll…). */

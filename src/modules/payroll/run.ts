@@ -15,7 +15,7 @@ import type { RequestMeta } from "@/lib/request-meta";
 import { checkOtp, startSignOtp } from "@/modules/auth/service";
 import { fullName } from "@/modules/employees/present";
 import { EXCEPTION_RULES, type ExceptionCode, type Resolution } from "./checks";
-import { applyResolutions, computeRun, RUN_GROUPS, runTitle, saveRun, type RunGroup } from "./compute";
+import { applyDuePayChanges, applyResolutions, computeRun, recordLoanRecoveries, RUN_GROUPS, runTitle, saveRun, titleOf, undoLoanRecoveries, type RunGroup } from "./compute";
 import type { PayLine } from "./engine";
 
 export { RUN_GROUPS, runTitle, type RunGroup };
@@ -53,6 +53,8 @@ export async function runPayroll(actor: Actor, raw: unknown) {
   const thisMonth = todayIST().slice(0, 7);
   if (input.month > thisMonth) throw badRequest("errors.validation", { month: "payroll.errors.futureMonth" });
   const started = Date.now();
+  // Increments and fixations whose date has come show on the record before the month is worked out.
+  await db.$transaction((tx) => applyDuePayChanges(tx, actor.boardId, todayIST()));
   const computed = await computeRun(db, actor.boardId, input.payGroup, input.month);
   if (!computed.slips.length) throw badRequest("payroll.errors.nobody");
   return db.$transaction(
@@ -84,7 +86,8 @@ function assertView(actor: Actor) {
 export async function payrollOverview(actor: Actor, month?: string) {
   assertView(actor);
   const current = month && isMonth(month) ? month : todayIST().slice(0, 7);
-  const runs = await db.payrollRun.findMany({ where: { boardId: actor.boardId, payGroup: { in: [...RUN_GROUPS] } }, orderBy: [{ month: "desc" }, { payGroup: "asc" }], take: 60 });
+  const runs = await db.payrollRun.findMany({ where: { boardId: actor.boardId, payGroup: { in: [...RUN_GROUPS] } }, orderBy: [{ month: "desc" }, { kind: "asc" }, { payGroup: "asc" }, { seq: "asc" }], take: 120 });
+  const money = <T extends { gross: unknown; deductions: unknown; net: unknown; employer: unknown }>(r: T) => ({ ...r, gross: num(r.gross as never), deductions: num(r.deductions as never), net: num(r.net as never), employer: num(r.employer as never) });
   const ids = runs.filter((r) => r.month === current).map((r) => r.id);
   const open = ids.length
     ? await db.payrollException.groupBy({ by: ["runId"], where: { runId: { in: ids }, resolution: null }, _count: { _all: true } })
@@ -93,10 +96,11 @@ export async function payrollOverview(actor: Actor, month?: string) {
   return {
     month: current,
     groups: RUN_GROUPS.map((g) => {
-      const run = runs.find((r) => r.month === current && r.payGroup === g) ?? null;
-      return { group: g, run: run ? { ...run, gross: num(run.gross), deductions: num(run.deductions), net: num(run.net), employer: num(run.employer), openExceptions: openBy.get(run.id) ?? 0 } : null };
+      const run = runs.find((r) => r.month === current && r.payGroup === g && r.kind === "REGULAR") ?? null;
+      return { group: g, run: run ? { ...money(run), openExceptions: openBy.get(run.id) ?? 0 } : null };
     }),
-    history: runs.filter((r) => r.month !== current).map((r) => ({ ...r, gross: num(r.gross), deductions: num(r.deductions), net: num(r.net), employer: num(r.employer) })),
+    supplementary: runs.filter((r) => r.month === current && r.kind === "SUPPLEMENTARY").map((r) => ({ ...money(r), title: titleOf(r), titleHi: titleOf(r, "hi"), openExceptions: openBy.get(r.id) ?? 0 })),
+    history: runs.filter((r) => r.month !== current).map((r) => ({ ...money(r), title: titleOf(r), titleHi: titleOf(r, "hi") })),
     canRun: canRun(actor),
   };
 }
@@ -120,7 +124,7 @@ export async function getRun(actor: Actor, runId: string) {
     db.approvalTask.findMany({ where: { boardId: actor.boardId, entityType: "PayrollRun", entityId: runId }, orderBy: { createdAt: "asc" } }),
     run.bankFileId ? db.fileRecord.findUnique({ where: { id: run.bankFileId } }) : null,
     db.section.findMany({ where: { boardId: actor.boardId }, select: { id: true, code: true, name: true, nameHi: true } }),
-    db.payrollRun.findUnique({ where: { boardId_payGroup_month: { boardId: actor.boardId, payGroup: run.payGroup, month: shiftMonth(run.month, -1) } } }),
+    db.payrollRun.findUnique({ where: { boardId_payGroup_month_kind_seq: { boardId: actor.boardId, payGroup: run.payGroup, month: shiftMonth(run.month, -1), kind: "REGULAR", seq: 0 } } }),
   ]);
   const repayIds = [...new Set(slips.map((s) => s.repayFileId).filter((x): x is string => Boolean(x)))];
   const fileIds = [...repayIds, ...(run.summaryFileId ? [run.summaryFileId] : [])];
@@ -195,8 +199,8 @@ export async function getRun(actor: Actor, runId: string) {
 
   return {
     run: { ...run, gross: num(run.gross), deductions: num(run.deductions), net: num(run.net), employer: num(run.employer) },
-    title: runTitle(run.payGroup as RunGroup, run.month),
-    titleHi: runTitle(run.payGroup as RunGroup, run.month, "hi"),
+    title: titleOf(run),
+    titleHi: titleOf(run, "hi"),
     people,
     exceptions: exceptions.map((x) => ({
       ...x,
@@ -306,8 +310,8 @@ export async function submitRun(actor: Actor, runId: string, raw: unknown) {
     const withheld = await tx.payslip.count({ where: { runId, status: "WITHHELD" } });
     await submitForApproval(tx, actor, {
       kind: "payroll.check",
-      title: runTitle(run.payGroup as RunGroup, run.month),
-      titleHi: runTitle(run.payGroup as RunGroup, run.month, "hi"),
+      title: titleOf(run),
+      titleHi: titleOf(run, "hi"),
       details: runDetails(run, [
         { label: "Changes over 25%", labelHi: "25% से अधिक बदलाव", new: String(warnings) },
         { label: "Pay withheld", labelHi: "रोका गया वेतन", new: String(withheld) },
@@ -405,7 +409,8 @@ export async function onApproved(tx: Tx, actor: Actor, runId: string) {
   if (!can(actor, "payroll", "approve")) throw forbidden();
   await assertSigned(tx, actor, runId);
   await tx.payrollRun.update({ where: { id: runId }, data: { status: "APPROVED", approvedById: actor.userId, approvedByName: actor.name, approvedAt: new Date() } });
-  await audit(tx, actor, { action: "SIGN", entityType: "PayrollRun", entityId: runId, summary: `Approved and signed with OTP: ${runTitle(run.payGroup as RunGroup, run.month)} (net ${formatINR(num(run.net))})` });
+  await recordLoanRecoveries(tx, runId);
+  await audit(tx, actor, { action: "SIGN", entityType: "PayrollRun", entityId: runId, summary: `Approved and signed with OTP: ${titleOf(run)} (net ${formatINR(num(run.net))})` });
   await emit(tx, run.boardId, "payroll.approved", { type: "PayrollRun", id: runId }, { month: run.month, payGroup: run.payGroup, net: num(run.net) });
 }
 
@@ -431,11 +436,12 @@ export async function reopenRun(actor: Actor, runId: string, raw: unknown) {
         await tx.approvalTask.updateMany({ where: { entityType: "FileRecord", entityId: file.id, status: "PENDING" }, data: { status: "CANCELLED", decidedAt: new Date() } });
       }
     }
+    await undoLoanRecoveries(tx, runId);
     await tx.payrollRun.update({
       where: { id: runId },
       data: { status: "DRAFT", reopenedAt: new Date(), reopenNote: note, approvedById: null, approvedByName: null, approvedAt: null, submittedAt: null, checkedById: null, checkedByName: null, bankFileId: null },
     });
-    await audit(tx, actor, { action: "REOPEN", entityType: "PayrollRun", entityId: runId, summary: `Reopened ${runTitle(run.payGroup as RunGroup, run.month)}: ${note}` });
+    await audit(tx, actor, { action: "REOPEN", entityType: "PayrollRun", entityId: runId, summary: `Reopened ${titleOf(run)}: ${note}` });
     await emit(tx, actor.boardId, "payroll.reopened", { type: "PayrollRun", id: runId }, { note });
   });
 }
@@ -455,7 +461,8 @@ export async function getPayslip(actor: Actor, runId: string, slipId: string) {
   const lines = slip.lines as unknown as PayLine[];
   return {
     id: slip.id,
-    run: { id: slip.run.id, month: slip.run.month, payGroup: slip.run.payGroup as RunGroup, status: slip.run.status },
+    run: { id: slip.run.id, month: slip.run.month, payGroup: slip.run.payGroup as RunGroup, status: slip.run.status, kind: slip.run.kind, title: titleOf(slip.run), titleHi: titleOf(slip.run, "hi") },
+    detail: (slip.detail ?? {}) as { loans?: { loanId: string; principal: number; interest: number }[]; arrears?: { month: string; lines: { code: string; name: string; nameHi: string; due: number; drawn: number; diff: number }[] }[]; joinerMonth?: string; withheldMonth?: string },
     employee: { ...slip.employee, name: fullName(slip.employee) },
     payLevel: slip.payLevel,
     payCell: slip.payCell,

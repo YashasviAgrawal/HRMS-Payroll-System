@@ -115,7 +115,7 @@ export async function cancelTask(actor: Actor, taskId: string) {
     const res = await tx.approvalTask.updateMany({ where: { id: taskId, status: "PENDING" }, data: { status: "CANCELLED", decidedAt: new Date() } });
     if (res.count !== 1) throw conflict("errors.alreadyDecided");
     const def = getApprovalKind(task.kind);
-    await def?.onCancel?.({ tx, task, payload: task.payload as never, actor, note: null });
+    await def?.onCancel?.({ tx, task, payload: task.payload as never, actor, note: null, afterCommit: () => undefined });
     await audit(tx, actor, { action: "CANCEL", entityType: task.entityType, entityId: task.entityId, summary: `Withdrew: ${task.title}` });
   });
 }
@@ -146,8 +146,9 @@ export async function decide(actor: Actor, taskId: string, decision: Decision, n
   const cleanNote = note?.trim() || null;
   if (decision !== "APPROVE" && !cleanNote) throw badRequest("errors.validation", { note: "approvals.noteRequired" });
   await loadKinds();
+  const after: (() => Promise<void>)[] = [];
 
-  return db.$transaction(async (tx) => {
+  const result = await db.$transaction(async (tx) => {
     const task = await tx.approvalTask.findFirst({ where: { id: taskId, boardId: actor.boardId } });
     if (!task) throw notFound();
     const blocker = decisionBlocker(actor, task);
@@ -163,7 +164,7 @@ export async function decide(actor: Actor, taskId: string, decision: Decision, n
     });
     if (claimed.count !== 1) throw conflict("errors.alreadyDecided");
 
-    const ctx = { tx, task, payload: task.payload as never, actor, note: cleanNote };
+    const ctx = { tx, task, payload: task.payload as never, actor, note: cleanNote, afterCommit: (fn: () => Promise<void>) => void after.push(fn) };
     if (decision === "APPROVE") await def.onApprove(ctx);
     else if (decision === "REJECT") await def.onReject?.(ctx);
     else await (def.onReturn ?? def.onReject)?.(ctx);
@@ -181,6 +182,14 @@ export async function decide(actor: Actor, taskId: string, decision: Decision, n
     }
     return { ...task, status };
   });
+  for (const fn of after) {
+    try {
+      await fn();
+    } catch (e) {
+      console.error("[approvals] after-commit work failed", e);
+    }
+  }
+  return result;
 }
 
 /** Tasks this actor may decide. */

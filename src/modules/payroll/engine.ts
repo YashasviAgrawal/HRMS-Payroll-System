@@ -179,7 +179,8 @@ export function computePay(input: PayInput): PayResult {
     }
   }
   for (const h of input.heads) {
-    if (h.kind === "DEDUCTION" && h.calc === "ITEM" && input.items[h.code]) deduct(h.code, toPaise(input.items[h.code]));
+    // Standing deductions, and loan instalments from the loans register (PR-09).
+    if (h.kind === "DEDUCTION" && (h.calc === "ITEM" || h.code === "LOAN") && input.items[h.code]) deduct(h.code, toPaise(input.items[h.code]));
   }
 
   const order = new Map(input.heads.map((h, i) => [h.code, i]));

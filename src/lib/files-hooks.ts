@@ -7,7 +7,7 @@ import type { Tx } from "@/lib/db";
  * What happens when an Admin releases a file of a given kind — e.g. the salary bank file being released marks the
  * payroll as paid (PR-13 boundary). Modules register here; the file approval runs the hook in its transaction.
  */
-type ReleaseHook = (tx: Tx, file: FileRecord, actor: Actor) => Promise<void>;
+type ReleaseHook = (tx: Tx, file: FileRecord, actor: Actor, afterCommit: (fn: () => Promise<void>) => void) => Promise<void>;
 
 const hooks = new Map<string, ReleaseHook>();
 

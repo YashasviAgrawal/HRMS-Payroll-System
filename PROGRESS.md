@@ -13,8 +13,8 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 | 4 | Attendance & holidays | 🟢 Done & verified |
 | 5 | Leave | 🟢 Done & verified |
 | 6 | Rates & rules + monthly payroll | 🟢 Done & verified (Pensioners pay group in Module 9) |
-| 7 | Pay changes, arrears, loans & salary slips | 🟡 Next |
-| 8 | Statutory & tax | ⚪ Pending |
+| 7 | Pay changes, arrears, loans & salary slips | 🟢 Done & verified |
+| 8 | Statutory & tax | 🟡 Next |
 | 9 | Pension | ⚪ Pending |
 | 10 | Reports, dashboards, migration & go-live | ⚪ Pending |
 
@@ -23,6 +23,47 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 ---
 
 ## Change log (newest first)
+
+### 2026-10-27 — Module 7: Pay changes, arrears, loans & salary slips ✅
+**Built**
+- Pay history (level, cell and post from a date): the payroll reads what is in force on the 1st; a change dated ahead
+  waits and reaches the employee record on its day. Employee master edits of pay are corrections through the Checker.
+- S-41 Increments (PR-06): the 1 January / 1 July due list with six months in the level, the next cell and the new Basic,
+  leave without pay flagged, top of the level shown; one batch to a Checker; on approval the pay history and a service
+  book entry for each person. Pay fixation (PR-07): promotion or MACP, the option the employee chose, the rule and every
+  figure on screen; Checker then Admin; the post changes on promotion and the increment month follows the option.
+- S-42 Arrears (PR-08): due vs drawn month by month — rates, matrix and pay history as they stand now, on the days the
+  month actually paid; only system-worked heads compared; arrears already paid count as drawn. Supplementary bills are
+  payrolls of their own (same five stages, OTP, bank file, return file, close): arrears, pay withheld at a pre-check and
+  since put right, joiners the regular bill missed.
+- S-43 Loans (PR-09): sanction with the order (Checker, then Admin), live schedule, simple interest on the reducing
+  balance after the principal, recovery through each payroll recorded when it is approved and taken back if reopened;
+  the loan closes at zero. Loan instalments are no longer typed as pay items.
+- S-44 Payslips (SL-01–05): PDF in Hindi or English with logo, ID, post, level and cell, bank last four, masked PAN,
+  earnings and deductions, net in figures and words, leave balance, NPS to date / GPF this year, month-wise arrears on a
+  supplementary slip; SMS link and email with the PDF on credit day (after the bank file is released); employees see every
+  past month under My payslips (two taps on a phone); HR & Accounts download a bill or a section as one PDF and resend.
+- Email connector (Board SMTP from System settings, credentials from the environment; logged only until set up).
+- Seed: last 1 January and 1 July increments given (pay history + service book), a festival advance and a computer advance
+  recovered through the two closed months.
+
+**Verified**
+- 267 unit + integration tests (16 new: increment dates and the six-month rule, both fixation options, loan schedules with
+  interest and missed months; on a real database: increment through a Checker with service book, the late increment as
+  arrears and its supplementary bill (and nothing left once paid), withheld pay paid once, promotion through Checker and
+  Admin with a future step waiting, a loan recovered, undone on reopen and closed at zero, own payslips only, notices
+  sent once), typecheck, lint, build.
+- 30 Playwright checks (5 new: increment list, promotion fixation, back-dated DA → arrears bill, loan sanction, payslip
+  downloads; every new screen fits a phone).
+- Payslip PDF checked in Hindi and English; arrears figures checked by hand (DA 60% → 64% on ₹58,600 = ₹2,344 a month).
+
+**Fixed while verifying**
+- Form fields meant to span two or three columns (rates, pay heads, pay items, loans, fixation, arrears) put the span on
+  the input instead of its wrapper, so they stayed one column wide.
+- A pay correction made through the employee master now goes into the pay history, so an older history row can never
+  override it.
+- The demo's waiting leave applications now start on a Monday, so Pooja's EL reads "5 days" whichever day the demo is
+  loaded (it read 7 when loaded on a Tuesday night).
 
 ### 2026-10-26 — Security: Next.js and mail library
 - Next.js 16.3.8 → 16.4.2 (with eslint-config-next): 16.0.0–16.4.0 are covered by published critical advisories
@@ -230,13 +271,12 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 ---
 
 ## Pending / next up
-- Module 7: Pay changes, arrears, loans & salary slips (PR-06…09, SL-01…05, S-41…44): increment due list, pay fixation on
-  promotion / MACP, arrears "due vs drawn" (a past-dated DA order now starts them), supplementary bills (pay withheld at a
-  pre-check, joiners missed by the regular bill, subsistence allowance), loans with recovery stopping at zero, payslips in
-  Hindi and English with email / SMS.
-- Carried items: pensioner view and the Pensioners pay group (Module 9); email sending (Module 7); employee screens still
-  show Basic from the built-in 7th CPC table while payroll reads the dated matrix — moves to the dated table with pay
-  fixation (Module 7); reports 7–19 and the formal accessibility pass (Module 10); leave encashment (Module 9).
+- Module 8: Statutory & tax (§9): GPF ledger (subscriptions from payroll, advances, withdrawals, interest, annual
+  statement), NPS contributions and CRA file, Board pension fund, EPF / ESIC files, professional tax switch, tax regime,
+  declarations and proofs, monthly TDS projection (replacing the TDS pay item), challans, 24Q, Form 16, statutory calendar.
+- Carried items: pensioner view and the Pensioners pay group (Module 9); reports 7–19 and the formal accessibility pass
+  (Module 10); leave encashment (Module 9); employee screens still show Basic from the built-in 7th CPC table (payroll
+  and fixation read the dated matrix) — one switch in Module 10 hardening; dev-tool audit items (Module 10).
 
 ## Decisions taken (and why)
 | # | Decision | Reason |
@@ -269,8 +309,15 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 | D-27 | Blocking pre-checks are fixed in the record (then "work out again", remarks carried over) or the person's pay is withheld and paid in a supplementary bill; a section that has not locked last month can be paid without its loss days (recovered next month) or held; a net change over 25% needs a remark | Lets the month go out on time without hiding any exception from the Checker |
 | D-28 | Re-employed pensioners are paid in the Contract pay group on their wage rate; their contract end (not the old retirement date) is the end of pay | PR-05 has four groups; re-employed staff are on contract terms |
 | D-29 | Dependencies with published security fixes are upgraded as soon as they are found, even mid-module, as their own verified commit | A payroll system holding bank and Aadhaar data cannot wait for a release cycle |
+| D-30 | Pay level, cell and post are kept as dated pay history; a month uses the row in force on its 1st; future rows reach the employee record on their date | Increments approved in December for 1 January, option-B fixations and arrears all need "pay as of a date" |
+| D-31 | Arrears compare only heads the system works out (Basic, NPA, DA, HRA, TA, DA on TA, post allowances, NPS, EPF, ESIC and employer shares); standing amounts, GPF subscription and group insurance are left alone; arrears already paid count as drawn | A back-dated order changes formulas, not the amounts a person chose or a fixed premium |
+| D-32 | Supplementary bills are payrolls of their own (numbered per pay group and month) and go through the same five stages, OTP and bank file | One control path for every rupee paid |
+| D-33 | Loans: principal first in equal instalments, then simple interest on the reducing balance in instalments of the same size; a recovery is recorded when its payroll is approved and removed if it is reopened | Central government advance rules; the loan account always matches what the bills paid |
+| D-34 | Payslips become visible and notices go out on credit day — when the salary bank file is released — after the release is saved; sending is safe to repeat | The slip is never shown for pay that may still be reopened (PR-13) |
+| D-35 | Increments and fixation are prepared by HR & Accounts users who hold Payroll (or HR with payroll access); fixation goes Checker → Admin like other promotion entries | Keeps §13/§14 menus as they are; PR-07 promotion is an Approver event in the service book |
 | D-08 | Delhi Cantt logo could not be downloaded from inside the build environment (network policy). A placeholder emblem sits at `public/brand/logo.svg`; drop the real logo at the same path | — |
 
 ## Known gaps / risks
 - Exact bank bulk-file, CRA contribution, e-Chhawani and Form 24Q layouts, the pay bill / register / schedule formats (CBAR 2020) and the e-Chhawani account heads must be confirmed against real samples before go-live (PRD §18 open questions). They are built as switchable templates.
 - Leave, pension and tax defaults follow central rules and are marked "to confirm for DCB" in the rules tables.
+- Pay fixation options (FR 22(I)(a)(1)) and the FR 26 postponement of increments for leave without pay (flagged, not applied automatically) to be confirmed with DCB Accounts; stagnation increments beyond the last cell are not granted automatically.

@@ -180,16 +180,16 @@ _Goal: a secure, bilingual shell that every later module plugs into._
 - [x] Full payroll run under 30 minutes (§16) — a pay group works out in well under a second for the demo Board
 
 ## Module 7 — Pay changes, arrears, loans & salary slips (§8)
-- [ ] PR-06 Increment due list on 1 Jan / 1 Jul; HR confirms, Checker verifies, pay + service book updated
-- [ ] PR-07 Pay fixation on promotion / MACP with the rule shown on screen
-- [ ] PR-08 Arrears "due vs drawn" for any back period, paid in a supplementary bill
-- [ ] PR-09 Loans & advances: sanction, schedule, interest, recovery stops at zero
-- [ ] SL-01 PDF payslip: DCB name & logo, Employee ID, post, level & cell, bank last 4, PAN masked
-- [ ] SL-02 Earnings, deductions, net in figures and words; leave balance; GPF/NPS balance
-- [ ] SL-03 Hindi and English versions
-- [ ] SL-04 Email + SMS link on credit day; employee downloads any past month (2 taps on phone)
-- [ ] SL-05 Bulk download for a section as one ZIP or PDF
-- [ ] S-41 Increments & fixation · S-42 Arrears & supplementary bills · S-43 Loans · S-44 Payslips
+- [x] PR-06 Increment due list on 1 Jan / 1 Jul (six months in the level; own record cannot be ticked; leave without pay flagged); HR & Accounts confirm, Checker verifies, pay history + service book updated, a future date waits for its day
+- [x] PR-07 Pay fixation on promotion / MACP with the rule shown on screen — both options (from promotion / from the next increment date), Checker then Admin
+- [x] PR-08 Arrears "due vs drawn" for any back period (rates, increments, fixation), month by month, paid in a supplementary bill that goes through the same five stages; also bills for pay withheld earlier and for joiners
+- [x] PR-09 Loans & advances: sanction (Checker + Admin), schedule, simple interest after the principal, recovery through payroll recorded on approval and undone on reopen, stops at zero
+- [x] SL-01 PDF payslip: DCB name & logo, Employee ID, post, level & cell, bank last 4, PAN masked
+- [x] SL-02 Earnings, deductions, net in figures and words; leave balance; NPS to date and GPF this year from the pay bills — _full GPF / NPS ledgers with interest in Module 8_
+- [x] SL-03 Hindi and English versions
+- [x] SL-04 Email (PDF attached, Board SMTP) + SMS link on credit day (bank file released); employee downloads any past month (2 taps on phone)
+- [x] SL-05 Bulk download for a bill or one section as one PDF
+- [x] S-41 Increments & fixation · S-42 Arrears & supplementary bills · S-43 Loans · S-44 Payslips (HR & Accounts and My payslips)
 
 ## Module 8 — Statutory & tax (§9)
 - [ ] GPF ledger (min 6%, annual cap ₹5 lakh, advances, withdrawals, interest, annual statement)

@@ -38,7 +38,7 @@ export const PAY_HEAD_DEFAULTS: PayHeadDefault[] = [
   { code: "ESIC", name: "ESIC (employee)", nameHi: "ईएसआईसी (कर्मचारी)", kind: "DEDUCTION", calc: "SYSTEM", prorate: false, accountHead: "D-2.05 ESIC payable" },
   { code: "IT", name: "Income tax (TDS)", nameHi: "आयकर (टीडीएस)", kind: "DEDUCTION", calc: "ITEM", prorate: false, accountHead: "D-2.06 Income tax deducted" },
   { code: "LICENCE", name: "Licence fee (quarters)", nameHi: "लाइसेंस शुल्क (आवास)", kind: "DEDUCTION", calc: "ITEM", prorate: false, accountHead: "R-3.01 Rent of buildings" },
-  { code: "LOAN", name: "Loan and advance recovery", nameHi: "ऋण एवं अग्रिम वसूली", kind: "DEDUCTION", calc: "ITEM", prorate: false, accountHead: "D-2.07 Loans and advances" },
+  { code: "LOAN", name: "Loan and advance recovery", nameHi: "ऋण एवं अग्रिम वसूली", kind: "DEDUCTION", calc: "SYSTEM", prorate: false, accountHead: "D-2.07 Loans and advances" },
   { code: "COURT", name: "Court attachment", nameHi: "न्यायालय कुर्की", kind: "DEDUCTION", calc: "ITEM", prorate: false, accountHead: "D-2.08 Court attachments" },
   { code: "SOCIETY", name: "Co-operative society dues", nameHi: "सहकारी समिति देय", kind: "DEDUCTION", calc: "ITEM", prorate: false, accountHead: "D-2.09 Society dues" },
   { code: "RECOVERY", name: "Overpayment recovery", nameHi: "अधिक भुगतान वसूली", kind: "DEDUCTION", calc: "ITEM", prorate: false, accountHead: "D-2.10 Recoveries of overpayment" },

@@ -9,7 +9,7 @@ import { amountInWords, formatINR } from "@/lib/money";
 import { embeddedFonts, logoDataUrl, renderPdf } from "@/lib/pdf";
 import { fullName } from "@/modules/employees/present";
 import type { PayLine } from "./engine";
-import { runTitle, type RunGroup } from "./compute";
+import { titleOf } from "./compute";
 
 /**
  * PR-11: pay bill, salary register, schedules of deductions and acquittance roll, printed from the run.
@@ -106,7 +106,7 @@ function page(d: Loaded, doc: PrintDoc, body: string, actor: Actor, landscape = 
     .keep { break-inside: avoid; page-break-inside: avoid; }
     footer { margin-top: 18px; display: flex; justify-content: space-between; font-size: 7.5pt; color: #6b7a72; }
   </style></head><body>
-    <header>${logo ? `<img src="${logo}" alt="">` : ""}<div><h1>${esc(board.name)} · <span lang="hi">${esc(board.nameHi)}</span></h1><p>${DOC_TITLE[doc][0]} · <span lang="hi">${DOC_TITLE[doc][1]}</span> — ${esc(runTitle(run.payGroup as RunGroup, run.month))}</p></div></header>
+    <header>${logo ? `<img src="${logo}" alt="">` : ""}<div><h1>${esc(board.name)} · <span lang="hi">${esc(board.nameHi)}</span></h1><p>${DOC_TITLE[doc][0]} · <span lang="hi">${DOC_TITLE[doc][1]}</span> — ${esc(titleOf(run))}</p></div></header>
     <div class="meta">
       <span>Bill no. / बिल सं.: <b>${esc(billNo)}</b></span>
       <span>Month / माह: <b>${esc(formatMonth(run.month))}</b></span>
@@ -268,6 +268,6 @@ export async function payrollPdf(actor: Actor, runId: string, doc: PrintDoc) {
   const d = await load(actor, runId);
   const body = doc === "paybill" ? payBill(d) : doc === "register" ? register(d) : doc === "schedules" ? schedules(d) : acquittance(d);
   const pdf = await renderPdf(page(d, doc, body, actor, doc === "register"), { landscape: doc === "register" });
-  await audit(db, actor, { action: "PRINT", entityType: "PayrollRun", entityId: runId, summary: `Printed the ${DOC_TITLE[doc][0].toLowerCase()} for ${runTitle(d.run.payGroup as RunGroup, d.run.month)}` });
+  await audit(db, actor, { action: "PRINT", entityType: "PayrollRun", entityId: runId, summary: `Printed the ${DOC_TITLE[doc][0].toLowerCase()} for ${titleOf(d.run)}` });
   return { pdf, fileName: `${DOC_TITLE[doc][0].replace(/\s+/g, "-")}-${d.run.month}-${d.run.payGroup}.pdf` };
 }

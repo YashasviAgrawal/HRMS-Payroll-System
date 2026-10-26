@@ -22,7 +22,7 @@ test("HR screens fit a phone screen", async ({ page }) => {
 
 test("employee screens fit a phone screen", async ({ page }) => {
   await signIn(page, { as: "Employee / Pensioner", id: "DCB10014" });
-  for (const path of ["/home", "/my/record", "/my/requests", "/my/attendance", "/leave", "/leave/apply", "/leave/ledger/me", "/profile"]) {
+  for (const path of ["/home", "/my/record", "/my/requests", "/my/attendance", "/my/payslips", "/leave", "/leave/apply", "/leave/ledger/me", "/profile"]) {
     await expectNoSidewaysScroll(page, path);
   }
 });
@@ -36,7 +36,7 @@ test("reporting officer screens fit a phone screen", async ({ page }) => {
 
 test("payroll screens fit a phone screen", async ({ page }) => {
   await signIn(page, { as: "HR & Accounts", id: "DCB10004" });
-  for (const path of ["/payroll", "/payroll/items", "/admin/rates", "/admin/rates?tab=heads", "/admin/rates?tab=matrix"]) {
+  for (const path of ["/payroll", "/payroll/items", "/payroll/increments", "/payroll/increments?tab=fixation", "/payroll/arrears", "/payroll/loans", "/payroll/payslips", "/admin/rates", "/admin/rates?tab=heads", "/admin/rates?tab=matrix"]) {
     await expectNoSidewaysScroll(page, path);
   }
   // A closed month from the demo history: every tab and one pay sheet.

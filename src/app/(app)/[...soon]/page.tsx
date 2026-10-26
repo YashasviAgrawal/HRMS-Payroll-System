@@ -16,7 +16,6 @@ const UPCOMING: Record<string, number> = {
   "my/requests": 2,
   "my/attendance": 4,
   "my/team": 4,
-  "my/payslips": 7,
   "my/pension-slips": 9,
   "my/life-certificate": 9,
   recruitment: 3,

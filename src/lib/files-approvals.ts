@@ -7,10 +7,10 @@ import { releaseHookFor } from "@/lib/files-hooks";
 defineApprovalKind<{ fileId: string }>({
   kind: "file.release",
   requiredPermission: "APPROVER",
-  async onApprove({ tx, payload, actor }) {
+  async onApprove({ tx, payload, actor, afterCommit }) {
     const file = await tx.fileRecord.update({ where: { id: payload.fileId }, data: { status: "APPROVED", approvedById: actor.userId, approvedAt: new Date() } });
     await audit(tx, actor, { action: "APPROVE_FILE", entityType: "FileRecord", entityId: file.id, summary: `Approved ${file.fileName} for download`, newValue: { sha256: file.sha256 } });
-    await releaseHookFor(file.kind)?.(tx, file, actor);
+    await releaseHookFor(file.kind)?.(tx, file, actor, afterCommit);
   },
   async onReject({ tx, payload }) {
     await tx.fileRecord.update({ where: { id: payload.fileId }, data: { status: "REJECTED" } });

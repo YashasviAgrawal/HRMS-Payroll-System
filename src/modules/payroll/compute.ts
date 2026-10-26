@@ -10,6 +10,7 @@ import { datesOfMonth, daysBetweenInclusive, endOfMonth, formatMonth, fromISODat
 import { badRequest, conflict } from "@/lib/errors";
 import { changePct, EXCEPTION_RULES, exceptionKey, preChecks, type Found } from "./checks";
 import { computePay, TYPES_IN_GROUP, type HeadRule, type PayInput, type PayLine } from "./engine";
+import { loanPosition } from "./loan-rules";
 
 // ─── Reading ──────────────────────────────────────────────────────────────────
 
@@ -61,6 +62,35 @@ const MATRIX_TYPES: EmployeeType[] = ["PERMANENT_OPS", "PERMANENT_NPS", "DEPUTAT
 const num = (v: { toString(): string } | null | undefined) => (v === null || v === undefined ? 0 : Number(v));
 const groupLabel: Record<RunGroup, string> = { OPS: "Permanent – OPS", NPS: "Permanent – NPS", CONTRACT: "Contract and daily wage" };
 const groupLabelHi: Record<RunGroup, string> = { OPS: "स्थायी – ओपीएस", NPS: "स्थायी – एनपीएस", CONTRACT: "संविदा और दैनिक वेतन" };
+export type SupplementarySource =
+  | { type: "ARREARS"; employeeIds: string[]; fromMonth: string; toMonth: string; reason: string }
+  | { type: "WITHHELD"; payslipIds: string[] }
+  | { type: "JOINER"; employeeIds: string[]; forMonth: string };
+
+/** The name of a bill: "Payroll October 2026 — Permanent – NPS", or for a supplementary bill what it pays. */
+export function titleOf(run: { payGroup: string; month: string; kind?: string; seq?: number; source?: unknown }, lang: "en" | "hi" = "en"): string {
+  const group = run.payGroup as RunGroup;
+  if (run.kind !== "SUPPLEMENTARY") return runTitle(group, run.month, lang);
+  const src = (run.source ?? {}) as Partial<SupplementarySource>;
+  const what =
+    src.type === "ARREARS"
+      ? lang === "hi"
+        ? `बकाया ${formatMonth(src.fromMonth!, "hi")} – ${formatMonth(src.toMonth!, "hi")}`
+        : `Arrears ${formatMonth(src.fromMonth!)} – ${formatMonth(src.toMonth!)}`
+      : src.type === "WITHHELD"
+        ? lang === "hi"
+          ? "रोका गया वेतन"
+          : "Pay withheld earlier"
+        : src.type === "JOINER"
+          ? lang === "hi"
+            ? `कार्यग्रहण — ${formatMonth(src.forMonth!, "hi")} का वेतन`
+            : `Joiners — pay for ${formatMonth(src.forMonth!)}`
+          : "";
+  return lang === "hi"
+    ? `पूरक बिल ${run.seq ?? ""} · ${formatMonth(run.month, "hi")} — ${groupLabelHi[group]} — ${what}`
+    : `Supplementary bill ${run.seq ?? ""} · ${formatMonth(run.month)} — ${groupLabel[group]} — ${what}`;
+}
+
 export const runTitle = (group: RunGroup, month: string, lang: "en" | "hi" = "en") =>
   lang === "hi" ? `वेतन ${formatMonth(month, "hi")} — ${groupLabelHi[group]}` : `Payroll ${formatMonth(month)} — ${groupLabel[group]}`;
 
@@ -86,6 +116,52 @@ export interface ComputedSlip {
   ifsc: string | null;
   lastNet: number | null;
   changePct: number | null;
+  /** Loan instalments in a regular bill; month-by-month arrears in a supplementary one. */
+  detail?: unknown;
+}
+
+export interface PayAsOf {
+  payLevel: string | null;
+  payCell: number | null;
+  postId: string;
+}
+
+/**
+ * Pay level, cell and post in force on a date (PR-06, PR-07): the latest pay-history row on or before it, else the
+ * employee record. Rows for the people asked are read once.
+ */
+export async function payAsOf(tx: DbLike, employees: { id: string; payLevel: string | null; payCell: number | null; postId: string }[], date: ISODate) {
+  const rows = await tx.payHistory.findMany({ where: { employeeId: { in: employees.map((e) => e.id) }, effectiveFrom: { lte: fromISODate(date) } }, orderBy: [{ effectiveFrom: "desc" }, { createdAt: "desc" }] });
+  const latest = new Map<string, (typeof rows)[number]>();
+  for (const r of rows) if (!latest.has(r.employeeId)) latest.set(r.employeeId, r);
+  return new Map<string, PayAsOf>(
+    employees.map((e) => {
+      const h = latest.get(e.id);
+      return [e.id, h ? { payLevel: h.payLevel, payCell: h.payCell, postId: h.postId ?? e.postId } : { payLevel: e.payLevel, payCell: e.payCell, postId: e.postId }];
+    }),
+  );
+}
+
+export interface LoanDue {
+  loanId: string;
+  principal: number;
+  interest: number;
+}
+
+/** PR-09: what each running loan recovers in a month, from recoveries through approved payrolls of earlier months. */
+export async function loansDue(tx: DbLike, employeeIds: string[], month: string) {
+  const loans = await tx.loan.findMany({ where: { employeeId: { in: employeeIds }, status: "RUNNING", startMonth: { lte: month } }, include: { recoveries: true }, orderBy: { sanctionDate: "asc" } });
+  const out = new Map<string, LoanDue[]>();
+  for (const l of loans) {
+    const pos = loanPosition(
+      { principal: num(l.principal), interestRate: num(l.interestRate), instalmentAmount: num(l.instalmentAmount), startMonth: l.startMonth },
+      l.recoveries.map((r) => ({ month: r.month, principal: num(r.principal), interest: num(r.interest) })),
+      month,
+    );
+    if (pos.due.principal + pos.due.interest <= 0) continue;
+    out.set(l.employeeId, [...(out.get(l.employeeId) ?? []), { loanId: l.id, ...pos.due }]);
+  }
+  return out;
 }
 
 /**
@@ -98,7 +174,7 @@ export async function computeRun(tx: DbLike, boardId: string, group: RunGroup, m
   const monthEnd = endOfMonth(monthStart);
   const dim = datesOfMonth(month).length;
   const last = shiftMonth(month, -1);
-  const [employees, rates, matrix, headRows, sections] = await Promise.all([
+  const [employees, rates, matrix, headRows, sections, posts] = await Promise.all([
     tx.employee.findMany({
       where: {
         boardId,
@@ -114,16 +190,20 @@ export async function computeRun(tx: DbLike, boardId: string, group: RunGroup, m
     matrixOn(boardId, monthStart, tx),
     payHeads(boardId, tx),
     tx.section.findMany({ where: { boardId }, select: { id: true, name: true, nameHi: true } }),
+    tx.post.findMany({ where: { boardId } }),
   ]);
   const ids = employees.map((e) => e.id);
-  const [items, locks, attMonths, lastSlips, holders] = await Promise.all([
+  const [items, locks, attMonths, lastSlips, holders, pays, loans] = await Promise.all([
     itemsFor(boardId, month, ids, tx),
     tx.attendanceLock.findMany({ where: { boardId, month: last, unlockedAt: null }, select: { sectionId: true } }),
     tx.attendanceMonth.findMany({ where: { employeeId: { in: ids }, month: last } }),
     // Last month's pay as approved — a draft that never went out is not "last month".
     tx.payslip.findMany({ where: { employeeId: { in: ids }, month: last, status: "INCLUDED", run: { status: { in: ["APPROVED", "PAID", "CLOSED"] } } }, select: { employeeId: true, net: true }, orderBy: { createdAt: "asc" } }),
     tx.employee.groupBy({ by: ["bankAccountHash"], where: { boardId, bankAccountHash: { not: null }, status: { in: ["ACTIVE", "SUSPENDED"] } }, _count: { _all: true } }),
+    payAsOf(tx, employees, monthStart),
+    loansDue(tx, ids, month),
   ]);
+  const postBy = new Map(posts.map((p) => [p.id, p]));
   if (!matrix && employees.some((e) => MATRIX_TYPES.includes(e.type))) throw badRequest("payroll.errors.noMatrix");
   const heads = headRows.filter((h) => h.isActive).map(toHeadRule);
   const locked = new Set(locks.map((l) => l.sectionId));
@@ -156,13 +236,18 @@ export async function computeRun(tx: DbLike, boardId: string, group: RunGroup, m
         notLocked.set(e.sectionId, [...(notLocked.get(e.sectionId) ?? []), e.id]);
       }
     }
-    const basic = isMatrix ? basicFrom(matrix?.levels, e.payLevel, e.payCell) : null;
+    const pay = pays.get(e.id)!;
+    const post = postBy.get(pay.postId) ?? e.post;
+    const basic = isMatrix ? basicFrom(matrix?.levels, pay.payLevel, pay.payCell) : null;
     const noPayLevel = isMatrix ? basic === null : e.wageRate === null;
+    const loanLines = loans.get(e.id) ?? [];
+    const personItems = { ...(items.get(e.id) ?? {}) };
+    if (loanLines.length) personItems.LOAN = (personItems.LOAN ?? 0) + loanLines.reduce((s, l) => s + l.principal + l.interest, 0);
     const result = computePay({
       type: e.type,
-      postCode: e.post.code,
-      group: e.post.group,
-      payLevel: e.payLevel,
+      postCode: post.code,
+      group: post.group,
+      payLevel: pay.payLevel,
       basic,
       wageRate: e.wageRate === null ? null : num(e.wageRate),
       wageBasis: e.wageBasis,
@@ -171,16 +256,16 @@ export async function computeRun(tx: DbLike, boardId: string, group: RunGroup, m
       last: lastAtt,
       rates,
       heads,
-      items: items.get(e.id) ?? {},
+      items: personItems,
     });
     const lastNet = lastNetBy.get(e.id) ?? null;
     const pct = changePct(result.net, lastNet);
     slips.push({
       employeeId: e.id,
       sectionId: e.sectionId,
-      postId: e.postId,
-      payLevel: e.payLevel,
-      payCell: e.payCell,
+      postId: pay.postId,
+      payLevel: pay.payLevel,
+      payCell: pay.payCell,
       daysInMonth: dim,
       daysOnRoll,
       lossDays: lastAtt?.lossDays ?? 0,
@@ -191,6 +276,7 @@ export async function computeRun(tx: DbLike, boardId: string, group: RunGroup, m
       ifsc: e.ifsc,
       lastNet,
       changePct: pct,
+      detail: loanLines.length ? { loans: loanLines } : undefined,
     });
     facts.push({ employeeId: e.id, net: result.net, lastNet, hasBank: Boolean(e.bankAccountHash && e.ifsc), bankHash: e.bankAccountHash, afterRetirement, noPayLevel, suspended: e.status === "SUSPENDED" });
   }
@@ -221,15 +307,34 @@ export async function applyResolutions(tx: Tx, runId: string) {
   });
 }
 
-/** Saves a worked-out run, carrying over resolutions that still apply. Used by the run and by the demo seed. */
-export async function saveRun(tx: Tx, who: { boardId: string; userId: string; name: string }, group: RunGroup, month: string, computed: Awaited<ReturnType<typeof computeRun>>) {
-  const existing = await tx.payrollRun.findUnique({ where: { boardId_payGroup_month: { boardId: who.boardId, payGroup: group, month } } });
+export interface RunTarget {
+  /** A supplementary bill being worked out again. */
+  runId?: string;
+  kind?: "REGULAR" | "SUPPLEMENTARY";
+  title?: string;
+  source?: unknown;
+}
+
+/**
+ * Saves a worked-out run, carrying over resolutions that still apply. The regular bill is found by pay group and month;
+ * a supplementary bill by its id, or created with the month's next number. Used by the run, S-42 and the demo seed.
+ */
+export async function saveRun(tx: Tx, who: { boardId: string; userId: string; name: string }, group: RunGroup, month: string, computed: { slips: ComputedSlip[]; found: Found[] }, target: RunTarget = {}) {
+  const kind = target.kind ?? "REGULAR";
+  const existing = target.runId
+    ? await tx.payrollRun.findFirst({ where: { id: target.runId, boardId: who.boardId } })
+    : kind === "REGULAR"
+      ? await tx.payrollRun.findUnique({ where: { boardId_payGroup_month_kind_seq: { boardId: who.boardId, payGroup: group, month, kind, seq: 0 } } })
+      : null;
   if (existing && existing.status !== "DRAFT") throw conflict("payroll.errors.notDraft");
+  const seq =
+    kind === "REGULAR" ? 0 : existing ? existing.seq : ((await tx.payrollRun.aggregate({ where: { boardId: who.boardId, payGroup: group, month, kind }, _max: { seq: true } }))._max.seq ?? 0) + 1;
+  const extra = { title: target.title ?? existing?.title ?? null, source: target.source === undefined ? undefined : (target.source as Prisma.InputJsonValue) };
   const old = existing ? await tx.payrollException.findMany({ where: { runId: existing.id, resolution: { not: null } } }) : [];
   const oldBy = new Map(old.map((x) => [exceptionKey(x), x]));
   const run = existing
-    ? await tx.payrollRun.update({ where: { id: existing.id }, data: { version: { increment: 1 }, runById: who.userId, runByName: who.name, runAt: new Date() } })
-    : await tx.payrollRun.create({ data: { boardId: who.boardId, payGroup: group, month, runById: who.userId, runByName: who.name, runAt: new Date() } });
+    ? await tx.payrollRun.update({ where: { id: existing.id }, data: { version: { increment: 1 }, runById: who.userId, runByName: who.name, runAt: new Date(), ...extra } })
+    : await tx.payrollRun.create({ data: { boardId: who.boardId, payGroup: group, month, kind, seq, runById: who.userId, runByName: who.name, runAt: new Date(), ...extra } });
   if (existing) {
     await tx.payslip.deleteMany({ where: { runId: run.id } });
     await tx.payrollException.deleteMany({ where: { runId: run.id } });
@@ -242,6 +347,7 @@ export async function saveRun(tx: Tx, who: { boardId: string; userId: string; na
       payGroup: group as PayGroup,
       ...s,
       lines: s.lines as unknown as Prisma.InputJsonValue,
+      detail: s.detail === undefined ? undefined : (s.detail as Prisma.InputJsonValue),
     })),
   });
   await tx.payrollException.createMany({
@@ -266,4 +372,52 @@ export async function saveRun(tx: Tx, who: { boardId: string; userId: string; na
 /** Pay levels in matrix order: 1, 2 … 13, 13A, 14 … (JSON objects come back in key order, not matrix order). */
 export function levelOrder(a: string, b: string): number {
   return parseInt(a, 10) - parseInt(b, 10) || a.localeCompare(b);
+}
+
+/** PR-09: an approved payroll records each loan instalment it recovered; a loan repaid in full closes. */
+export async function recordLoanRecoveries(tx: Tx, runId: string) {
+  const run = await tx.payrollRun.findUniqueOrThrow({ where: { id: runId } });
+  const slips = await tx.payslip.findMany({ where: { runId, status: "INCLUDED" }, select: { detail: true } });
+  const touched = new Set<string>();
+  for (const s of slips) {
+    for (const l of ((s.detail as { loans?: LoanDue[] } | null)?.loans ?? [])) {
+      await tx.loanRecovery.upsert({
+        where: { loanId_runId: { loanId: l.loanId, runId } },
+        create: { loanId: l.loanId, runId, month: run.month, principal: l.principal, interest: l.interest },
+        update: { principal: l.principal, interest: l.interest },
+      });
+      touched.add(l.loanId);
+    }
+  }
+  await settleLoans(tx, [...touched], shiftMonth(run.month, 1));
+}
+
+/** Reopening a payroll (PR-13) takes its loan instalments back out. */
+export async function undoLoanRecoveries(tx: Tx, runId: string) {
+  const rows = await tx.loanRecovery.findMany({ where: { runId }, select: { loanId: true } });
+  await tx.loanRecovery.deleteMany({ where: { runId } });
+  await settleLoans(tx, [...new Set(rows.map((r) => r.loanId))], "9999-12");
+}
+
+/** Marks loans closed once nothing is left (recovery stops at zero), or running again if a recovery was undone. */
+async function settleLoans(tx: Tx, loanIds: string[], asOfMonth: string) {
+  for (const id of loanIds) {
+    const l = await tx.loan.findUniqueOrThrow({ where: { id }, include: { recoveries: true } });
+    if (l.status !== "RUNNING" && l.status !== "CLOSED") continue;
+    const recovered = l.recoveries.map((r) => ({ month: r.month, principal: num(r.principal), interest: num(r.interest) }));
+    const lastMonth = recovered.reduce((m, r) => (r.month > m ? r.month : m), "");
+    const pos = loanPosition({ principal: num(l.principal), interestRate: num(l.interestRate), instalmentAmount: num(l.instalmentAmount), startMonth: l.startMonth }, recovered, lastMonth ? shiftMonth(lastMonth, 1) : asOfMonth);
+    if (pos.closed && recovered.length) await tx.loan.update({ where: { id }, data: { status: "CLOSED", closedMonth: lastMonth } });
+    else if (!pos.closed && l.status === "CLOSED") await tx.loan.update({ where: { id }, data: { status: "RUNNING", closedMonth: null } });
+  }
+}
+
+/** Applies pay changes whose date has come (an increment approved in December for 1 January) to the employee record. */
+export async function applyDuePayChanges(tx: Tx, boardId: string, today: ISODate) {
+  const due = await tx.payHistory.findMany({ where: { boardId, applied: false, effectiveFrom: { lte: fromISODate(today) } }, orderBy: [{ effectiveFrom: "asc" }, { createdAt: "asc" }] });
+  for (const h of due) {
+    await tx.employee.update({ where: { id: h.employeeId }, data: { payLevel: h.payLevel, payCell: h.payCell, ...(h.postId ? { postId: h.postId } : {}) } });
+    await tx.payHistory.update({ where: { id: h.id }, data: { applied: true } });
+  }
+  return due.length;
 }

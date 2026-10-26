@@ -592,7 +592,13 @@ export async function applyEmployeeChange(
   if (data.bankAccountHash) hashes.bankAccount = String(data.bankAccountHash);
   await assertNoDuplicates(before.boardId, hashes, employeeId, tx);
   const dbData = toDbData(data);
-  await duplicateGuard(() => tx.employee.update({ where: { id: employeeId }, data: dbData }));
+  const after = await duplicateGuard(() => tx.employee.update({ where: { id: employeeId }, data: dbData }));
+  // A corrected level, cell or post is pay history from the 1st of this month, so it is not overtaken by an older row.
+  if (after.payLevel && after.payCell && (after.payLevel !== before.payLevel || after.payCell !== before.payCell || after.postId !== before.postId)) {
+    await tx.payHistory.create({
+      data: { boardId: before.boardId, employeeId, effectiveFrom: fromISODate(`${todayIST().slice(0, 7)}-01`), payLevel: after.payLevel, payCell: after.payCell, postId: after.postId, reason: "CORRECTION", applied: true, createdById: task.makerId },
+    });
+  }
   if (history.length) {
     await tx.employeeFieldHistory.createMany({
       data: history.map((h) => ({

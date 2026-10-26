@@ -1,9 +1,13 @@
 import "server-only";
 import type { z } from "zod";
+import { chainTask } from "@/lib/approvals/engine";
 import { defineApprovalKind } from "@/lib/approvals/registry";
 import type { ISODate } from "@/lib/dates";
 // Registers the bank-file release hooks (salary paid, failed credits re-paid).
 import "./pay";
+import { applyFixation, type FixationPayload } from "./fixation";
+import { applyIncrements, type IncrementPayload } from "./increments";
+import { onLoanApproved, onLoanRejected } from "./loans";
 import { applyHead, applyMatrix, applyPayItem, applyRate, type headProposalSchema, type payItemSchema, type rateProposalSchema } from "./rates";
 import { onApproved, onChecked, onSentBack } from "./run";
 
@@ -70,3 +74,48 @@ defineApprovalKind<{ runId: string }>({
     await onSentBack(tx, payload.runId);
   },
 });
+
+/** PR-06: HR confirms the increment list, a Checker verifies it. */
+defineApprovalKind<IncrementPayload>({
+  kind: "increment.batch",
+  requiredPermission: "CHECKER",
+  sensitive: true,
+  async onApprove({ tx, task, payload, actor }) {
+    await applyIncrements(tx, task, actor, payload);
+  },
+});
+
+/** PR-07: a Checker checks the fixation, then an Admin approves it (promotion is an Approver event in the service book, §14). */
+defineApprovalKind<FixationPayload & { step?: "approver" }>({
+  kind: "pay.fixation",
+  requiredPermission: "CHECKER",
+  sensitive: true,
+  async onApprove({ tx, task, payload, actor }) {
+    if (payload.step !== "approver") {
+      await chainTask(tx, task, { requiredPermission: "APPROVER", payload: { ...payload, step: "approver" } });
+      return;
+    }
+    await applyFixation(tx, task, actor, payload);
+  },
+});
+
+/** PR-09: Payroll sanctions, a Checker checks, an Admin approves (§14 arrears and loans). */
+defineApprovalKind<{ loanId: string; step?: "approver" }>({
+  kind: "loan.sanction",
+  requiredPermission: "CHECKER",
+  sensitive: true,
+  async onApprove({ tx, task, payload }) {
+    if (payload.step !== "approver") {
+      await chainTask(tx, task, { requiredPermission: "APPROVER", payload: { ...payload, step: "approver" } });
+      return;
+    }
+    await onLoanApproved(tx, task, payload.loanId);
+  },
+  async onReject({ tx, payload }) {
+    await onLoanRejected(tx, payload.loanId);
+  },
+  async onCancel({ tx, payload }) {
+    await onLoanRejected(tx, payload.loanId);
+  },
+});
+

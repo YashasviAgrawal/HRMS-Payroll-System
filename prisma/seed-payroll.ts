@@ -4,9 +4,10 @@
  */
 import type { PrismaClient } from "../src/generated/prisma/client";
 import { datesOfMonth, fromISODate, shiftMonth, todayIST, weekday } from "../src/lib/dates";
-import { computeRun, RUN_GROUPS, saveRun } from "../src/modules/payroll/compute";
+import { computeRun, recordLoanRecoveries, RUN_GROUPS, saveRun } from "../src/modules/payroll/compute";
 import { PAY_HEAD_DEFAULTS } from "../src/modules/payroll/head-defaults";
 import { seventhCpcMatrix } from "../src/modules/payroll/matrix-7cpc";
+import { incrementDatesAround, incrementMonthFor } from "../src/modules/payroll/pay-rules";
 import { RATE_DEFAULTS } from "../src/modules/payroll/rate-catalog";
 
 /** Matrix, rates and pay heads. Existing rows are left alone: after the first load the tables belong to the Board. */
@@ -58,7 +59,6 @@ const DEMO_ITEMS: [string, string, number, number, number | null, string][] = [
   ["DCB10017", "IT", 12000, 0, null, "TDS projected for 2026-27"],
   ["DCB10013", "IT", 4200, 0, null, "TDS projected for 2026-27"],
   ["DCB10005", "SOCIETY", 1000, 0, null, "DCB Employees' Co-operative Society"],
-  ["DCB10012", "LOAN", 3000, 0, null, "Festival advance — instalment"],
   ["DCB10016", "IT", 6000, 2, null, "TDS revised after declarations"],
   // A one-off recovery this month makes a net-pay change over 25% for the Checker to see (PR-10).
   ["DCB10019", "RECOVERY", 18000, 2, 2, "Recovery of HRA paid twice in August"],
@@ -70,8 +70,34 @@ const DEMO_ITEMS: [string, string, number, number, number | null, string][] = [
  */
 export async function seedPayrollDemo(db: PrismaClient, boardId: string, people: Map<string, string>, users: { payroll: { id: string; name: string }; checker: { id: string; name: string }; signer: { id: string; name: string } }) {
   if ((await db.payrollRun.count({ where: { boardId } })) > 0) return;
-  const thisMonth = todayIST().slice(0, 7);
+  const today = todayIST();
+  const thisMonth = today.slice(0, 7);
   const months = [shiftMonth(thisMonth, -2), shiftMonth(thisMonth, -1)];
+
+  // PR-06: the last 1 January and 1 July increments were given on time — pay history and service book.
+  const { last } = incrementDatesAround(today);
+  const lastJan = `${last.slice(0, 4)}-01-01`;
+  const staff = await db.employee.findMany({ where: { boardId, status: "ACTIVE", type: { in: ["PERMANENT_OPS", "PERMANENT_NPS", "DEPUTATION"] }, payCell: { gt: 1 } } });
+  for (const e of staff) {
+    const doj = e.dateOfJoining.toISOString().slice(0, 10);
+    const due = incrementMonthFor(doj) === 1 ? lastJan : `${last.slice(0, 4)}-07-01`;
+    if (due > today || doj > `${shiftMonth(due.slice(0, 7), -6)}-01`) continue;
+    const entry = await db.serviceBookEntry.create({
+      data: { employeeId: e.id, event: "INCREMENT", eventDate: fromISODate(due), details: `Annual increment: Level ${e.payLevel}, cell ${e.payCell! - 1} → ${e.payCell}`, detailsHi: `वार्षिक वेतन वृद्धि: लेवल ${e.payLevel}, सेल ${e.payCell! - 1} → ${e.payCell}`, data: { fromLevel: e.payLevel, fromCell: e.payCell! - 1, toLevel: e.payLevel, toCell: e.payCell }, status: "APPROVED", createdById: users.payroll.id, approvedById: users.checker.id },
+    });
+    await db.payHistory.create({ data: { boardId, employeeId: e.id, effectiveFrom: fromISODate(due), payLevel: e.payLevel!, payCell: e.payCell!, reason: "INCREMENT", serviceEntryId: entry.id, applied: true, createdById: users.payroll.id } });
+  }
+
+  // PR-09: two running loans, recovered through the closed months below.
+  const loan = async (code: string, data: { type: "FESTIVAL" | "COMPUTER"; principal: number; interestRate: number; instalments: number; purpose: string; order: string }) => {
+    const employeeId = people.get(code);
+    if (!employeeId) return;
+    await db.loan.create({
+      data: { boardId, employeeId, type: data.type, purpose: data.purpose, principal: data.principal, interestRate: data.interestRate, instalments: data.instalments, instalmentAmount: Math.ceil(data.principal / data.instalments), sanctionDate: fromISODate(`${shiftMonth(months[0], -1)}-20`), orderNumber: data.order, startMonth: months[0], status: "RUNNING", createdById: users.payroll.id, createdByName: users.payroll.name },
+    });
+  };
+  await loan("DCB10012", { type: "FESTIVAL", principal: 10000, interestRate: 0, instalments: 10, purpose: "Festival advance", order: "DCB/Accts/Adv/112" });
+  await loan("DCB10013", { type: "COMPUTER", principal: 50000, interestRate: 9.8, instalments: 25, purpose: "Laptop for site inspections", order: "DCB/Accts/Adv/108" });
   for (const [code, headCode, amount, from, to, note] of DEMO_ITEMS) {
     const employeeId = people.get(code);
     if (!employeeId) continue;
@@ -106,7 +132,9 @@ export async function seedPayrollDemo(db: PrismaClient, boardId: string, people:
             closedAt: day(3),
           },
         });
-        await tx.payslip.updateMany({ where: { runId: run.id, status: "INCLUDED" }, data: { creditStatus: "CREDITED" } });
+        await tx.payslip.updateMany({ where: { runId: run.id, status: "INCLUDED" }, data: { creditStatus: "CREDITED", sentAt: payDay } });
+        await tx.payrollRun.update({ where: { id: run.id }, data: { payslipsSentAt: payDay } });
+        await recordLoanRecoveries(tx, run.id);
       });
     }
   }

@@ -106,9 +106,13 @@ export async function seedLeaveDemo(db: PrismaClient, boardId: string, people: P
   const byCode = new Map(people.map((p) => [p.code, p]));
   const lastMonth = shiftMonth(monthOf(today), -1);
   const workingIn = (month: string, from: number) => datesOfMonth(month).filter((d) => Number(d.slice(8)) >= from && weekday(d) >= 1 && weekday(d) <= 5);
+  // Working days from the first Monday a week or more ahead, so a week's application never spans a weekend
+  // (EL counts weekends) and the demo reads the same whichever day it is loaded.
   const upcoming = (n: number) => {
     const out: ISODate[] = [];
-    for (let d = addDays(today, 7); out.length < n; d = addDays(d, 1)) if (weekday(d) >= 1 && weekday(d) <= 5) out.push(d);
+    let d = addDays(today, 7);
+    while (weekday(d) !== 1) d = addDays(d, 1);
+    for (; out.length < n; d = addDays(d, 1)) if (weekday(d) >= 1 && weekday(d) <= 5) out.push(d);
     return out;
   };
 

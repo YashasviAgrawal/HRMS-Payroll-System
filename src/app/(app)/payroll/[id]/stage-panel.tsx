@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
-import { Banknote, Check, CheckCircle2, Clock, CornerUpLeft, Download, FileUp, KeyRound, Lock, RotateCcw, Send, Undo2 } from "lucide-react";
+import { Banknote, Check, CheckCircle2, Clock, CornerUpLeft, Download, FileUp, KeyRound, Lock, RefreshCw, RotateCcw, Send, Undo2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonClass } from "@/components/ui/button";
 import { Card, CardBody, CardFooter, CardHeader } from "@/components/ui/card";
@@ -14,7 +14,6 @@ import { useToast } from "@/components/ui/toast";
 import { ApiError, api } from "@/lib/http";
 import { useT } from "@/lib/i18n/client";
 import type { RunStatus } from "@/modules/payroll/present";
-import { RunButton } from "../run-button";
 
 interface FileInfo {
   id: string;
@@ -137,7 +136,9 @@ export function StagePanel(p: Props) {
           <p className="text-xs text-ink-500">{t("payroll.runAgainHelp")}</p>
         </CardBody>
         <CardFooter className="justify-between">
-          <RunButton payGroup={p.payGroup} month={p.month} again variant="secondary" />
+          <Button variant="secondary" icon={<RefreshCw className="size-4" />} loading={busy === "rerun"} onClick={() => call("rerun", `/api/v1/payroll/runs/${p.runId}/rerun`, {}, t("payroll.runDone"))}>
+            {t("payroll.runAgain")}
+          </Button>
           <Button variant="primary" icon={<Send className="size-4" />} loading={busy === "submit"} disabled={!p.can.submit} onClick={() => call("submit", `/api/v1/payroll/runs/${p.runId}/submit`, { note: note.trim() || undefined }, t("payroll.actions.sent"))}>
             {p.open ? t("payroll.toFix", { count: p.open }) : t("payroll.actions.sendToChecker")}
           </Button>

@@ -131,7 +131,7 @@ export function ItemsPanel({ employeeId, items, heads, canEdit, isSelf, thisMont
         }
       >
         <div className="grid gap-4 sm:grid-cols-2">
-          <Select label={t("payroll.items.head")} value={form.headCode} onChange={(e) => setForm({ ...form, headCode: e.target.value })} error={errors.headCode} className="sm:col-span-2">
+          <Select label={t("payroll.items.head")} value={form.headCode} onChange={(e) => setForm({ ...form, headCode: e.target.value })} error={errors.headCode} containerClassName="sm:col-span-2">
             {heads.map((h) => (
               <option key={h.code} value={h.code}>
                 {locale === "hi" ? h.nameHi : h.name} ({tDynamic(t, `rates.heads.kinds.${h.kind}`)})

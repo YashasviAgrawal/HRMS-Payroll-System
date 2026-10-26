@@ -17,7 +17,8 @@ import { fullName } from "@/modules/employees/present";
 import { getSetting } from "@/modules/settings/service";
 import { buildBankFile, parseReturnRows, type BankRow } from "./bank-formats";
 import type { PayLine } from "./engine";
-import { runTitle, type RunGroup } from "./compute";
+import { titleOf } from "./compute";
+import { sendPayslipNotices } from "./payslips";
 
 /**
  * Stage 5 of S-40 — Pay (PRD §8 flow steps 6–7): the bank file goes through the file registry (preview → an Admin
@@ -65,7 +66,7 @@ async function bankFileFor(actor: Actor, tx: Tx, run: { id: string; month: strin
   const out = buildBankFile(bank.format, rows, { debitIfsc: bank.ifsc, valueDate: todayIST() });
   const total = rows.reduce((s, r) => s + r.amount, 0);
   const repay = kind === "bank.repay";
-  const title = runTitle(run.payGroup as RunGroup, run.month);
+  const title = titleOf(run);
   return createOutgoingFile(
     actor,
     {
@@ -82,7 +83,7 @@ async function bankFileFor(actor: Actor, tx: Tx, run: { id: string; month: strin
         totals: { "Total amount": formatINR(total, { decimals: true }), Format: bank.format },
       },
       title: `${repay ? "Re-pay bank file" : "Bank file"}: ${title} — ${rows.length} credits, ${formatINR(total)}`,
-      titleHi: `${repay ? "पुनः भुगतान बैंक फ़ाइल" : "बैंक फ़ाइल"}: ${runTitle(run.payGroup as RunGroup, run.month, "hi")} — ${rows.length} भुगतान, ${formatINR(total)}`,
+      titleHi: `${repay ? "पुनः भुगतान बैंक फ़ाइल" : "बैंक फ़ाइल"}: ${titleOf(run, "hi")} — ${rows.length} भुगतान, ${formatINR(total)}`,
       link: `/payroll/${run.id}`,
     },
     tx,
@@ -236,14 +237,14 @@ export async function closeRun(actor: Actor, runId: string) {
           totalRows: rows.length,
           totals: { Debit: formatINR(debit), Credit: formatINR(credit) },
         },
-        title: `Accounting summary: ${runTitle(run.payGroup as RunGroup, run.month)}`,
-        titleHi: `लेखा सारांश: ${runTitle(run.payGroup as RunGroup, run.month, "hi")}`,
+        title: `Accounting summary: ${titleOf(run)}`,
+        titleHi: `लेखा सारांश: ${titleOf(run, "hi")}`,
         link: `/payroll/${run.id}`,
       },
       tx,
     );
     await tx.payrollRun.update({ where: { id: runId }, data: { status: "CLOSED", closedAt: new Date(), summaryFileId: file.id } });
-    await audit(tx, actor, { action: "CLOSE", entityType: "PayrollRun", entityId: runId, summary: `Closed ${runTitle(run.payGroup as RunGroup, run.month)} (${formatMonth(run.month)})` });
+    await audit(tx, actor, { action: "CLOSE", entityType: "PayrollRun", entityId: runId, summary: `Closed ${titleOf(run)} (${formatMonth(run.month)})` });
     await emit(tx, actor.boardId, "payroll.closed", { type: "PayrollRun", id: runId }, { month: run.month, payGroup: run.payGroup });
     return file;
   });
@@ -274,12 +275,16 @@ async function readTable(buffer: Buffer): Promise<string[][]> {
 // ─── Release hooks: the Admin releasing a bank file ──────────────────────────
 
 /** PR-13 boundary: once the salary bank file is released the payroll is paid and can no longer be reopened. */
-onFileReleased("bank.salary", async (tx, file, actor) => {
+onFileReleased("bank.salary", async (tx, file, actor, afterCommit) => {
   const run = await tx.payrollRun.findFirst({ where: { bankFileId: file.id } });
   if (!run || run.status !== "APPROVED") return;
   await tx.payrollRun.update({ where: { id: run.id }, data: { status: "PAID", paidAt: new Date() } });
-  await audit(tx, actor, { action: "PAY", entityType: "PayrollRun", entityId: run.id, summary: `Bank file released — ${runTitle(run.payGroup as RunGroup, run.month)} is paid` });
+  await audit(tx, actor, { action: "PAY", entityType: "PayrollRun", entityId: run.id, summary: `Bank file released — ${titleOf(run)} is paid` });
   await emit(tx, run.boardId, "payroll.paid", { type: "PayrollRun", id: run.id }, { month: run.month, payGroup: run.payGroup });
+  // SL-04: credit day — payslip notices go out once the release is saved.
+  afterCommit(async () => {
+    await sendPayslipNotices(run.boardId, run.id);
+  });
 });
 
 onFileReleased("bank.repay", async (tx, file) => {

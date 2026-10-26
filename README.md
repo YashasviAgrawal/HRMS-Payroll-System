@@ -57,6 +57,8 @@ Employees and pensioners can also choose **"With mobile OTP only"**.
 
 **Payroll (Module 6):** sign in as Mohit (`DCB10004`, HR & Accounts → Payroll) and run this month's payroll for a pay group — the last two months are already closed, so the change against last month shows. Fix the exceptions (Health has not locked last month; Manoj has a one-off recovery), send it to the Checker (`DCB10006`), approve and sign it as Sunita (`DCB10002`, Admin — the OTP shows on screen in demo mode), make the bank file, release it as Anil (`DCB10001`), then read a return file and close the month. Rates, pay heads and the pay matrix are under Payroll → Rates and rules (HR proposes, an Admin approves); standing deductions per person are under Payroll → Pay items (a Checker checks).
 
+**Pay changes, arrears, loans and payslips (Module 7):** under Payroll → Increments and fixation, Mohit sends the 1 January increment list to the Checker, or works out a promotion's pay with the rule shown (Checker, then an Admin). Propose a back-dated DA order under Rates and rules, approve it, then Arrears and supplementary bills works out due vs drawn month by month and makes a supplementary bill that goes through the same five stages. Loans shows two running advances with their schedules; sanction a new one (Checker, then Admin). Employees open My payslips (Suresh, `DCB10010`) to download any month in Hindi or English; Payroll → Payslips downloads a section as one PDF.
+
 ## Commands
 
 | Command | What it does |

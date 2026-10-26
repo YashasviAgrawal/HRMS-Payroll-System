@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { NoAccess } from "@/components/no-access";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader, DescriptionList } from "@/components/ui/card";
@@ -68,7 +69,7 @@ export default async function PaySheetPage({ params }: { params: Promise<{ id: s
       <PageHeader
         breadcrumbs={[
           { label: t("payroll.title"), href: `/payroll?month=${s.run.month}` },
-          { label: `${formatMonth(s.run.month, locale)} — ${tDynamic(t, `payroll.groups.${s.run.payGroup}`)}`, href: `/payroll/${s.run.id}?tab=people` },
+          { label: s.run.kind === "SUPPLEMENTARY" ? (locale === "hi" ? s.run.titleHi : s.run.title) : `${formatMonth(s.run.month, locale)} — ${tDynamic(t, `payroll.groups.${s.run.payGroup}`)}`, href: `/payroll/${s.run.id}?tab=people` },
           { label: s.employee.employeeCode ?? "" },
         ]}
         title={name}
@@ -82,13 +83,18 @@ export default async function PaySheetPage({ params }: { params: Promise<{ id: s
             columns={3}
             items={[
               { label: t("payroll.net"), value: <span className="tabular text-xl font-semibold text-ink-950">{formatINR(s.net)}</span> },
-              { label: t("payroll.lastNet"), value: s.lastNet === null ? "—" : `${formatINR(s.lastNet)}${s.changePct !== null ? ` (${signedPct(s.changePct)}%)` : ""}` },
+              ...(s.run.kind === "SUPPLEMENTARY" ? [] : [{ label: t("payroll.lastNet"), value: s.lastNet === null ? "—" : `${formatINR(s.lastNet)}${s.changePct !== null ? ` (${signedPct(s.changePct)}%)` : ""}` }]),
               { label: t("payroll.slip.payLevel"), value: s.payLevel ? t("payroll.slip.levelCell", { level: s.payLevel, cell: s.payCell ?? "—" }) : "—" },
               { label: t("payroll.slip.bank"), value: s.bankLast4 ? `••••${s.bankLast4}` : "—" },
-              { label: t("payroll.slip.daysInMonth"), value: s.daysInMonth },
-              { label: t("payroll.slip.daysOnRoll"), value: s.daysOnRoll },
-              { label: t("payroll.slip.lossDays"), value: s.lossDays },
-              { label: t("payroll.slip.halfPayDays"), value: s.halfPayDays },
+              // Days do not apply to arrears (they use each month's own days).
+              ...(s.detail.arrears
+                ? []
+                : [
+                    { label: t("payroll.slip.daysInMonth"), value: s.daysInMonth },
+                    { label: t("payroll.slip.daysOnRoll"), value: s.daysOnRoll },
+                    { label: t("payroll.slip.lossDays"), value: s.lossDays },
+                    { label: t("payroll.slip.halfPayDays"), value: s.halfPayDays },
+                  ]),
               ...(s.workedDays !== null && s.employee.type === "DAILY_WAGE" ? [{ label: t("payroll.slip.workedDays"), value: s.workedDays }] : []),
               { label: t("payroll.slip.inWords"), value: amountInWords(s.net, locale) },
             ]}
@@ -101,6 +107,58 @@ export default async function PaySheetPage({ params }: { params: Promise<{ id: s
           {s.creditNote && <p className="mt-2 text-sm text-red-700">{s.creditNote}</p>}
         </CardBody>
       </Card>
+
+      {s.detail.arrears && s.detail.arrears.length > 0 && (
+        <Card className="mb-5">
+          <CardHeader title={t("payroll.slip.arrears")} description={t("payroll.slip.arrearsHelp")} />
+          <Table stack>
+            <THead>
+              <tr>
+                <Th>{t("payroll.month")}</Th>
+                <Th>{t("payroll.columns.head")}</Th>
+                <Th align="right">{t("payroll.slip.due")}</Th>
+                <Th align="right">{t("payroll.slip.drawn")}</Th>
+                <Th align="right">{t("payroll.slip.arrear")}</Th>
+              </tr>
+            </THead>
+            <tbody>
+              {s.detail.arrears.flatMap((m) =>
+                m.lines.map((l) => (
+                  <Tr key={`${m.month}-${l.code}`}>
+                    <Td className="font-medium">{formatMonth(m.month, locale)}</Td>
+                    <Td label={t("payroll.columns.head")}>{locale === "hi" ? l.nameHi : l.name}</Td>
+                    <Td label={t("payroll.slip.due")} align="right">
+                      {formatINR(l.due)}
+                    </Td>
+                    <Td label={t("payroll.slip.drawn")} align="right">
+                      {formatINR(l.drawn)}
+                    </Td>
+                    <Td label={t("payroll.slip.arrear")} align="right" className="font-semibold text-ink-950">
+                      {formatINR(l.diff)}
+                    </Td>
+                  </Tr>
+                )),
+              )}
+            </tbody>
+          </Table>
+        </Card>
+      )}
+      {s.detail.loans && s.detail.loans.length > 0 && (
+        <Card className="mb-5">
+          <CardBody className="text-sm text-ink-700">
+            {t("payroll.slip.loans")}{" "}
+            {s.detail.loans.map((l, i) => (
+              <span key={l.loanId}>
+                {i > 0 && " · "}
+                <Link href={`/payroll/loans/${l.loanId}`} className="font-medium text-brand-700 hover:underline">
+                  {formatINR(l.principal + l.interest)}
+                </Link>
+                {l.interest > 0 && ` (${t("payroll.loans.interest")} ${formatINR(l.interest)})`}
+              </span>
+            ))}
+          </CardBody>
+        </Card>
+      )}
 
       <div className="grid gap-5 lg:grid-cols-2">
         {block(t("payroll.kinds.EARNING"), s.earnings, s.gross)}
