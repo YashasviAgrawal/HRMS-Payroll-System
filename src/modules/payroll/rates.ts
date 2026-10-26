@@ -12,7 +12,9 @@ import { badRequest, conflict, forbidden, notFound } from "@/lib/errors";
 import { emit } from "@/lib/outbox";
 import { isoDateField } from "@/lib/validators";
 import { fullName } from "@/modules/employees/present";
-import { levelOrder, matrixOn, payHeads, ratesOn } from "./compute";
+import { formatINR } from "@/lib/money";
+import { fyMonths, fyOfMonth } from "@/modules/statutory/tax-rules";
+import { basicFrom, levelOrder, matrixOn, payAsOf, payHeads, ratesOn } from "./compute";
 import { RATE_CATALOG, RATE_KEYS } from "./rate-catalog";
 
 const canSeeRules = (actor: Actor) => can(actor, "rates_rules", "view") || can(actor, "payroll", "view");
@@ -257,6 +259,7 @@ export async function proposePayItem(actor: Actor, raw: unknown) {
   if (input.toMonth && input.toMonth < input.fromMonth) throw badRequest("errors.validation", { toMonth: "payroll.errors.toBeforeFrom" });
   const ending = input.endItemId ? await db.employeePayItem.findFirst({ where: { id: input.endItemId, employeeId: e.id } }) : null;
   if (input.endItemId && !ending) throw notFound();
+  if (head.code === "GPF" && !ending) await checkGpfSubscription(actor.boardId, e, input);
   return db.$transaction(async (tx) => {
     const task = await submitForApproval(tx, actor, {
       kind: "payitem.change",
@@ -282,6 +285,32 @@ export async function proposePayItem(actor: Actor, raw: unknown) {
     await audit(tx, actor, { action: "SUBMIT", entityType: "EmployeePayItem", entityId: e.id, summary: `${ending ? "Asked to end" : "Asked to add"} ${head.code} for ${fullName(e)}` });
     return task;
   });
+}
+
+/**
+ * §9 GPF: only OPS staff subscribe; at least the lowest share of Basic pay (6%), and no more than the yearly cap
+ * (₹5 lakh) counting what the year's pay bills have already credited.
+ */
+async function checkGpfSubscription(boardId: string, e: { id: string; type: string; payLevel: string | null; payCell: number | null; postId: string }, input: z.infer<typeof payItemSchema>) {
+  if (e.type !== "PERMANENT_OPS") throw badRequest("payroll.errors.gpfOnlyOps");
+  const first = `${input.fromMonth}-01` as ISODate;
+  const [rates, matrix, pay] = await Promise.all([ratesOn(boardId, first, db), matrixOn(boardId, first, db), payAsOf(db, [e], first)]);
+  const p = pay.get(e.id)!;
+  const basic = basicFrom(matrix?.levels, p.payLevel, p.payCell) ?? 0;
+  const min = Math.round((basic * (rates.GPF_MIN ?? 0)) / 100);
+  if (input.amount < min) throw badRequest("payroll.errors.gpfMin", { amount: "payroll.errors.gpfMinField" }, { min: formatINR(min), pct: rates.GPF_MIN ?? 0 });
+  const cap = rates.GPF_ANNUAL_CAP;
+  if (!cap) return;
+  const fy = fyOfMonth(input.fromMonth);
+  const [, fyEnd] = fyMonths(fy);
+  const lastMonth = input.toMonth && input.toMonth < fyEnd ? input.toMonth : fyEnd;
+  const months = (Number(lastMonth.slice(0, 4)) - Number(input.fromMonth.slice(0, 4))) * 12 + Number(lastMonth.slice(5, 7)) - Number(input.fromMonth.slice(5, 7)) + 1;
+  const credited = await db.gpfEntry.aggregate({ where: { employeeId: e.id, fy, kind: "SUBSCRIPTION", month: { lt: input.fromMonth } }, _sum: { amount: true } });
+  const so = Number(credited._sum.amount ?? 0);
+  if (so + input.amount * months > cap) {
+    const max = Math.max(0, Math.floor((cap - so) / months));
+    throw badRequest("payroll.errors.gpfCap", { amount: "payroll.errors.gpfCapField" }, { max: formatINR(max), cap: formatINR(cap) });
+  }
 }
 
 export async function applyPayItem(tx: Tx, boardId: string, makerId: string, p: z.infer<typeof payItemSchema>) {

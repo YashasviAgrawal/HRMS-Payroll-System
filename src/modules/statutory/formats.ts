@@ -135,20 +135,65 @@ export interface ChallanRow {
 
 const d8 = (iso: string) => `${iso.slice(8, 10)}${iso.slice(5, 7)}${iso.slice(0, 4)}`;
 
+/** Annexure II (salary details for the year), sent with the fourth quarter's statement. */
+export interface SalaryDetailRow {
+  pan: string;
+  name: string;
+  from: string;
+  to: string;
+  newRegime: boolean;
+  gross: number;
+  standardDeduction: number;
+  hraExempt: number;
+  professionalTax: number;
+  otherIncome: number;
+  chapterVIA: number;
+  taxable: number;
+  tax: number;
+  rebate: number;
+  cess: number;
+  tds: number;
+}
+
+/**
+ * Spreads each month's deductees over that month's challans in order (a deductee may be split across two challans),
+ * as the statement needs every rupee of TDS booked under a challan. Returns the months short of deposit.
+ */
+export function allocateToChallans<T extends { tds: number }>(challans: { id: string; amount: number }[], deductees: T[]) {
+  const out = new Map<string, (T & { tds: number })[]>(challans.map((c) => [c.id, []]));
+  const left = challans.map((c) => ({ id: c.id, room: Math.round(c.amount * 100) }));
+  let short = 0;
+  for (const d of deductees) {
+    let need = Math.round(d.tds * 100);
+    for (const c of left) {
+      if (need <= 0) break;
+      if (c.room <= 0) continue;
+      const take = Math.min(c.room, need);
+      out.get(c.id)!.push({ ...d, tds: take / 100 });
+      c.room -= take;
+      need -= take;
+    }
+    short += need;
+  }
+  return { byChallan: out, short: short / 100 };
+}
+
 /**
  * Form 24Q as the "^"-separated text file the Protean / TRACES file validation utility reads: file header (FH), batch
- * header (BH), one challan detail (CD) per challan and a deductee detail (DD) per person paid under it. Field order
- * follows the regular-statement layout; to be run through the FVU before filing.
+ * header (BH), one challan detail (CD) per challan and a deductee detail (DD) per person paid under it, and in the
+ * fourth quarter the salary details (SD, Annexure II). Field order follows the regular-statement layout; to be run
+ * through the FVU before filing (PRD §18).
  */
-export function form24qFile(d: Deductor, fy: string, quarter: 1 | 2 | 3 | 4, challans: ChallanRow[], createdOn: string): string {
+export function form24qFile(d: Deductor, fy: string, quarter: 1 | 2 | 3 | 4, challans: ChallanRow[], createdOn: string, salaryDetails: SalaryDetailRow[] = []): string {
   const ay = `${Number(fy.slice(0, 4)) + 1}${String((Number(fy.slice(0, 4)) + 2) % 100).padStart(2, "0")}`;
-  const fyCode = `${fy.slice(0, 4)}${fy.slice(5, 7)}`;
+  const fyCode = `${fy.slice(0, 4)}${String((Number(fy.slice(0, 4)) + 1) % 100).padStart(2, "0")}`;
   const lines: string[] = [];
   let n = 1;
   const total = challans.reduce((s, c) => s + c.tax + c.cess + c.interest, 0);
+  const sd = quarter === 4 ? salaryDetails : [];
   lines.push(["" + n++, "FH", "NS1", "R", d8(createdOn), "1", "D", d.tan, "1", "DCB-HRMS", "", "", "", "", "", "", ""].join("^"));
   lines.push(
-    ["" + n++, "BH", "1", String(challans.length), "24Q", "", "", "", "", "", "", "", d.tan, "", d.pan, ay, fyCode, `Q${quarter}`, d.name, "", d.address, "", "", "", "", "", "", "", "", "", "", d.responsible, d.designation, "", "", "", amt(total), "", "", "", "", "N", "N", "A"].join("^"),
+    ["" + n++, "BH", "1", String(challans.length), "24Q", "", "", "", "", "", "", "", d.tan, "", d.pan, ay, fyCode, `Q${quarter}`, d.name, "", d.address, "", "", "", "", "", "", "", "", "", "", d.responsible, d.designation, "", "", "", amt(total), "", String(sd.length), "", "", "N", "N", "A"].join("^"),
   );
   challans.forEach((c, ci) => {
     const deposited = c.tax + c.cess + c.interest;
@@ -157,6 +202,11 @@ export function form24qFile(d: Deductor, fy: string, quarter: 1 | 2 | 3 | 4, cha
       const cess = Math.round((x.tds * 4) / 104);
       lines.push(["" + n++, "DD", "1", String(ci + 1), String(xi + 1), "O", "", "", x.pan, "", "", x.name, amt(x.tds - cess), "0.00", amt(cess), amt(x.tds), "", amt(x.tds), "", amt(x.paid), d8(x.paidOn), d8(c.depositedOn), "", "", "", "", "", "", "", "", "", ""].join("^"));
     });
+  });
+  sd.forEach((r, i) => {
+    lines.push(
+      ["" + n++, "SD", "1", String(i + 1), "A", "", r.pan, "", r.name, "G", d8(r.from), d8(r.to), amt(r.gross), amt(r.hraExempt), amt(r.gross - r.hraExempt), amt(r.standardDeduction), "0.00", amt(r.professionalTax), amt(r.standardDeduction + r.professionalTax), amt(r.gross - r.hraExempt - r.standardDeduction - r.professionalTax), amt(r.otherIncome), amt(r.gross - r.hraExempt - r.standardDeduction - r.professionalTax + r.otherIncome), amt(r.chapterVIA), amt(r.taxable), amt(r.tax), amt(r.rebate), amt(r.cess), "0.00", amt(r.tax - r.rebate + r.cess), amt(r.tds), "0.00", amt(r.tds), amt(r.tax - r.rebate + r.cess - r.tds), r.newRegime ? "N" : "Y", "", "", ""].join("^"),
+    );
   });
   return lines.join("\r\n") + "\r\n";
 }

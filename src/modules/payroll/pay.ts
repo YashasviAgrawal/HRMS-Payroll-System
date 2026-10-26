@@ -251,7 +251,7 @@ export async function closeRun(actor: Actor, runId: string) {
 }
 
 /** The first sheet of an Excel file, or a CSV, as rows of text. */
-async function readTable(buffer: Buffer): Promise<string[][]> {
+export async function readTable(buffer: Buffer): Promise<string[][]> {
   if (sniff(buffer) === "xlsx") {
     const wb = new ExcelJS.Workbook();
     try {

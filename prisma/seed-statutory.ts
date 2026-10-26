@@ -107,7 +107,7 @@ export async function seedStatutoryBeforePayroll(db: PrismaClient, boardId: stri
           details: {
             summary: "Check the amounts against the proofs. Verified amounts count for TDS from January.",
             summaryHi: "राशियाँ प्रमाणों से मिलाएँ। सत्यापित राशियाँ जनवरी से टीडीएस में गिनी जाती हैं।",
-            link: `/statutory/declarations/${decl.id}`,
+            link: `/statutory/declarations/${employeeId}`,
             rows: [
               { label: "Regime", labelHi: "व्यवस्था", new: "Old regime" },
               { label: "80C", new: formatINR(full.sec80C) },
