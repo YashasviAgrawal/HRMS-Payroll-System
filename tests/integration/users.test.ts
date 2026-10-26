@@ -30,7 +30,7 @@ describe.skipIf(!hasTestDb)("users and permissions (S-80)", () => {
   it("creates an employee login linked to the record, blocks duplicates and audits as a system event", async () => {
     const mgr = await actorFor((await makeUser(boardId, "ADMIN", ["USER_SETTINGS_MANAGER"])).id);
     const emp = await makeEmployee(boardId);
-    const user = await createUser(mgr, { loginType: "EMPLOYEE", loginId: emp.employeeCode, displayName: "Staff", mobile: "9876500004", employeeId: emp.id, permissions: ["REPORTING_OFFICER"] });
+    const user = await createUser(mgr, { loginType: "EMPLOYEE", loginId: emp.employeeCode!, displayName: "Staff", mobile: "9876500004", employeeId: emp.id, permissions: ["REPORTING_OFFICER"] });
     expect(user.permissions).toEqual(["REPORTING_OFFICER"]);
     await expect(
       createUser(mgr, { loginType: "EMPLOYEE", loginId: "OTHER123", displayName: "Dup", mobile: "9876500004", employeeId: (await makeEmployee(boardId)).id, permissions: [] }),

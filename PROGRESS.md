@@ -8,8 +8,8 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 | # | Module | Status |
 |---|--------|--------|
 | 1 | Foundation & platform | 🟢 Done & verified (2 items carried to later modules, see PLAN.md) |
-| 2 | Employee master | 🟡 Next |
-| 3 | Recruitment & onboarding | ⚪ Pending |
+| 2 | Employee master | 🟢 Done & verified |
+| 3 | Recruitment & onboarding | 🟡 Next |
 | 4 | Attendance & holidays | ⚪ Pending |
 | 5 | Leave | ⚪ Pending |
 | 6 | Rates & rules + monthly payroll | ⚪ Pending |
@@ -23,6 +23,31 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 ---
 
 ## Change log (newest first)
+
+### 2026-10-26 — Module 2: Employee master ✅
+**Built**
+- Schema: full employee record (personal, addresses, identity and bank — encrypted with blind indexes, contract fields,
+  probation), FamilyMember, Nominee, EmployeeDocument, ServiceBookEntry, EmployeeFieldHistory, SanctionedPost; partial
+  unique indexes so duplicate PAN / Aadhaar / bank among current staff are impossible even at database level.
+- 7th CPC pay matrix generator (every level's official maximum verified) used to show Basic pay.
+- New employee = draft → Checker approves → Employee ID issued (RO flow step 4). Drafts are corrected in place.
+- Edits per tab go to a Checker with old → new rows; one pending change per record; maker can withdraw; history kept.
+- Family & nominees (100% per scheme), documents (content-sniffed, 5 MB, checksum), e-service book with order upload
+  and Checker → Approver chain for appointment / promotion / penalty.
+- Employee self-service requests (address, mobile, bank, nominee) with HR approval; bank change continues to a Checker.
+- Sanctioned vs filled (S-14), change requests queue (S-13), bulk Excel upload (EM-10) with template and row checks.
+- Screens: list, 4-step add form, profile with 9 tabs, edit forms, approvals with reveal of proposed numbers, My record,
+  My requests (with withdraw), My team.
+
+**Verified**
+- 182 unit + integration tests (14 new employee-master flows on a real database), typecheck, lint, build clean.
+- Browser checks: HR adds an employee in 4 steps → Checker approves → Employee ID shown; employee asks for an address
+  change; all Module 1 checks still pass (10/10).
+- Screens reviewed in English, Hindi and on a phone.
+
+**Fixed while verifying**
+- Approval kinds were only registered on routes that imported the approvals entry point — the engine now loads them itself
+  (caught by the browser check of the employee request).
 
 ### 2026-10-26 — Module 1: Foundation & platform ✅
 **Built**
@@ -58,7 +83,8 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 ---
 
 ## Pending / next up
-- Module 2: Employee master (EM-01…10, S-10…S-14) incl. document storage carried from Module 1.
+- Module 3: Recruitment & onboarding (RO-01…09, S-20…S-22): vacancy against vacant sanctioned post, applicants,
+  selection list, appointment letter (Hindi + English), joining checklist, "Complete joining", PRAN / EPF-ESIC files.
 - Carried items: pensioner view of the Employee login (Module 9), email sending (Module 7), outgoing-file approval flow
   (first used in Module 3), formal accessibility pass (Module 10).
 
@@ -75,6 +101,9 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 | D-09 | `APP_ENV` (development / test / training / production) is separate from `NODE_ENV` | PRD §16 asks for separate production, test and training copies; OTP-on-screen helper never runs in production |
 | D-10 | The User & settings manager permission cannot be combined with Approver or Pay bill signer | Keeps §2 rule 3 absolute — that person can never see pay |
 | D-11 | A person may hold one login of each type (e.g. HR clerk also has an Employee login for own payslip); the login type is chosen on the sign-in screen | §2 has three logins; staff in HR still need self-service |
+| D-12 | Every employee-record change (not only pay/bank/identity) goes to a Checker | PRD §4 intro: "Changes go through maker-checker and keep their old value in history" |
+| D-13 | Bulk upload is all-or-nothing and goes to the Checker as one batch | Migration safety: no half-loaded files; one decision issues all IDs |
+| D-14 | HR, Checker, Payroll and Approver can reveal a full PAN / bank number (audited); Aadhaar is never shown in full | Checkers must compare numbers with documents; Aadhaar Act limits display |
 | D-08 | Delhi Cantt logo could not be downloaded from inside the build environment (network policy). A placeholder emblem sits at `public/brand/logo.svg`; drop the real logo at the same path | — |
 
 ## Known gaps / risks

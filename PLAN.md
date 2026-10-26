@@ -108,20 +108,22 @@ _Goal: a secure, bilingual shell that every later module plugs into._
 ---
 
 ## Module 2 — Employee master (§4)
-- [ ] EM-01 One record per person, unique Employee ID; types: Permanent-OPS, Permanent-NPS, Contract, Daily wage, Re-employed, Deputation
-- [ ] EM-02 Job details: section, post, pay level & cell, DOB, DOJ; date of retirement auto-calculated (last day of month of turning 60, or post's rule; born on the 1st → previous month end)
-- [ ] EM-03 PAN, Aadhaar (masked + encrypted), PRAN/UAN, ESIC, bank account + IFSC; duplicates blocked at entry
-- [ ] EM-04 Family and nominees for GPF, gratuity, group insurance, family pension (shares add to 100%)
-- [ ] EM-05 Documents: appointment order, certificates, ID proofs; PDF/image up to 5 MB
-- [ ] EM-06 e-Service book: dated events (appointment, confirmation, increment, promotion, MACP, transfer, leave, penalty) with order no., date, attached order
-- [ ] EM-07 Change to pay level, bank or identity: made by HR, approved by Checker before it affects pay
-- [ ] EM-08 Employee requests change to address, mobile, bank or nominee; HR approves
-- [ ] EM-09 Sanctioned vs filled posts per section and pay level
-- [ ] EM-10 Bulk upload from Excel template (migration and new batches) with row-level validation
-- [ ] S-10 Employee list (search, filter by section / type / level / status)
-- [ ] S-11 Employee profile with tabs Personal · Job & Pay · Bank & IDs · Family · Documents · Service book · Leave · Payslips, and an Edit mode
-- [ ] S-12 Service book entry · S-13 Change requests · S-14 Sanctioned posts
-- [ ] History of every changed value kept (old → new, who, when)
+- [x] EM-01 One record per person, unique Employee ID; types: Permanent-OPS, Permanent-NPS, Contract, Daily wage, Re-employed, Deputation
+- [x] EM-02 Job details: section, post, pay level & cell, DOB, DOJ; date of retirement auto-calculated (last day of month of turning the post's age; born on the 1st → previous month end); recalculated when DOB / post / type change
+- [x] EM-03 PAN (individual "P"), Aadhaar (Verhoeff check, masked, AES-256 encrypted), PRAN/UAN, ESIC, bank account + IFSC; duplicates blocked at entry, at approval and by partial unique indexes in the database
+- [x] EM-04 Family and nominees for GPF, gratuity, group insurance, family pension, NPS (shares add to 100% per scheme)
+- [x] EM-05 Documents: PDF/JPG/PNG up to 5 MB, recognised by content, SHA-256 checksum, audited open/remove
+- [x] EM-06 e-Service book: dated events with order no., date and attached order; timeline view
+- [x] EM-07 Changes to pay level, bank or identity (and every other field) made by HR and approved by a Checker; old value kept in history
+- [x] EM-08 Employee requests change to address, mobile, bank or nominee; HR approves (bank also needs a Checker); employee can withdraw
+- [x] EM-09 Sanctioned vs filled posts per section and post, sanctioned strength changed through the Checker
+- [x] EM-10 Bulk upload from Excel template (codes sheet, instructions) with row-level checks; all-or-nothing; one approval issues IDs; keeps FoxPro IDs when given
+- [x] S-10 Employee list (search, filter by section / type / level / status incl. drafts and leavers)
+- [x] S-11 Employee profile with tabs Personal · Job & Pay · Bank & IDs · Family · Documents · Service book · Leave · Payslips (+ History), and Edit mode per tab
+- [x] S-12 Service book entry (Checker; appointment / promotion / penalty also Admin Approver) · S-13 Change requests · S-14 Sanctioned posts
+- [x] History of every changed value kept (old → new, who made it, who approved it)
+- [x] Self-service: My record (S-11 own, read-only), My requests, My team for reporting officers (own section only)
+- [x] Full PAN / bank number can be revealed by HR, Checker, Payroll, Approver to check documents — every look audited; Aadhaar never shown in full
 
 ## Module 3 — Recruitment & onboarding (§5)
 - [ ] RO-01 Vacancy only against a vacant sanctioned post; Admin approves before advertising

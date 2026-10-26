@@ -29,8 +29,19 @@ export interface SubmitInput {
 
 const json = (v: unknown) => JSON.parse(JSON.stringify(v ?? null)) as Prisma.InputJsonValue;
 
+/**
+ * Every module's approval kinds must be registered before an item is submitted or decided, whichever
+ * route got us here. A dynamic import avoids a static import cycle (modules import this engine too).
+ */
+let kindsLoaded: Promise<unknown> | undefined;
+async function loadKinds() {
+  kindsLoaded ??= import("./kinds");
+  await kindsLoaded;
+}
+
 /** Puts an item into the approvals inbox. Call it inside the maker's transaction. */
 export async function submitForApproval(tx: Tx, actor: Actor, input: SubmitInput): Promise<ApprovalTask> {
+  await loadKinds();
   const def = getApprovalKind(input.kind);
   if (!def) throw new Error(`Unknown approval kind ${input.kind}`);
   if (input.subjectEmployeeId && input.subjectEmployeeId === actor.employeeId && !def.allowSelfSubject) {
@@ -65,6 +76,58 @@ export async function submitForApproval(tx: Tx, actor: Actor, input: SubmitInput
   return task;
 }
 
+/**
+ * Creates the next step of a chain (e.g. Checker → Approver) from inside a decision. The maker stays the
+ * original maker, so the "nobody approves their own entry" rule still holds at every step.
+ */
+export async function chainTask(
+  tx: Tx,
+  from: ApprovalTask,
+  next: { kind?: string; requiredPermission: Permission; title?: string; titleHi?: string; payload?: unknown; details?: unknown; makerId?: string; makerName?: string },
+) {
+  return tx.approvalTask.create({
+    data: {
+      boardId: from.boardId,
+      kind: next.kind ?? from.kind,
+      title: next.title ?? from.title,
+      titleHi: next.titleHi ?? from.titleHi,
+      details: next.details === undefined ? (from.details ?? undefined) : json(next.details),
+      payload: json({ ...(next.payload === undefined ? (from.payload as object) : (next.payload as object)), parentTaskId: from.id }),
+      requiredPermission: next.requiredPermission,
+      sectionId: from.sectionId,
+      subjectEmployeeId: from.subjectEmployeeId,
+      entityType: from.entityType,
+      entityId: from.entityId,
+      makerId: next.makerId ?? from.makerId,
+      makerName: next.makerName ?? from.makerName,
+      makerNote: from.makerNote,
+    },
+  });
+}
+
+/** The maker withdraws an item that nobody has decided yet. */
+export async function cancelTask(actor: Actor, taskId: string) {
+  await loadKinds();
+  return db.$transaction(async (tx) => {
+    const task = await tx.approvalTask.findFirst({ where: { id: taskId, boardId: actor.boardId } });
+    if (!task) throw notFound();
+    if (task.makerId !== actor.userId) throw forbidden();
+    const res = await tx.approvalTask.updateMany({ where: { id: taskId, status: "PENDING" }, data: { status: "CANCELLED", decidedAt: new Date() } });
+    if (res.count !== 1) throw conflict("errors.alreadyDecided");
+    const def = getApprovalKind(task.kind);
+    await def?.onCancel?.({ tx, task, payload: task.payload as never, actor, note: null });
+    await audit(tx, actor, { action: "CANCEL", entityType: task.entityType, entityId: task.entityId, summary: `Withdrew: ${task.title}` });
+  });
+}
+
+/** Pending tasks about one record (to show "waiting for check" on a screen, or to stop a second change). */
+export async function pendingFor(boardId: string, entityType: string, entityId: string, kinds?: string[], db_: Tx | typeof db = db) {
+  return db_.approvalTask.findMany({
+    where: { boardId, entityType, entityId, status: "PENDING", ...(kinds ? { kind: { in: kinds } } : {}) },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
 /** Why this actor may not decide this task, or null when they may. */
 export function decisionBlocker(actor: Actor, task: Pick<ApprovalTask, "requiredPermission" | "sectionId" | "makerId" | "subjectEmployeeId" | "status">): TKey | null {
   if (task.status !== "PENDING") return "errors.alreadyDecided";
@@ -82,6 +145,7 @@ export function decisionBlocker(actor: Actor, task: Pick<ApprovalTask, "required
 export async function decide(actor: Actor, taskId: string, decision: Decision, note?: string | null) {
   const cleanNote = note?.trim() || null;
   if (decision !== "APPROVE" && !cleanNote) throw badRequest("errors.validation", { note: "approvals.noteRequired" });
+  await loadKinds();
 
   return db.$transaction(async (tx) => {
     const task = await tx.approvalTask.findFirst({ where: { id: taskId, boardId: actor.boardId } });

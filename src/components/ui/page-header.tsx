@@ -34,7 +34,7 @@ export function PageHeader({
             ))}
           </nav>
         )}
-        <h1 className="text-2xl font-semibold tracking-tight text-ink-950 sm:text-[1.65rem]">{title}</h1>
+        {title && <h1 className="text-2xl font-semibold tracking-tight text-ink-950 sm:text-[1.65rem]">{title}</h1>}
         {description && <p className="mt-1.5 max-w-3xl text-[0.9375rem] text-ink-500">{description}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}

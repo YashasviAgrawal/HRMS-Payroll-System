@@ -262,6 +262,7 @@ export async function lookupEmployees(actor: Actor, q: string) {
   const rows = await db.employee.findMany({
     where: {
       boardId: actor.boardId,
+      status: { not: "DRAFT" },
       OR: [
         { employeeCode: { contains: term.toUpperCase() } },
         { firstName: { contains: term, mode: "insensitive" } },

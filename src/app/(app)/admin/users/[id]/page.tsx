@@ -36,7 +36,7 @@ export default async function EditUserPage({ params }: { params: Promise<{ id: s
           employee: user.employee
             ? {
                 id: user.employee.id,
-                employeeCode: user.employee.employeeCode,
+                employeeCode: user.employee.employeeCode ?? "—",
                 name: [user.employee.firstName, user.employee.lastName].filter(Boolean).join(" "),
                 section: user.employee.section.name,
                 sectionHi: user.employee.section.nameHi,

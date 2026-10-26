@@ -10,12 +10,25 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import type { EmployeeType, LoginType, Permission } from "../src/generated/prisma/enums";
-import { fromISODate, retirementDate } from "../src/lib/dates";
+import { sealWith } from "../src/lib/crypto-core";
+import { addYears, fromISODate, retirementDate } from "../src/lib/dates";
 import { hashPassword } from "../src/lib/password";
+import { verhoeffCheckDigit } from "../src/lib/validators";
 
 const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) });
 const DEMO = process.env.NODE_ENV !== "production" || process.env.SEED_DEMO === "1";
 const DEMO_PASSWORD = "Dcb@2026";
+const ENC_KEY = Buffer.from(process.env.DATA_ENCRYPTION_KEY ?? "", "base64");
+const IDX_KEY = Buffer.from(process.env.BLIND_INDEX_KEY ?? "", "base64");
+
+/** Demo identity numbers that pass the format checks (Aadhaar has a valid Verhoeff digit). Not real people. */
+function demoIds(i: number, last: string) {
+  const base = `${2 + (i % 7)}${String(4100000000 + i * 7919).padStart(10, "0")}`;
+  const aadhaar = base + verhoeffCheckDigit(base);
+  const pan = `AB${String.fromCharCode(67 + (i % 20))}P${last[0].toUpperCase()}${String(1000 + i * 37).slice(-4)}${String.fromCharCode(65 + (i % 26))}`;
+  const bank = `3${String(1000000000 + i * 104729).padStart(10, "0")}`;
+  return { aadhaar, pan, bank };
+}
 
 const SECTIONS: [code: string, name: string, nameHi: string][] = [
   ["ADM", "Administration", "प्रशासन"],
@@ -167,8 +180,14 @@ async function main() {
   }
 
   const employeeIds = new Map<string, string>();
-  for (const e of EMPLOYEES) {
+  for (const [i, e] of EMPLOYEES.entries()) {
     const post = postIds.get(e.post)!;
+    const ids = demoIds(i + 1, e.last);
+    const pan = sealWith(ENC_KEY, IDX_KEY, "pan", ids.pan);
+    const aadhaar = sealWith(ENC_KEY, IDX_KEY, "aadhaar", ids.aadhaar);
+    const bank = sealWith(ENC_KEY, IDX_KEY, "bank", ids.bank);
+    const matrix = ["PERMANENT_OPS", "PERMANENT_NPS", "DEPUTATION"].includes(e.type);
+    const address = { line1: `${100 + i} Sadar Bazar`, line2: "Delhi Cantonment", city: "New Delhi", district: "South West Delhi", state: "Delhi", pincode: "110010" };
     const data = {
       boardId: board.id,
       employeeCode: e.code,
@@ -179,15 +198,86 @@ async function main() {
       gender: e.gender,
       dateOfBirth: fromISODate(e.dob),
       dateOfJoining: fromISODate(e.doj),
-      dateOfRetirement: fromISODate(retirementDate(e.dob, e.type === "REEMPLOYED" ? 65 : post.retirementAge)),
+      dateOfRetirement: matrix ? fromISODate(retirementDate(e.dob, post.retirementAge)) : null,
       sectionId: sectionIds.get(e.section)!,
       postId: post.id,
       payLevel: e.cell ? post.level : null,
       payCell: e.cell ?? null,
       mobile: e.mobile,
+      email: `${e.first.toLowerCase().replace(/[^a-z]/g, "")}.${e.last.toLowerCase()}@dcb.example`,
+      fatherOrSpouseName: e.gender === "F" ? "Shri Ram Prasad" : "Shri Mohan Lal",
+      category: ["GEN", "OBC", "SC", "GEN", "ST"][i % 5],
+      maritalStatus: "MARRIED",
+      presentAddress: address,
+      permanentAddress: address,
+      panEnc: pan.enc,
+      panHash: pan.hash,
+      panLast4: pan.last4,
+      aadhaarEnc: aadhaar.enc,
+      aadhaarHash: aadhaar.hash,
+      aadhaarLast4: aadhaar.last4,
+      bankAccountEnc: bank.enc,
+      bankAccountHash: bank.hash,
+      bankAccountLast4: bank.last4,
+      ifsc: "SBIN0001234",
+      bankName: "State Bank of India",
+      bankBranch: "Delhi Cantt",
+      pran: e.type === "PERMANENT_NPS" ? String(110000000000 + i * 1013) : null,
+      gpfNumber: e.type === "PERMANENT_OPS" ? `DCB/GPF/${1000 + i}` : null,
+      uan: ["CONTRACT", "DAILY_WAGE"].includes(e.type) ? String(100900000000 + i * 211) : null,
+      esicNumber: ["CONTRACT", "DAILY_WAGE"].includes(e.type) ? String(2010000000 + i * 97) : null,
+      agencyName: e.type === "CONTRACT" ? "Shiv Shakti Manpower Services" : null,
+      wageRate: e.type === "CONTRACT" ? 21917 : e.type === "DAILY_WAGE" ? 843 : e.type === "REEMPLOYED" ? 45000 : null,
+      wageBasis: e.type === "DAILY_WAGE" ? "DAILY" : ["CONTRACT", "REEMPLOYED"].includes(e.type) ? "MONTHLY" : null,
+      contractStart: ["CONTRACT", "REEMPLOYED"].includes(e.type) ? fromISODate(e.doj) : null,
+      contractEnd: ["CONTRACT", "REEMPLOYED"].includes(e.type) ? fromISODate(addYears(e.doj, 2)) : null,
+      probationEndDate: matrix && e.doj > "2020-01-01" ? fromISODate(addYears(e.doj, 2)) : null,
     };
     const row = await db.employee.upsert({ where: { boardId_employeeCode: { boardId: board.id, employeeCode: e.code } }, create: data, update: data });
     employeeIds.set(e.code, row.id);
+
+    // Family, nominees and an appointment entry in the service book — only once.
+    if ((await db.familyMember.count({ where: { employeeId: row.id } })) === 0) {
+      const spouse = await db.familyMember.create({
+        data: { employeeId: row.id, name: e.gender === "F" ? `Shri ${["Rakesh", "Sunil", "Vijay"][i % 3]} ${e.last}` : `Smt. ${["Anita", "Sunita", "Rekha"][i % 3]} ${e.last}`, relation: "SPOUSE", gender: e.gender === "F" ? "M" : "F", dateOfBirth: fromISODate(addYears(e.dob, 2)), isDependent: true },
+      });
+      const child = await db.familyMember.create({
+        data: { employeeId: row.id, name: `${["Aarav", "Diya", "Kabir", "Ananya"][i % 4]} ${e.last}`, relation: i % 2 ? "DAUGHTER" : "SON", gender: i % 2 ? "F" : "M", dateOfBirth: fromISODate(addYears(e.doj, 3)), isDependent: true },
+      });
+      const scheme = e.type === "PERMANENT_OPS" ? "GPF" : e.type === "PERMANENT_NPS" ? "NPS" : null;
+      if (scheme) {
+        await db.nominee.create({ data: { employeeId: row.id, scheme, familyMemberId: spouse.id, sharePercent: 60 } });
+        await db.nominee.create({ data: { employeeId: row.id, scheme, familyMemberId: child.id, sharePercent: 40 } });
+        await db.nominee.create({ data: { employeeId: row.id, scheme: "GRATUITY", familyMemberId: spouse.id, sharePercent: 100 } });
+      }
+      await db.serviceBookEntry.create({
+        data: {
+          employeeId: row.id,
+          event: "APPOINTMENT",
+          eventDate: fromISODate(e.doj),
+          orderNumber: `DCB/EST/${e.doj.slice(0, 4)}/${100 + i}`,
+          orderDate: fromISODate(e.doj),
+          details: `Appointed as ${POSTS.find((p) => p[0] === e.post)![1]} in ${SECTIONS.find((x) => x[0] === e.section)![1]}.`,
+          detailsHi: `${POSTS.find((p) => p[0] === e.post)![2]} के पद पर ${SECTIONS.find((x) => x[0] === e.section)![2]} में नियुक्ति।`,
+          status: "APPROVED",
+          createdById: "seed",
+        },
+      });
+    }
+  }
+
+  // Sanctioned strength (EM-09): a little above today's staff so vacancies show; one post deliberately short.
+  const filled = await db.employee.groupBy({
+    by: ["sectionId", "postId"],
+    where: { boardId: board.id, type: { in: ["PERMANENT_OPS", "PERMANENT_NPS", "DEPUTATION"] }, status: { in: ["ACTIVE", "SUSPENDED"] } },
+    _count: { _all: true },
+  });
+  for (const [i, f] of filled.entries()) {
+    await db.sanctionedPost.upsert({
+      where: { boardId_sectionId_postId: { boardId: board.id, sectionId: f.sectionId, postId: f.postId } },
+      create: { boardId: board.id, sectionId: f.sectionId, postId: f.postId, sanctioned: f._count._all + (i % 3 === 0 ? 2 : i % 3 === 1 ? 1 : 0), orderRef: "MoD letter 2019 (demo)" },
+      update: {},
+    });
   }
 
   for (const u of USERS) {

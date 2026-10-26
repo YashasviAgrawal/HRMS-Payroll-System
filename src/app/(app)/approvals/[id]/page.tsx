@@ -11,6 +11,8 @@ import { requireActor } from "@/lib/auth/session";
 import { formatDateTime } from "@/lib/dates";
 import { tDynamic } from "@/lib/i18n";
 import { getT } from "@/lib/i18n/server";
+import { canRevealIds } from "@/modules/employees/service";
+import { RevealValue } from "../../employees/_components/widgets";
 import { DecisionPanel } from "./decision-panel";
 
 export const metadata: Metadata = { title: "Approval" };
@@ -69,7 +71,13 @@ export default async function ApprovalDetailPage({ params }: { params: Promise<{
                   <Tr key={i}>
                     <Td className="font-medium text-ink-700">{locale === "hi" && row.labelHi ? row.labelHi : row.label}</Td>
                     {hasOld && <Td className="text-ink-500 line-through decoration-ink-300">{row.old ?? "—"}</Td>}
-                    <Td className="font-medium text-ink-900">{row.new ?? "—"}</Td>
+                    <Td className="font-medium text-ink-900">
+                      {row.reveal && task.status === "PENDING" && mayDecide && canRevealIds(actor) ? (
+                        <RevealValue masked={row.new ?? null} url={`/api/v1/approvals/${task.id}/reveal`} field={row.reveal} />
+                      ) : (
+                        (row.new ?? "—")
+                      )}
+                    </Td>
                   </Tr>
                 ))}
               </tbody>

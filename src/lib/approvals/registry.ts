@@ -26,6 +26,8 @@ export interface ApprovalKind<P = unknown> {
   onApprove(ctx: DecisionContext<P>): Promise<void>;
   onReject?(ctx: DecisionContext<P>): Promise<void>;
   onReturn?(ctx: DecisionContext<P>): Promise<void>;
+  /** The maker withdrew the item before anyone decided it. */
+  onCancel?(ctx: DecisionContext<P>): Promise<void>;
 }
 
 const kinds = new Map<string, ApprovalKind<never>>();
