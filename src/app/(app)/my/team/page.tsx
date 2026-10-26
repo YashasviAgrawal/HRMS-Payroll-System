@@ -12,10 +12,11 @@ import { db } from "@/lib/db";
 import { tDynamic } from "@/lib/i18n";
 import { getT } from "@/lib/i18n/server";
 import { listEmployees } from "@/modules/employees/service";
+import { TeamTabs } from "./team-tabs";
 
 export const metadata: Metadata = { title: "My team" };
 
-/** Reporting officers see the staff of their own section (PRD §2 rule 5). Attendance and leave tools join in Modules 4–5. */
+/** Reporting officers see the staff of their own section (PRD §2 rule 5); attendance is on the next tab. */
 export default async function MyTeamPage() {
   const actor = await requireActor();
   if (!actor.permissions.includes("REPORTING_OFFICER") || !actor.sectionId) return <NoAccess />;
@@ -24,11 +25,12 @@ export default async function MyTeamPage() {
   return (
     <div>
       <PageHeader title={t("my.teamTitle")} description={t("my.teamSubtitle", { section: (locale === "hi" ? section?.nameHi : section?.name) ?? "—" })} />
+      <TeamTabs active="people" labels={{ people: t("attendance.team.tabPeople"), attendance: t("attendance.team.tabAttendance") }} />
       <Card>
         {data.rows.length === 0 ? (
           <EmptyState icon={<UsersRound className="size-6" aria-hidden="true" />} title={t("common.noData")} />
         ) : (
-          <Table>
+          <Table stack>
             <THead>
               <tr>
                 <Th>{t("employees.columns.employee")}</Th>
@@ -49,11 +51,11 @@ export default async function MyTeamPage() {
                       </div>
                     </div>
                   </Td>
-                  <Td>{locale === "hi" ? e.post.nameHi : e.post.name}</Td>
-                  <Td>
+                  <Td label={t("employees.columns.post")}>{locale === "hi" ? e.post.nameHi : e.post.name}</Td>
+                  <Td label={t("employees.columns.type")}>
                     <Badge tone="gray">{tDynamic(t, `employees.type.${e.type}`)}</Badge>
                   </Td>
-                  <Td className="tabular">{e.mobile ?? "—"}</Td>
+                  <Td label={t("common.mobile")} className="tabular">{e.mobile ?? "—"}</Td>
                 </Tr>
               ))}
             </tbody>

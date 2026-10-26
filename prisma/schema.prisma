@@ -59,6 +59,10 @@ model Section {
   name      String
   nameHi    String
   isActive  Boolean  @default(true)
+  /// DEVICE = biometric punches (AT-01); MANUAL = muster entered by HR (AT-02).
+  attendanceMode AttendanceMode @default(DEVICE)
+  /// Weekly off days as "0,6" (0 = Sunday … 6 = Saturday). Null follows the Board setting.
+  weeklyOff      String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -167,6 +171,9 @@ model Employee {
   probationEndDate   DateTime? @db.Date
   confirmationDate   DateTime? @db.Date
 
+  /// Enrolment number on the biometric devices / AEBAS attendance ID (AT-01).
+  biometricId        String?
+
   // Contract and daily-wage workers (RO-09)
   agencyName         String?
   wageRate           Decimal?  @db.Decimal(12, 2)
@@ -188,6 +195,7 @@ model Employee {
   history     EmployeeFieldHistory[]
 
   @@unique([boardId, employeeCode])
+  @@unique([boardId, biometricId])
   @@index([boardId, sectionId])
   @@index([boardId, status])
   @@index([boardId, panHash])
@@ -704,3 +712,180 @@ model Joining {
 
   @@index([boardId, status])
 }
+
+// ─── Module 4: attendance and holidays (PRD §6) ───────────────────────────────
+
+enum AttendanceMode {
+  DEVICE
+  MANUAL
+}
+
+enum HolidayKind {
+  GAZETTED
+  RESTRICTED
+}
+
+/// Holiday calendar (AT-08). Rows exist only for lists a Checker has approved.
+model Holiday {
+  id        String      @id @default(cuid())
+  boardId   String
+  date      DateTime    @db.Date
+  name      String
+  nameHi    String
+  kind      HolidayKind
+  createdAt DateTime    @default(now())
+
+  @@unique([boardId, date, name])
+  @@index([boardId, date])
+}
+
+/// Daily status (AT-03). MISSED_PUNCH is provisional; DIES_NON is set only when the officer confirms (AT-05).
+enum DayStatus {
+  PRESENT
+  LATE
+  HALF_DAY
+  ABSENT
+  MISSED_PUNCH
+  ON_DUTY
+  LEAVE
+  HOLIDAY
+  WEEKLY_OFF
+  DIES_NON
+}
+
+enum DaySource {
+  DEVICE
+  MUSTER
+  REQUEST
+  LOCK
+  LEAVE
+}
+
+/// One raw punch from a device push or an imported file. Duplicates are ignored by the unique key.
+model AttendancePunch {
+  id           String   @id @default(cuid())
+  boardId      String
+  employeeId   String
+  at           DateTime
+  deviceSerial String?
+  importId     String?
+  createdAt    DateTime @default(now())
+
+  @@unique([employeeId, at])
+  @@index([boardId, at])
+}
+
+/// A punch file that was saved (AT-01): who, when, which format, checksum of the stored copy.
+model AttendanceImport {
+  id             String   @id @default(cuid())
+  boardId        String
+  format         String
+  fileName       String
+  storageKey     String
+  sha256         String
+  rowCount       Int
+  savedCount     Int
+  duplicateCount Int
+  fromDate       DateTime @db.Date
+  toDate         DateTime @db.Date
+  createdById    String
+  createdByName  String
+  createdAt      DateTime @default(now())
+
+  @@index([boardId, createdAt])
+}
+
+/// The status of one person on one day. Days without a row are worked out from the calendar and punches.
+model AttendanceDay {
+  id            String    @id @default(cuid())
+  boardId       String
+  employeeId    String
+  date          DateTime  @db.Date
+  status        DayStatus
+  firstIn       DateTime?
+  lastOut       DateTime?
+  workedMinutes Int?
+  source        DaySource
+  /// Leave type when status is LEAVE (filled by the Leave module).
+  leaveCode     String?
+  /// Half of the day only (half-day leave or half-day dies-non).
+  half          Boolean   @default(false)
+  note          String?
+  /// Manual muster entries and HR corrections wait for a Checker (AT-02).
+  checked       Boolean   @default(true)
+  updatedById   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([employeeId, date])
+  @@index([boardId, date])
+}
+
+enum AttendanceRequestType {
+  MISSED_PUNCH
+  ON_DUTY
+}
+
+/// Missed-punch or on-duty request by an employee (AT-04), decided by the reporting officer.
+model AttendanceRequest {
+  id          String                @id @default(cuid())
+  boardId     String
+  employeeId  String
+  date        DateTime              @db.Date
+  type        AttendanceRequestType
+  inTime      String?
+  outTime     String?
+  reason      String
+  status      ApprovalStatus        @default(PENDING)
+  taskId      String?
+  createdById String
+  decidedAt   DateTime?
+  createdAt   DateTime              @default(now())
+
+  @@index([boardId, status])
+  @@index([employeeId, date])
+}
+
+/// A section's month, locked by its reporting officer or HR (AT-05). Payroll reads locked months only.
+model AttendanceLock {
+  id           String    @id @default(cuid())
+  boardId      String
+  sectionId    String
+  /// "YYYY-MM"
+  month        String
+  lockedById   String
+  lockedByName String
+  lockedAt     DateTime  @default(now())
+  unlockedAt   DateTime?
+  unlockNote   String?
+
+  @@unique([boardId, sectionId, month])
+}
+
+/// Month totals per person, frozen at lock; what payroll reads (AT-05, AT-06).
+model AttendanceMonth {
+  id          String   @id @default(cuid())
+  boardId     String
+  employeeId  String
+  sectionId   String
+  month       String
+  daysInMonth Int
+  daysOnRoll  Int
+  present     Decimal  @db.Decimal(5, 1)
+  late        Int
+  halfDays    Int
+  onDuty      Int
+  leave       Decimal  @db.Decimal(5, 1)
+  holidays    Int
+  weeklyOffs  Int
+  diesNon     Decimal  @db.Decimal(5, 1)
+  /// Days paid for regular staff: days on the rolls less dies-non (and no-pay leave once the Leave module runs).
+  payableDays Decimal  @db.Decimal(5, 1)
+  /// Days actually worked — what contract and daily-wage workers are paid for (AT-06).
+  workedDays  Decimal  @db.Decimal(5, 1)
+  createdAt   DateTime @default(now())
+
+  @@unique([employeeId, month])
+  @@index([boardId, month])
+}
+

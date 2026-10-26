@@ -129,6 +129,7 @@ export const jobSchema = z.object({
   wageBasis: optEnum(["MONTHLY", "DAILY"] as const),
   contractStart: optDate,
   contractEnd: optDate,
+  biometricId: optFormatted((v) => /^[A-Za-z0-9]{1,20}$/.test(v), "validation.invalid", (v) => v.trim()),
 });
 
 export const idsSchema = z.object({

@@ -4,7 +4,8 @@ import { can } from "@/lib/auth/access";
 import { hasApprovalsInbox } from "@/lib/auth/menu";
 import type { Actor } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { todayIST, fromISODate } from "@/lib/dates";
+import { formatDate, formatMonth, todayIST, fromISODate } from "@/lib/dates";
+import { locksDue, sectionScope, todayBoard } from "@/modules/attendance/service";
 
 /**
  * S-02 Home: "My work" list + dashboard tiles. Every screen opens from "My work" (PRD §13), so each
@@ -26,7 +27,7 @@ export interface Tile {
   value: string | number;
   href?: string;
   tone?: "green" | "amber" | "red" | "gray" | "blue";
-  icon: "users" | "sections" | "employees" | "history" | "inbox" | "probation" | "joining";
+  icon: "users" | "sections" | "employees" | "history" | "inbox" | "probation" | "joining" | "attendance" | "lock";
 }
 
 export async function myWork(actor: Actor): Promise<WorkItem[]> {
@@ -44,6 +45,19 @@ export async function myWork(actor: Actor): Promise<WorkItem[]> {
         at: task.createdAt.toISOString(),
       });
     }
+  }
+  // AT-05: last month's attendance must be locked by the lock day.
+  const due = await locksDue(actor);
+  if (due && due.open.length) {
+    const many = due.open.length > 1 ? ` (${due.open.length})` : "";
+    const isOfficer = actor.loginType === "EMPLOYEE";
+    items.unshift({
+      key: "attendance-lock",
+      title: `${due.overdue ? `${formatMonth(due.month)} attendance lock is overdue (was due ${formatDate(due.due)})` : `Lock ${formatMonth(due.month)} attendance by ${formatDate(due.due)}`}${many}`,
+      titleHi: `${due.overdue ? `${formatMonth(due.month, "hi")} की उपस्थिति का लॉक बाकी है (${formatDate(due.due, "hi")} तक करना था)` : `${formatMonth(due.month, "hi")} की उपस्थिति ${formatDate(due.due, "hi")} तक लॉक करें`}${many}`,
+      href: isOfficer ? `/attendance/lock?section=${due.open[0].id}&month=${due.month}` : `/attendance?tab=lock&month=${due.month}`,
+      tone: due.overdue ? "red" : "amber",
+    });
   }
   return items;
 }
@@ -74,6 +88,12 @@ export async function homeTiles(actor: Actor): Promise<Tile[]> {
     ]);
     tiles.push({ key: "probationDue", value: probation, href: "/recruitment?tab=probation", icon: "probation", tone: probation ? "amber" : "gray" });
     tiles.push({ key: "joiningsOpen", value: joining, href: "/recruitment?tab=joining", icon: "joining", tone: "blue" });
+  }
+  if (sectionScope(actor) === "all") {
+    const board = await todayBoard(actor);
+    tiles.push({ key: "presentToday", value: `${board.total.present} / ${board.total.staff}`, href: "/attendance", icon: "attendance", tone: "green" });
+    const due = await locksDue(actor);
+    if (due) tiles.push({ key: "locksDue", value: due.open.length, href: `/attendance?tab=lock&month=${due.month}`, icon: "lock", tone: due.open.length ? (due.overdue ? "red" : "amber") : "gray" });
   }
   if (can(actor, "audit_trail", "view")) {
     const start = new Date(fromISODate(todayIST()).getTime() - 5.5 * 3600_000);

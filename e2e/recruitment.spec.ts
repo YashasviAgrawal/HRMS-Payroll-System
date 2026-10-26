@@ -1,14 +1,6 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { verhoeffCheckDigit } from "../src/lib/validators";
-import { signIn, signOut } from "./helpers";
-
-async function approveTask(page: Page, title: RegExp) {
-  await page.goto("/approvals");
-  await page.getByRole("cell", { name: title }).first().click();
-  page.once("dialog", (d) => d.accept());
-  await page.getByRole("button", { name: "Approve" }).click();
-  await page.waitForURL("**/approvals");
-}
+import { approveTask, signIn, signOut } from "./helpers";
 
 test("Module 3 — vacancy to employee: selection, letter, joining checklist, Checker, Employee ID", async ({ page }) => {
   test.setTimeout(120_000);

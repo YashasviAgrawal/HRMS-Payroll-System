@@ -139,15 +139,15 @@ _Goal: a secure, bilingual shell that every later module plugs into._
 - [x] S-20 Vacancies · S-21 Applicants & selection · S-22 Joining (+ Probation and Registration files tabs); applicant and list tables become cards on a phone
 
 ## Module 4 — Attendance & holidays (§6)
-- [ ] AT-01 Import punches by device sync or daily CSV/Excel (eSSL, Mantra, ZKTeco, AEBAS layouts), validated before saving
-- [ ] AT-02 Manual daily / monthly muster for sections without devices; HR enters, Checker checks
-- [ ] AT-03 Daily status: Present, Absent, Half day, On leave, Holiday, On duty, Late
-- [ ] AT-04 Missed-punch request by employee; reporting officer approves
-- [ ] AT-05 Monthly lock by reporting officer (or HR) by the 25th; unexplained absence → leave or dies-non only after officer confirms
-- [ ] AT-06 Days worked for contract / daily-wage workers feed wages
-- [ ] AT-07 Dashboard: present, absent, late, on leave today by section
-- [ ] AT-08 Holiday calendar: gazetted and restricted, set by HR each year
-- [ ] S-30 Attendance · S-32 Holiday calendar
+- [x] AT-01 Punch files from eSSL, ZKTeco (attlog.dat or export), Mantra and AEBAS, plus the Board's own template — read, checked line by line and shown before anything is saved; only new punches saved; file kept with SHA-256. Device sync: eSSL / ZKTeco push (ADMS) to `/iclock/cdata`, registered serial numbers only
+- [x] AT-02 Muster roll for sections without devices, and HR corrections for any section — entered on the month register, sent as one batch to a Checker before they count
+- [x] AT-03 Daily status: Present, Late, Half day, Absent, Missed punch, On duty, On leave, Holiday, Weekly off (+ Dies-non after the officer decides) — office start, grace and half-day time are settings
+- [x] AT-04 Missed-punch / on-duty request by the employee (this month and last); the section's reporting officer decides (an officer's own request goes to HR); approved days are regularised
+- [x] AT-05 Month lock by the reporting officer (own section) or HR (any section), due by the lock day (setting, 25th) for last month; blocked while requests or muster entries wait; every absent / missed-punch / half day must be decided (present, on duty or dies-non) before the lock; totals frozen for payroll; reopening goes to a Checker — _"treat as leave" joins the decisions with the Leave module (Module 5)_
+- [~] AT-06 Days worked for contract and daily-wage workers are counted and frozen at lock (`AttendanceMonth.workedDays`) — _wages computed from them in Module 6_
+- [x] AT-07 Today board: present, late, not in yet, on leave / duty, off — by section, with the list of people not in yet; Home tiles
+- [x] AT-08 Holiday calendar per year (gazetted + restricted), set by HR and approved by a Checker; months already locked cannot change; working week (weekly off) and attendance mode per section
+- [x] S-30 Attendance (Today · Month register · Month lock · Requests · Import) · S-32 Holiday calendar · My attendance (employee) · Team attendance (reporting officer)
 
 ## Module 5 — Leave (§7)
 - [ ] LV-01 Leave types, credits, caps and who can sanction held in an editable table (Admin approves changes)

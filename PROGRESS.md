@@ -10,8 +10,8 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 | 1 | Foundation & platform | 🟢 Done & verified (2 items carried to later modules, see PLAN.md) |
 | 2 | Employee master | 🟢 Done & verified |
 | 3 | Recruitment & onboarding | 🟢 Done & verified |
-| 4 | Attendance & holidays | 🟡 Next |
-| 5 | Leave | ⚪ Pending |
+| 4 | Attendance & holidays | 🟢 Done & verified (AT-06 wages in Module 6) |
+| 5 | Leave | 🟡 Next |
 | 6 | Rates & rules + monthly payroll | ⚪ Pending |
 | 7 | Pay changes, arrears, loans & salary slips | ⚪ Pending |
 | 8 | Statutory & tax | ⚪ Pending |
@@ -23,6 +23,35 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 ---
 
 ## Change log (newest first)
+
+### 2026-10-26 — Module 4: Attendance & holidays ✅
+**Built**
+- Schema: Holiday, AttendancePunch, AttendanceImport, AttendanceDay, AttendanceRequest, AttendanceLock, AttendanceMonth;
+  Section attendance mode and weekly off; Employee biometric ID (unique per Board, on the Job & Pay tab).
+- Pure rules module: a day's status from saved entry → calendar → punches → nothing; month totals with payable days
+  (days on the rolls − dies-non) and days worked; shared by the service, the screens, the seed and the tests.
+- Punch import (AT-01): five formats matched by column headings, line-level errors, unknown IDs, locked months, future
+  dates and duplicates reported before saving; device push endpoint for eSSL / ZKTeco (ADMS) limited to registered devices.
+- Muster and HR corrections (AT-02) on the month register, sent to a Checker as one batch; pending entries shown dashed.
+- Missed-punch / on-duty requests (AT-04) routed to the section's reporting officer (HR for the officer's own).
+- Month lock (AT-05): blockers, a decision for every unexplained day, frozen totals, reopening through a Checker.
+- Today board (AT-07), holiday calendar with Checker approval and working week per section (AT-08), Settings card for
+  office hours, grace, half-day time, weekly off and devices; Home "My work" item and tiles for locks due.
+- Screens: Attendance (5 tabs), Lock attendance, Holiday calendar, My attendance (calendar + requests), Team attendance.
+- Demo data: 2026 holiday list (to be checked against the government order), two months of punches, a muster-roll
+  section, last month locked except Health (left for its officer), a missed-punch request waiting for him.
+
+**Verified**
+- 210 unit + integration tests (24 new: rules, file formats, import, request routing, section scope, muster, lock and
+  reopen, holidays and locked months, device push), typecheck, lint, build clean.
+- 18 Playwright checks: punch file check → save; request → officer approves → officer decides and locks last month;
+  muster correction → Checker; next year's calendar → Checker; every attendance screen fits a phone (no sideways scroll).
+- Screens reviewed in English, Hindi and on a phone.
+
+**Fixed while verifying**
+- Screen-reader labels inside the register widened the whole page; scroll boxes now contain them (`relative`).
+- Payable days / days worked stay pinned on the right of the register on wider screens.
+- Browser checks reuse one session per login for the run (the 5-OTPs-in-10-minutes rule stays as it is).
 
 ### 2026-10-26 — Module 3: Recruitment & onboarding ✅
 **Built**
@@ -115,10 +144,12 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 ---
 
 ## Pending / next up
-- Module 4: Attendance & holidays (AT-01…08, S-30, S-32): holiday calendar, daily/monthly attendance by section,
-  reporting-officer approval and lock on the lock day (setting, default 25th), LWP days to payroll, own attendance view.
-- Carried items: pensioner view of the Employee login (Module 9), email sending (Module 7), pro-rata first salary from
-  the date of joining (Module 6 payroll run), formal accessibility pass (Module 10).
+- Module 5: Leave (LV-01…07, S-31): leave rules table with Admin approval, EL/HPL credits on 1 Jan / 1 Jul with caps,
+  apply / approve / cancel with live balance, approved leave marks attendance (source LEAVE) and adds "treat as leave" to
+  the month-lock decisions, HR entry on behalf, opening balances, printable ledger.
+- Carried items: wages from days worked (AT-06) and pro-rata first salary (Module 6 payroll run); pensioner view of the
+  Employee login (Module 9); email sending (Module 7); reports 7–8 (attendance register, absent and late) and the formal
+  accessibility pass (Module 10).
 
 ## Decisions taken (and why)
 | # | Decision | Reason |
@@ -138,6 +169,10 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 | D-14 | HR, Checker, Payroll and Approver can reveal a full PAN / bank number (audited); Aadhaar is never shown in full | Checkers must compare numbers with documents; Aadhaar Act limits display |
 | D-15 | Browser checks run against their own database (`hrms_e2e`) and server (:3100), rebuilt and seeded on every run | Repeatable runs that never touch the demo data; set `BASE_URL` to point them at another copy |
 | D-16 | Exam / interview marks are entered as results only; the exam itself is outside the system | PRD §5 covers the vacancy → joining flow, not running the exam |
+| D-17 | Attendance month = calendar month; last month is locked by the lock day (25th) of this month, and that month's payable days feed this month's pay bill | Locks a complete month, gives 25 days to regularise missed punches, matches "attendance locked by the 25th" as step 1 of the monthly payroll flow (PRD §8). Configurable lock day |
+| D-18 | Punches are stored raw; a day's status is worked out when shown and saved only for decisions (muster, request, lock) | One source of truth; a late file or a corrected rule changes unlocked days without data repair |
+| D-19 | Office hours default to central government hours in Delhi (09:00, 15 min grace, half day under 4 h, Sat–Sun off; six-day week for health, water, hospital and gardens in the demo) | PRD §18 asks to confirm DCB's rules; all are settings, not code |
+| D-20 | Unexplained days at lock: present, on duty or dies-non now; "treat as leave" arrives with the Leave module | PRD AT-05 needs the officer's decision before any pay effect; leave debits need the leave ledger |
 | D-08 | Delhi Cantt logo could not be downloaded from inside the build environment (network policy). A placeholder emblem sits at `public/brand/logo.svg`; drop the real logo at the same path | — |
 
 ## Known gaps / risks

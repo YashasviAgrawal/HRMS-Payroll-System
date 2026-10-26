@@ -101,6 +101,7 @@ export function toView(e: EmployeeWithRefs, actor: Actor) {
     wageBasis: e.wageBasis,
     contractStart: iso(e.contractStart),
     contractEnd: iso(e.contractEnd),
+    biometricId: e.biometricId,
     ids: showSensitive
       ? {
           pan: masked.pan,
@@ -258,6 +259,13 @@ function personalData(p: PersonalInput) {
   };
 }
 
+/** A biometric ID belongs to one person, so device punches always land on the right record (AT-01). */
+async function assertBiometricFree(boardId: string, biometricId: string | null | undefined, except?: string, prefix = "") {
+  if (!biometricId) return;
+  const other = await db.employee.findFirst({ where: { boardId, biometricId, ...(except ? { id: { not: except } } : {}) }, select: { id: true } });
+  if (other) throw conflict("employees.errors.biometricTaken", undefined, { [`${prefix}biometricId`]: "employees.errors.biometricTaken" });
+}
+
 function jobData(j: JobInput) {
   const matrix = isMatrixType(j.type);
   const wage = isWageType(j.type);
@@ -275,6 +283,7 @@ function jobData(j: JobInput) {
     wageBasis: wage ? j.wageBasis : null,
     contractStart: wage ? j.contractStart : null,
     contractEnd: wage ? j.contractEnd : null,
+    biometricId: j.biometricId ?? null,
   };
 }
 
@@ -318,6 +327,7 @@ export async function createEmployee(actor: Actor, raw: unknown, opts: { tx?: Tx
   assertHr(actor);
   const input: CreateEmployeeInput = createEmployeeSchema.parse(raw);
   fieldErrors(crossCheck(input.personal, input.job, input.ids));
+  await assertBiometricFree(actor.boardId, input.job.biometricId, undefined, "job.");
 
   const work = async (tx: Tx) => {
     const post = await tx.post.findFirst({ where: { id: input.job.postId, boardId: actor.boardId } });
@@ -468,6 +478,7 @@ export async function proposeEdit(actor: Actor, employeeId: string, tab: EditTab
     wageBasis: current.wageBasis as JobInput["wageBasis"],
     contractStart: iso(current.contractStart),
     contractEnd: iso(current.contractEnd),
+    biometricId: current.biometricId,
   };
   let hashes: Partial<Record<SensitiveField, string>> = {};
 
@@ -484,6 +495,7 @@ export async function proposeEdit(actor: Actor, employeeId: string, tab: EditTab
     const post = await db.post.findFirst({ where: { id: j.postId, boardId: actor.boardId } });
     if (!post) fieldErrors({ postId: "validation.invalid" });
     if (!(await db.section.findFirst({ where: { id: j.sectionId, boardId: actor.boardId } }))) fieldErrors({ sectionId: "validation.invalid" });
+    await assertBiometricFree(actor.boardId, j.biometricId, employeeId);
     for (const [field, value] of Object.entries(jobData(j))) compare(field, current[field as keyof Employee], value);
     compare("dateOfRetirement", current.dateOfRetirement, computeRetirement(j.type, currentPersonal.dateOfBirth, post!.retirementAge));
   } else {

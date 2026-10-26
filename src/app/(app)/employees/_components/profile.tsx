@@ -203,6 +203,7 @@ export async function EmployeeProfile({ e, actor, tab, t, locale, mode, basePath
                   : []),
                 { label: t("employees.fields.probationEndDate"), value: formatDate(e.probationEndDate, locale) },
                 { label: t("employees.fields.confirmationDate"), value: formatDate(e.confirmationDate, locale) },
+                { label: t("employees.fields.biometricId"), value: dash(e.biometricId) },
               ]}
             />
           </CardBody>

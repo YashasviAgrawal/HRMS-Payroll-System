@@ -1,4 +1,6 @@
 import { execSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
 import "dotenv/config";
 import pg from "pg";
 
@@ -7,6 +9,8 @@ import pg from "pg";
  * the same state. When pointed at an external BASE_URL, only OTP history and lockouts are cleared.
  */
 export default async function globalSetup() {
+  // Saved sessions belong to the previous run's database.
+  fs.rmSync(path.join(__dirname, "..", "test-results", ".sessions"), { recursive: true, force: true });
   if (process.env.BASE_URL) {
     if (!/localhost|127\.0\.0\.1/.test(process.env.BASE_URL) || !process.env.DATABASE_URL) return;
     const client = new pg.Client({ connectionString: process.env.DATABASE_URL });

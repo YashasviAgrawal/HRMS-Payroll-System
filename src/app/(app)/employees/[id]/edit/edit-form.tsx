@@ -47,7 +47,7 @@ function initial(tab: EditTabKey, e: EmployeeView): Values {
     return {
       type: e.type, sectionId: e.section.id, postId: e.post.id, dateOfJoining: e.dateOfJoining, payLevel: e.payLevel, payCell: e.payCell,
       probationEndDate: e.probationEndDate, confirmationDate: e.confirmationDate, agencyName: e.agencyName, wageRate: e.wageRate,
-      wageBasis: e.wageBasis, contractStart: e.contractStart, contractEnd: e.contractEnd,
+      wageBasis: e.wageBasis, contractStart: e.contractStart, contractEnd: e.contractEnd, biometricId: e.biometricId,
     };
   }
   return {

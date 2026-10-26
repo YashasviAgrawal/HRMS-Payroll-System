@@ -14,6 +14,7 @@ import { sealWith } from "../src/lib/crypto-core";
 import { addDays, addYears, fromISODate, retirementDate } from "../src/lib/dates";
 import { hashPassword } from "../src/lib/password";
 import { verhoeffCheckDigit } from "../src/lib/validators";
+import { seedAttendance } from "./seed-attendance";
 
 const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) });
 const DEMO = process.env.NODE_ENV !== "production" || process.env.SEED_DEMO === "1";
@@ -231,6 +232,7 @@ async function main() {
       wageBasis: e.type === "DAILY_WAGE" ? "DAILY" : ["CONTRACT", "REEMPLOYED"].includes(e.type) ? "MONTHLY" : null,
       contractStart: ["CONTRACT", "REEMPLOYED"].includes(e.type) ? fromISODate(e.doj) : null,
       contractEnd: ["CONTRACT", "REEMPLOYED"].includes(e.type) ? fromISODate(addYears(e.doj, 2)) : null,
+      biometricId: e.code.slice(3),
       probationEndDate: ["PERMANENT_OPS", "PERMANENT_NPS"].includes(e.type) && e.doj > "2020-01-01" ? fromISODate(addDays(addYears(e.doj, 2), -1)) : null,
     };
     const row = await db.employee.upsert({ where: { boardId_employeeCode: { boardId: board.id, employeeCode: e.code } }, create: data, update: data });
@@ -299,6 +301,17 @@ async function main() {
       update: { displayName: data.displayName, displayNameHi: data.displayNameHi, permissions: data.permissions, employeeId: data.employeeId },
     });
   }
+
+  // Attendance: holidays, working weeks, a device, two months of punches and locks (Module 4).
+  const employeeLogins = await db.user.findMany({ where: { boardId: board.id, loginType: "EMPLOYEE" }, select: { id: true, loginId: true, displayName: true } });
+  const hrUser = await db.user.findUniqueOrThrow({ where: { boardId_loginType_loginId: { boardId: board.id, loginType: "HR_ACCOUNTS", loginId: "DCB10003" } } });
+  await seedAttendance(
+    db,
+    board.id,
+    EMPLOYEES.map((e) => ({ id: employeeIds.get(e.code)!, code: e.code, sectionCode: e.section, sectionId: sectionIds.get(e.section)!, doj: e.doj })),
+    new Map(employeeLogins.map((u) => [u.loginId, { id: u.id, name: u.displayName }])),
+    { id: hrUser.id, name: hrUser.displayName },
+  );
 
   // A demo vacancy (advertised, with applicants) so the recruitment screens have something to show.
   if ((await db.vacancy.count({ where: { boardId: board.id } })) === 0) {

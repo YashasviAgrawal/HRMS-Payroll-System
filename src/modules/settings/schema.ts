@@ -4,6 +4,8 @@ import { z } from "zod";
  * Board settings (S-82). Secrets — gateway keys, SMTP passwords, portal passwords — are never stored:
  * a setting may only name the environment variable that holds them (PRD §12 rule 7).
  */
+const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
+
 export const BANK_FORMATS = ["GENERIC_CSV", "SBI_CMP", "PNB_BULK", "BOB_BULK", "CANARA_BULK"] as const;
 
 export const settingsSchemas = {
@@ -42,6 +44,24 @@ export const settingsSchemas = {
   general: z.object({
     attendanceLockDay: z.number().int().min(1).max(28),
   }),
+  /** Attendance rules (PRD §6) and the biometric devices allowed to push punches (AT-01). */
+  attendance: z.object({
+    officeStart: z.string().regex(HHMM, "validation.time"),
+    /** Late after office start + grace. */
+    graceMinutes: z.number().int().min(0).max(120),
+    /** Less than this many minutes between first and last punch is a half day. */
+    halfDayMinutes: z.number().int().min(60).max(600),
+    /** 0 = Sunday … 6 = Saturday. */
+    weeklyOff: z.array(z.number().int().min(0).max(6)).max(3),
+    devices: z
+      .array(
+        z.object({
+          serial: z.string().trim().min(3, "validation.required").max(40).regex(/^[A-Za-z0-9_-]+$/, "validation.invalid"),
+          name: z.string().trim().max(80),
+        }),
+      )
+      .max(50),
+  }),
 } as const;
 
 export type SettingKey = keyof typeof settingsSchemas;
@@ -69,4 +89,6 @@ export const SETTING_DEFAULTS: { [K in SettingKey]: SettingValue<K> } = {
   bank: { name: "", format: "GENERIC_CSV", debitAccountLast4: "", ifsc: "" },
   // PRD §6: each section locks its month by the 25th.
   general: { attendanceLockDay: 25 },
+  // Central government office hours in Delhi; to confirm for DCB (PRD §18).
+  attendance: { officeStart: "09:00", graceMinutes: 15, halfDayMinutes: 240, weeklyOff: [0, 6], devices: [] },
 };

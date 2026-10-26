@@ -11,7 +11,7 @@ async function expectNoSidewaysScroll(page: Page, path: string) {
 
 test("HR screens fit a phone screen", async ({ page }) => {
   await signIn(page, { as: "HR & Accounts", id: "DCB10007" });
-  for (const path of ["/home", "/employees", "/employees/posts", "/employees/requests", "/recruitment", "/recruitment?tab=joining", "/recruitment?tab=probation", "/recruitment?tab=files", "/recruitment/vacancies/new", "/approvals", "/profile"]) {
+  for (const path of ["/home", "/employees", "/employees/posts", "/employees/requests", "/recruitment", "/recruitment?tab=joining", "/recruitment?tab=probation", "/recruitment?tab=files", "/recruitment/vacancies/new", "/attendance", "/attendance?tab=register", "/attendance?tab=lock", "/attendance?tab=requests", "/attendance?tab=import", "/attendance/holidays", "/approvals", "/profile"]) {
     await expectNoSidewaysScroll(page, path);
   }
   await page.goto("/recruitment");
@@ -22,7 +22,14 @@ test("HR screens fit a phone screen", async ({ page }) => {
 
 test("employee screens fit a phone screen", async ({ page }) => {
   await signIn(page, { as: "Employee / Pensioner", id: "DCB10014" });
-  for (const path of ["/home", "/my/record", "/my/requests", "/profile"]) {
+  for (const path of ["/home", "/my/record", "/my/requests", "/my/attendance", "/profile"]) {
+    await expectNoSidewaysScroll(page, path);
+  }
+});
+
+test("reporting officer screens fit a phone screen", async ({ page }) => {
+  await signIn(page, { as: "Employee / Pensioner", id: "DCB10008" });
+  for (const path of ["/my/team", "/my/team/attendance"]) {
     await expectNoSidewaysScroll(page, path);
   }
 });

@@ -293,6 +293,7 @@ export function JobFields({
       <div className="grid gap-5 sm:grid-cols-2">
         <Input label={t("employees.fields.probationEndDate")} type="date" value={val("probationEndDate")} onChange={(e) => set("probationEndDate", e.target.value)} error={err("probationEndDate")} optionalLabel={t("common.optional")} />
         <Input label={t("employees.fields.confirmationDate")} type="date" value={val("confirmationDate")} onChange={(e) => set("confirmationDate", e.target.value)} error={err("confirmationDate")} optionalLabel={t("common.optional")} />
+        <Input label={t("employees.fields.biometricId")} value={val("biometricId")} onChange={(e) => set("biometricId", e.target.value)} error={err("biometricId")} optionalLabel={t("common.optional")} hint={t("employees.biometricHint")} inputMode="numeric" />
       </div>
     </div>
   );

@@ -53,6 +53,8 @@ All demo logins use the password **`Dcb@2026`**. With `SMS_PROVIDER=console` the
 
 Employees and pensioners can also choose **"With mobile OTP only"**.
 
+**Things to try in the demo:** Rajesh (`DCB10008`) has a missed-punch request from Suresh waiting and last month's Health attendance to lock; Neha (`DCB10007`) sees today's attendance board, the month register and the punch import; the holiday calendar is under Attendance → Holiday calendar. Every write goes to a second person (Checker or Admin) — sign in as `DCB10006` to check.
+
 ## Commands
 
 | Command | What it does |
@@ -91,3 +93,5 @@ Until then a placeholder emblem (`public/brand/logo.svg`) is shown.
 - Aadhaar, PAN and bank account numbers are encrypted with `DATA_ENCRYPTION_KEY` (AES-256-GCM). **Losing this key means losing those fields.** Keep it in the Board's key custody, not in the repository.
 - Portal passwords (TRACES, EPFO, CRA …) are never stored in the system. Settings name only the environment variables that hold gateway keys.
 - Backups: `scripts/backup.sh` and `scripts/restore.sh` (encrypted, kept 90 days).
+- Biometric devices: eSSL / ZKTeco devices in push (ADMS) mode send to `<APP_URL>/iclock/cdata`; register each device's serial number in Settings → Attendance rules and devices. Files from any device can be imported under Attendance → Import punches.
+- The demo holiday list for 2026 is for trying the system only — HR must enter the Board's notified list (a Checker approves it).

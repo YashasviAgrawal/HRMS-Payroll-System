@@ -145,3 +145,44 @@ export function financialYear(date: ISODate): string {
   const start = m >= 4 ? y : y - 1;
   return `${start}-${String((start + 1) % 100).padStart(2, "0")}`;
 }
+
+const IST_OFFSET_MS = 330 * 60_000;
+
+/** A wall-clock time in India on a date → the instant. "2026-10-01", "09:05" → 2026-10-01T03:35:00Z. */
+export function istInstant(date: ISODate, hhmm: string): Date {
+  const [h, m] = hhmm.split(":").map(Number);
+  return new Date(fromISODate(date).getTime() + (h * 60 + m) * 60_000 - IST_OFFSET_MS);
+}
+
+/** Minutes since midnight in India for an instant. */
+export function istMinutes(at: Date): number {
+  const t = new Date(at.getTime() + IST_OFFSET_MS);
+  return t.getUTCHours() * 60 + t.getUTCMinutes();
+}
+
+/** "09:05" in India for an instant. */
+export function istTime(at: Date): string {
+  const m = istMinutes(at);
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+}
+
+/** 0 = Sunday … 6 = Saturday. */
+export function weekday(date: ISODate): number {
+  return fromISODate(date).getUTCDay();
+}
+
+/** Every date of a month "YYYY-MM". */
+export function datesOfMonth(month: string): ISODate[] {
+  const [y, m] = month.split("-").map(Number);
+  return Array.from({ length: daysInMonth(y, m) }, (_, i) => `${month}-${String(i + 1).padStart(2, "0")}`);
+}
+
+/** "2026-10" + n months → "YYYY-MM". */
+export function shiftMonth(month: string, n: number): string {
+  return monthOf(addMonths(`${month}-01`, n));
+}
+
+export function isMonth(value: string): boolean {
+  return /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
+}
+

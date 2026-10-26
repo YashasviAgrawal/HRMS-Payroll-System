@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
  */
 export function Table({ className, children, stack }: { className?: string; children: React.ReactNode; stack?: boolean }) {
   return (
-    <div className={cn("scrollbar-thin overflow-x-auto", stack && "stack-table", className)}>
+    <div className={cn("scrollbar-thin relative overflow-x-auto", stack && "stack-table", className)}>
       <table className="w-full border-separate border-spacing-0 text-left text-sm">{children}</table>
     </div>
   );

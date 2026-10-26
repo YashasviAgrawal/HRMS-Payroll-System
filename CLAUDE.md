@@ -13,3 +13,5 @@
 - **Money:** `lib/money.ts` (paise maths, rupee rounding). **Dates:** `lib/dates.ts` (ISO strings, India time).
 - **Checks before commit:** `npm run typecheck && npm run lint && npm test && npm run build`; browser checks: `npm run test:e2e` (after a build — it rebuilds and seeds `E2E_DATABASE_URL` and starts its own server on :3100).
 - **Phone layout:** wide tables use `<Table stack>` with `<Td label>` so they become cards; `e2e/layout.phone.spec.ts` fails if a page scrolls sideways.
+- **Browser checks sign in once per login** (`e2e/helpers.ts` saves the session; `fresh: true` forces the real screen) because the app allows 5 OTPs per login in 10 minutes.
+- **Attendance:** rules are pure (`modules/attendance/rules.ts`) and shared by service, screens, seed and tests; punches are stored raw and a day's status is worked out when shown — only decisions are saved.
