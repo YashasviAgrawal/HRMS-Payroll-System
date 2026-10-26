@@ -24,6 +24,15 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 
 ## Change log (newest first)
 
+### 2026-10-26 — Security: Next.js and mail library
+- Next.js 16.3.8 → 16.4.2 (with eslint-config-next): 16.0.0–16.4.0 are covered by published critical advisories
+  (unauthenticated remote code execution in the image optimiser and `use cache`, a Server Actions denial of service).
+- nodemailer 10.2.1 added for payslip email (SL-04): every earlier line has open advisories (recipient-domain confusion,
+  SMTP command injection).
+- Verified: 251 unit + integration tests, 25 browser checks, typecheck, lint and build on the new versions.
+- Left for the Module 10 hardening pass: advisories in the Prisma CLI's own dependencies (mysql2, deepmerge-ts — build
+  tools, not in the running app) and exceljs's bundled uuid (moderate).
+
 ### 2026-10-26 — Module 6: Rates & rules + monthly payroll ✅
 **Built**
 - Schema: PayMatrix (dated, level → cells), PayRate (dated rates), PayHead (formula, posts, account head, versioned),
@@ -259,6 +268,7 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 | D-26 | The salary bank file is released by an Admin through the file registry (ST-09); that release is the PR-13 line — reopen is possible until then, never after | "Before the bank file is released" made precise and enforceable |
 | D-27 | Blocking pre-checks are fixed in the record (then "work out again", remarks carried over) or the person's pay is withheld and paid in a supplementary bill; a section that has not locked last month can be paid without its loss days (recovered next month) or held; a net change over 25% needs a remark | Lets the month go out on time without hiding any exception from the Checker |
 | D-28 | Re-employed pensioners are paid in the Contract pay group on their wage rate; their contract end (not the old retirement date) is the end of pay | PR-05 has four groups; re-employed staff are on contract terms |
+| D-29 | Dependencies with published security fixes are upgraded as soon as they are found, even mid-module, as their own verified commit | A payroll system holding bank and Aadhaar data cannot wait for a release cycle |
 | D-08 | Delhi Cantt logo could not be downloaded from inside the build environment (network policy). A placeholder emblem sits at `public/brand/logo.svg`; drop the real logo at the same path | — |
 
 ## Known gaps / risks
