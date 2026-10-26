@@ -1863,6 +1863,7 @@ export const en = {
     email: "Enter a valid email address",
     ifsc: "Enter a valid IFSC, for example SBIN0001234",
     pan: "Enter a valid PAN, for example ABCDE1234F",
+    tan: "Enter a valid TAN, for example DELC01234E",
     aadhaar: "Enter the 12-digit Aadhaar number",
     date: "Enter a valid date",
     time: "Enter a time like 09:30",

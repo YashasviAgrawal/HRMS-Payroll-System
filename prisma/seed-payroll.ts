@@ -9,6 +9,8 @@ import { PAY_HEAD_DEFAULTS } from "../src/modules/payroll/head-defaults";
 import { seventhCpcMatrix } from "../src/modules/payroll/matrix-7cpc";
 import { incrementDatesAround, incrementMonthFor } from "../src/modules/payroll/pay-rules";
 import { RATE_DEFAULTS } from "../src/modules/payroll/rate-catalog";
+import { recordGpf } from "../src/modules/statutory/gpf-posting";
+import { seedGpfOpenings, seedStatutoryBeforePayroll } from "./seed-statutory";
 
 /** Matrix, rates and pay heads. Existing rows are left alone: after the first load the tables belong to the Board. */
 export async function seedPayrollRules(db: PrismaClient, boardId: string) {
@@ -54,12 +56,7 @@ const DEMO_ITEMS: [string, string, number, number, number | null, string][] = [
   ["DCB10025", "GPF", 10000, 0, null, "GPF subscription as chosen"],
   ["DCB10009", "LICENCE", 650, 0, null, "Type-I quarter, Sadar Bazar"],
   ["DCB10010", "LICENCE", 520, 0, null, "Type-I quarter, Gopinath Bazar"],
-  ["DCB10001", "IT", 15000, 0, null, "TDS projected for 2026-27"],
-  ["DCB10002", "IT", 9500, 0, null, "TDS projected for 2026-27"],
-  ["DCB10017", "IT", 12000, 0, null, "TDS projected for 2026-27"],
-  ["DCB10013", "IT", 4200, 0, null, "TDS projected for 2026-27"],
   ["DCB10005", "SOCIETY", 1000, 0, null, "DCB Employees' Co-operative Society"],
-  ["DCB10016", "IT", 6000, 2, null, "TDS revised after declarations"],
   // A one-off recovery this month makes a net-pay change over 25% for the Checker to see (PR-10).
   ["DCB10019", "RECOVERY", 18000, 2, 2, "Recovery of HRA paid twice in August"],
 ];
@@ -105,6 +102,8 @@ export async function seedPayrollDemo(db: PrismaClient, boardId: string, people:
       data: { boardId, employeeId, headCode, amount, fromMonth: shiftMonth(months[0], from), toMonth: to === null ? null : shiftMonth(months[0], to), note, createdById: users.payroll.id },
     });
   }
+  // Module 8: declarations, salary brought from the old system and a GPF advance — before the history is worked out.
+  await seedStatutoryBeforePayroll(db, boardId, people, { payroll: users.payroll, checker: users.checker }, months);
   for (const [mi, month] of months.entries()) {
     for (const group of RUN_GROUPS) {
       // Demo history ignores attendance: the seeded punches only cover last month and this month.
@@ -135,7 +134,9 @@ export async function seedPayrollDemo(db: PrismaClient, boardId: string, people:
         await tx.payslip.updateMany({ where: { runId: run.id, status: "INCLUDED" }, data: { creditStatus: "CREDITED", sentAt: payDay } });
         await tx.payrollRun.update({ where: { id: run.id }, data: { payslipsSentAt: payDay } });
         await recordLoanRecoveries(tx, run.id);
+        await recordGpf(tx, run.id, users.payroll.id);
       });
     }
   }
+  await seedGpfOpenings(db, boardId, months, users.payroll.id);
 }

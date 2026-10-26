@@ -10,6 +10,7 @@ import { badRequest, forbidden, notFound } from "@/lib/errors";
 import { formatINR, fromPaise, toPaise } from "@/lib/money";
 import { emit } from "@/lib/outbox";
 import { fullName } from "@/modules/employees/present";
+import type { GpfRefund } from "@/modules/statutory/gpf-posting";
 import { preChecks, type Found } from "./checks";
 import {
   basicFrom,
@@ -26,7 +27,7 @@ import {
   type RunGroup,
   type SupplementarySource,
 } from "./compute";
-import { computePay, TYPES_IN_GROUP, type PayLine } from "./engine";
+import { computePay, TYPES_IN_GROUP, WORKED_OUT, type PayLine } from "./engine";
 
 /**
  * PR-08, S-42: arrears as "due vs drawn", and supplementary bills.
@@ -41,7 +42,8 @@ import { computePay, TYPES_IN_GROUP, type PayLine } from "./engine";
  */
 const PAID_STATUSES = ["APPROVED", "PAID", "CLOSED"] as const;
 const COMPARED_CALCS = new Set(["SYSTEM", "FIXED", "PERCENT_BASIC"]);
-const NOT_COMPARED = new Set(["GPF", "GIS", "LOAN"]);
+// Worked-out deductions (loans, GPF advance recovery, TDS, professional tax) follow their own registers, not the order.
+const NOT_COMPARED = new Set(["GPF", "GIS", ...WORKED_OUT]);
 
 const num = (v: { toString(): string } | null | undefined) => (v === null || v === undefined ? 0 : Number(v));
 const canMake = (actor: Actor) => canAll(actor, "arrears_loans", "create");
@@ -297,7 +299,7 @@ async function buildSupplementary(boardId: string, src: Source, month: string): 
         ifsc: e.ifsc,
         lastNet: null,
         changePct: null,
-        detail: { withheldSlipId: w.id, withheldMonth: w.month, loans: ((w.detail as { loans?: LoanDue[] } | null)?.loans ?? []) },
+        detail: { withheldSlipId: w.id, withheldMonth: w.month, loans: ((w.detail as { loans?: LoanDue[] } | null)?.loans ?? []), gpfRefunds: ((w.detail as { gpfRefunds?: GpfRefund[] } | null)?.gpfRefunds ?? []) },
       });
     }
   }

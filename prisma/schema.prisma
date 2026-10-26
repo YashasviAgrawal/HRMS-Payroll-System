@@ -198,6 +198,11 @@ model Employee {
   payslips    Payslip[]
   payHistory  PayHistory[]
   loans       Loan[]
+  gpfEntries  GpfEntry[]
+  gpfAdvances GpfAdvance[]
+  taxDeclarations TaxDeclaration[]
+  taxCarryIns TaxCarryIn[]
+  form16      Form16[]
 
   @@unique([boardId, employeeCode])
   @@unique([boardId, biometricId])
@@ -1373,5 +1378,215 @@ model LoanRecovery {
 
   @@unique([loanId, runId])
   @@index([runId])
+}
+
+// ─── Module 8: statutory and tax (PRD §9) ─────────────────────────────────────────
+
+enum GpfEntryKind {
+  OPENING
+  SUBSCRIPTION
+  REFUND
+  ADVANCE
+  WITHDRAWAL
+  INTEREST
+}
+
+/// GPF account (§9): every credit and debit; the balance is the sum. Subscriptions and refunds come from approved pay bills.
+model GpfEntry {
+  id         String       @id @default(cuid())
+  boardId    String
+  employeeId String
+  /// "YYYY-MM" the entry belongs to.
+  month      String
+  /// "2026-27"
+  fy         String
+  kind       GpfEntryKind
+  /// Credit positive, debit negative.
+  amount     Decimal      @db.Decimal(12, 2)
+  runId      String?
+  /// The advance or withdrawal this entry pays out or recovers.
+  advanceId  String?
+  note       String?
+  createdById String?
+  createdAt  DateTime     @default(now())
+
+  employee Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  advance  GpfAdvance? @relation(fields: [advanceId], references: [id])
+
+  @@index([employeeId, month])
+  @@index([runId])
+}
+
+enum GpfAdvanceKind {
+  ADVANCE
+  WITHDRAWAL
+}
+
+enum GpfAdvanceStatus {
+  PENDING
+  RUNNING
+  CLOSED
+  REJECTED
+}
+
+/// GPF advance (paid back in instalments through the payroll) or final withdrawal (not paid back). Payroll sanctions,
+/// a Checker checks, an Admin approves.
+model GpfAdvance {
+  id               String           @id @default(cuid())
+  boardId          String
+  employeeId       String
+  kind             GpfAdvanceKind
+  purpose          String
+  amount           Decimal          @db.Decimal(12, 2)
+  /// 0 for a withdrawal.
+  instalments      Int              @default(0)
+  instalmentAmount Decimal          @default(0) @db.Decimal(12, 2)
+  sanctionDate     DateTime         @db.Date
+  orderNumber      String
+  /// First month of recovery ("YYYY-MM") — the month after the advance is approved.
+  startMonth       String?
+  status           GpfAdvanceStatus @default(PENDING)
+  closedMonth      String?
+  createdById      String
+  createdByName    String
+  createdAt        DateTime         @default(now())
+
+  employee Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  entries  GpfEntry[]
+
+  @@index([employeeId, status])
+}
+
+/// ST-01: income-tax rules for a financial year and regime — slabs, standard deduction, rebate, cess. Editable through an Admin.
+model TaxRule {
+  id                String   @id @default(cuid())
+  boardId           String
+  fy                String
+  regime            String
+  /// [{ upTo: number | null, rate: number }] — rupees, % — upTo null is "above".
+  slabs             Json
+  standardDeduction Decimal  @db.Decimal(12, 2)
+  rebateIncomeLimit Decimal  @db.Decimal(14, 2)
+  rebateMax         Decimal  @db.Decimal(12, 2)
+  cessPercent       Decimal  @db.Decimal(5, 2)
+  version           Int      @default(1)
+  updatedAt         DateTime @updatedAt
+
+  @@unique([boardId, fy, regime])
+}
+
+enum DeclarationStatus {
+  DRAFT
+  SUBMITTED
+  VERIFIED
+  RETURNED
+}
+
+/// ST-02, ST-03: the regime chosen for a year and the investments declared, with proofs; verified by HR & Accounts.
+model TaxDeclaration {
+  id          String            @id @default(cuid())
+  boardId     String
+  employeeId  String
+  fy          String
+  regime      String            @default("NEW")
+  /// { sec80C, sec80D, sec80CCD1B, homeLoanInterest, rentPaid, otherIncome } in rupees (old regime deductions).
+  items       Json
+  /// Stored proof files: [{ key, name, size, sha256 }]
+  proofs      Json?
+  status      DeclarationStatus @default(DRAFT)
+  remarks     String?
+  submittedAt DateTime?
+  verifiedById String?
+  verifiedAt  DateTime?
+  updatedAt   DateTime          @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, fy])
+}
+
+/// ST-04: salary and TDS of the year paid outside this system — by the old system before cut-over (§15) or by a previous
+/// employer (Form 12B) — counted in the year's projection and in Form 16.
+model TaxCarryIn {
+  id          String   @id @default(cuid())
+  boardId     String
+  employeeId  String
+  fy          String
+  salary      Decimal  @db.Decimal(14, 2)
+  tds         Decimal  @db.Decimal(14, 2)
+  note        String
+  createdById String
+  updatedAt   DateTime @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, fy])
+}
+
+/// ST-05: a TDS challan deposited for a month.
+model TdsChallan {
+  id          String   @id @default(cuid())
+  boardId     String
+  fy          String
+  month       String
+  bsrCode     String
+  challanNo   String
+  depositedOn DateTime @db.Date
+  tax         Decimal  @db.Decimal(14, 2)
+  cess        Decimal  @db.Decimal(14, 2)
+  interest    Decimal  @default(0) @db.Decimal(14, 2)
+  createdById String
+  createdAt   DateTime @default(now())
+
+  @@unique([boardId, month, challanNo])
+}
+
+/// ST-07: Form 16 for a person and year — Part B generated here, Part A imported from TRACES; published to the employee.
+model Form16 {
+  id          String    @id @default(cuid())
+  boardId     String
+  employeeId  String
+  fy          String
+  partBKey    String?
+  partBSha    String?
+  partAKey    String?
+  partASha    String?
+  /// The year's tax working printed on Part B (taxWorking) plus TDS deducted.
+  working     Json?
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, fy])
+}
+
+/// ST-01, ST-08: when each filing is due. MONTHLY: the day of the next month; QUARTERLY / YEARLY: listed "MM-DD" dates;
+/// AFTER_PAY: days after the pay bill is approved.
+model DueRule {
+  id            String   @id @default(cuid())
+  boardId       String
+  code          String
+  name          String
+  nameHi        String
+  kind          String
+  day           Int      @default(0)
+  dates         String[]
+  version       Int      @default(1)
+  updatedAt     DateTime @updatedAt
+
+  @@unique([boardId, code])
+}
+
+/// ST-08: a reminder sent for a due date (once).
+model DueReminder {
+  id        String   @id @default(cuid())
+  boardId   String
+  code      String
+  dueOn     DateTime @db.Date
+  sentAt    DateTime @default(now())
+
+  @@unique([boardId, code, dueOn])
 }
 

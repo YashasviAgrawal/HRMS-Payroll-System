@@ -17,6 +17,7 @@ import { verhoeffCheckDigit } from "../src/lib/validators";
 import { seedAttendance } from "./seed-attendance";
 import { seedLeaveTypes } from "./seed-leave";
 import { seedPayrollDemo, seedPayrollRules } from "./seed-payroll";
+import { seedStatutoryRules } from "./seed-statutory";
 
 const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) });
 const DEMO = process.env.NODE_ENV !== "production" || process.env.SEED_DEMO === "1";
@@ -161,6 +162,7 @@ async function main() {
   await seedLeaveTypes(db, board.id);
   // So are the pay matrix, the dated rates and the pay heads (PRD §8).
   await seedPayrollRules(db, board.id);
+  await seedStatutoryRules(db, board.id);
 
   const passwordHash = await hashPassword(DEMO_PASSWORD);
 

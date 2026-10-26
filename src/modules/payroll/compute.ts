@@ -9,6 +9,10 @@ import type { DbLike, Tx } from "@/lib/db";
 import { datesOfMonth, daysBetweenInclusive, endOfMonth, formatMonth, fromISODate, maxDate, shiftMonth, toISODate, type ISODate } from "@/lib/dates";
 import { badRequest, conflict } from "@/lib/errors";
 import { changePct, EXCEPTION_RULES, exceptionKey, preChecks, type Found } from "./checks";
+import { gpfRefundsDue } from "@/modules/statutory/gpf-posting";
+import { statutorySettings } from "@/modules/statutory/settings";
+import { professionalTaxFor } from "@/modules/statutory/tax-rules";
+import { headFlags, monthsStillToCome, partsOf, projectTds, taxContext } from "@/modules/statutory/tds-projection";
 import { computePay, TYPES_IN_GROUP, type HeadRule, type PayInput, type PayLine } from "./engine";
 import { loanPosition } from "./loan-rules";
 
@@ -166,8 +170,9 @@ export async function loansDue(tx: DbLike, employeeIds: string[], month: string)
 
 /**
  * Works out a pay group's month from the records as they stand: matrix and rates in force on the 1st, pay heads,
- * standing items, last month's locked attendance (D-17) and the bank details. Pure reading — nothing is saved.
- * `ignoreAttendance` (with `assumeWorkedDays` for daily wages) is for the demo history only.
+ * standing items, last month's locked attendance (D-17) and the bank details; then the worked-out deductions — loan
+ * and GPF advance instalments, professional tax where levied, and TDS projected on the year (ST-04). Pure reading —
+ * nothing is saved. `ignoreAttendance` (with `assumeWorkedDays` for daily wages) is for the demo history only.
  */
 export async function computeRun(tx: DbLike, boardId: string, group: RunGroup, month: string, opts: { ignoreAttendance?: boolean; assumeWorkedDays?: number } = {}) {
   const monthStart = `${month}-01`;
@@ -193,7 +198,8 @@ export async function computeRun(tx: DbLike, boardId: string, group: RunGroup, m
     tx.post.findMany({ where: { boardId } }),
   ]);
   const ids = employees.map((e) => e.id);
-  const [items, locks, attMonths, lastSlips, holders, pays, loans] = await Promise.all([
+  const flags = headFlags(headRows);
+  const [items, locks, attMonths, lastSlips, holders, pays, loans, gpfRefunds, settings, taxCtx] = await Promise.all([
     itemsFor(boardId, month, ids, tx),
     tx.attendanceLock.findMany({ where: { boardId, month: last, unlockedAt: null }, select: { sectionId: true } }),
     tx.attendanceMonth.findMany({ where: { employeeId: { in: ids }, month: last } }),
@@ -202,6 +208,9 @@ export async function computeRun(tx: DbLike, boardId: string, group: RunGroup, m
     tx.employee.groupBy({ by: ["bankAccountHash"], where: { boardId, bankAccountHash: { not: null }, status: { in: ["ACTIVE", "SUSPENDED"] } }, _count: { _all: true } }),
     payAsOf(tx, employees, monthStart),
     loansDue(tx, ids, month),
+    gpfRefundsDue(tx, ids, month),
+    statutorySettings(tx, boardId),
+    taxContext(tx, boardId, ids, month, flags),
   ]);
   const postBy = new Map(posts.map((p) => [p.id, p]));
   if (!matrix && employees.some((e) => MATRIX_TYPES.includes(e.type))) throw badRequest("payroll.errors.noMatrix");
@@ -241,9 +250,14 @@ export async function computeRun(tx: DbLike, boardId: string, group: RunGroup, m
     const basic = isMatrix ? basicFrom(matrix?.levels, pay.payLevel, pay.payCell) : null;
     const noPayLevel = isMatrix ? basic === null : e.wageRate === null;
     const loanLines = loans.get(e.id) ?? [];
+    const refunds = gpfRefunds.get(e.id) ?? [];
     const personItems = { ...(items.get(e.id) ?? {}) };
+    // Worked out here, never standing amounts: a stray pay item for these heads is ignored.
+    delete personItems.IT;
+    delete personItems.PT;
     if (loanLines.length) personItems.LOAN = (personItems.LOAN ?? 0) + loanLines.reduce((s, l) => s + l.principal + l.interest, 0);
-    const result = computePay({
+    if (refunds.length) personItems.GPF_REFUND = refunds.reduce((s, r) => s + r.amount, 0);
+    const input: PayInput = {
       type: e.type,
       postCode: post.code,
       group: post.group,
@@ -257,7 +271,20 @@ export async function computeRun(tx: DbLike, boardId: string, group: RunGroup, m
       rates,
       heads,
       items: personItems,
-    });
+    };
+    let result = computePay(input);
+    if (settings.professionalTax) {
+      personItems.PT = professionalTaxFor(result.gross, settings.ptSlabs);
+      result = computePay(input);
+    }
+    // ST-04: the year's tax, with the months to come at a full month's pay (daily wages: at this month's).
+    const full = computePay({ ...input, daysOnRoll: dim, last: input.wageBasis === "DAILY" ? input.last : null });
+    const monthly = full.gross >= result.gross ? full : result;
+    const tax = projectTds(taxCtx, e.id, partsOf(result.lines, flags), partsOf(monthly.lines, flags), afterRetirement ? 0 : monthsStillToCome(month, taxCtx.fy, endBy));
+    if (tax.monthly > 0) {
+      personItems.IT = tax.monthly;
+      result = computePay(input);
+    }
     const lastNet = lastNetBy.get(e.id) ?? null;
     const pct = changePct(result.net, lastNet);
     slips.push({
@@ -276,7 +303,7 @@ export async function computeRun(tx: DbLike, boardId: string, group: RunGroup, m
       ifsc: e.ifsc,
       lastNet,
       changePct: pct,
-      detail: loanLines.length ? { loans: loanLines } : undefined,
+      detail: { ...(loanLines.length ? { loans: loanLines } : {}), ...(refunds.length ? { gpfRefunds: refunds } : {}), tax },
     });
     facts.push({ employeeId: e.id, net: result.net, lastNet, hasBank: Boolean(e.bankAccountHash && e.ifsc), bankHash: e.bankAccountHash, afterRetirement, noPayLevel, suspended: e.status === "SUSPENDED" });
   }

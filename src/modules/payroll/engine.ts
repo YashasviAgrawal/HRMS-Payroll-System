@@ -67,6 +67,11 @@ export interface PayResult {
 }
 
 const MATRIX_TYPES: EmployeeType[] = ["PERMANENT_OPS", "PERMANENT_NPS", "DEPUTATION"];
+/**
+ * Deductions the payroll works out from other records and passes in `items`: loan instalments (PR-09), GPF advance
+ * recovery, income tax projected for the year (ST-04) and professional tax where a Board levies it.
+ */
+export const WORKED_OUT = new Set(["LOAN", "GPF_REFUND", "IT", "PT"]);
 const WAGE_TYPES: EmployeeType[] = ["CONTRACT", "DAILY_WAGE", "REEMPLOYED"];
 
 /** Transport allowance tier by level (Delhi is a higher-TPTA city). */
@@ -179,8 +184,8 @@ export function computePay(input: PayInput): PayResult {
     }
   }
   for (const h of input.heads) {
-    // Standing deductions, and loan instalments from the loans register (PR-09).
-    if (h.kind === "DEDUCTION" && (h.calc === "ITEM" || h.code === "LOAN") && input.items[h.code]) deduct(h.code, toPaise(input.items[h.code]));
+    // Standing deductions, and the amounts the payroll works out before the engine runs (loans, TDS, …).
+    if (h.kind === "DEDUCTION" && (h.calc === "ITEM" || WORKED_OUT.has(h.code)) && input.items[h.code]) deduct(h.code, toPaise(input.items[h.code]));
   }
 
   const order = new Map(input.heads.map((h, i) => [h.code, i]));

@@ -62,6 +62,26 @@ export const settingsSchemas = {
       )
       .max(50),
   }),
+  /**
+   * §9: the Board's identities on the statutory portals (TAN for 24Q and Form 16, DDO registration for the CRA,
+   * establishment codes for EPFO and ESIC) and the professional-tax switch — off in Delhi, kept for other Boards.
+   */
+  statutory: z.object({
+    deductorName: z.string().trim().max(75),
+    address: z.string().trim().max(200),
+    tan: z.union([z.literal(""), z.string().regex(/^[A-Z]{4}\d{5}[A-Z]$/, "validation.tan")]),
+    pan: z.union([z.literal(""), z.string().regex(/^[A-Z]{5}\d{4}[A-Z]$/, "validation.pan")]),
+    responsibleName: z.string().trim().max(75),
+    responsibleDesignation: z.string().trim().max(50),
+    ddoRegNo: z.string().trim().max(20),
+    epfCode: z.string().trim().max(30),
+    esicCode: z.string().trim().max(30),
+    /** HRA exemption at 50% of Basic + DA (metro) or 40% — Delhi is a metro. */
+    metroHra: z.boolean(),
+    professionalTax: z.boolean(),
+    /** Monthly gross up to `upTo` (null = above) → professional tax for the month. */
+    ptSlabs: z.array(z.object({ upTo: z.number().min(0).nullable(), amount: z.number().min(0).max(2500) })).max(10),
+  }),
 } as const;
 
 export type SettingKey = keyof typeof settingsSchemas;
@@ -91,4 +111,23 @@ export const SETTING_DEFAULTS: { [K in SettingKey]: SettingValue<K> } = {
   general: { attendanceLockDay: 25 },
   // Central government office hours in Delhi; to confirm for DCB (PRD §18).
   attendance: { officeStart: "09:00", graceMinutes: 15, halfDayMinutes: 240, weeklyOff: [0, 6], devices: [] },
+  statutory: {
+    deductorName: "Delhi Cantonment Board",
+    address: "Sadar Bazar, Delhi Cantonment, New Delhi 110010",
+    tan: "",
+    pan: "",
+    responsibleName: "",
+    responsibleDesignation: "Chief Executive Officer",
+    ddoRegNo: "",
+    epfCode: "",
+    esicCode: "",
+    metroHra: true,
+    // PRD §9: not levied in Delhi. Slabs are an example (Maharashtra) for a Board that switches it on.
+    professionalTax: false,
+    ptSlabs: [
+      { upTo: 7500, amount: 0 },
+      { upTo: 10000, amount: 175 },
+      { upTo: null, amount: 200 },
+    ],
+  },
 };
