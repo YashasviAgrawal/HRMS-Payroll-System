@@ -1,0 +1,387 @@
+// DCB HRMS & Payroll — database schema.
+// Every business table carries boardId so other Cantonment Boards can be added later (PRD §16, §17).
+// Module 1 (foundation) tables live at the top; each later module adds its own block below.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Module 1 — Foundation
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// The three logins of PRD §2.
+enum LoginType {
+  ADMIN
+  HR_ACCOUNTS
+  EMPLOYEE
+}
+
+/// Permissions an Admin can tick inside a login (PRD §2).
+enum Permission {
+  APPROVER
+  PAY_BILL_SIGNER
+  USER_SETTINGS_MANAGER
+  HR
+  PAYROLL
+  PENSION
+  CHECKER
+  REPORTING_OFFICER
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+model Board {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  nameHi    String
+  address   String?
+  createdAt DateTime @default(now())
+
+  sections Section[]
+  posts    Post[]
+  users    User[]
+}
+
+model Section {
+  id        String   @id @default(cuid())
+  boardId   String
+  code      String
+  name      String
+  nameHi    String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  board     Board      @relation(fields: [boardId], references: [id])
+  employees Employee[]
+
+  @@unique([boardId, code])
+}
+
+/// A post (designation) such as "Junior Clerk". Retirement age follows the post's rule (EM-02).
+model Post {
+  id            String   @id @default(cuid())
+  boardId       String
+  code          String
+  name          String
+  nameHi        String
+  payLevel      String
+  group         String // A, B or C
+  retirementAge Int      @default(60)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  board     Board      @relation(fields: [boardId], references: [id])
+  employees Employee[]
+
+  @@unique([boardId, code])
+}
+
+enum EmployeeType {
+  PERMANENT_OPS
+  PERMANENT_NPS
+  CONTRACT
+  DAILY_WAGE
+  REEMPLOYED
+  DEPUTATION
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  SUSPENDED
+  RETIRED
+  RESIGNED
+  TRANSFERRED
+  TERMINATED
+  DECEASED
+}
+
+/// One record per person (EM-01). Module 2 extends this with identity, bank, family and service book.
+model Employee {
+  id               String         @id @default(cuid())
+  boardId          String
+  employeeCode     String
+  type             EmployeeType
+  status           EmployeeStatus @default(ACTIVE)
+  firstName        String
+  middleName       String?
+  lastName         String?
+  nameHi           String?
+  gender           String // M, F, T
+  dateOfBirth      DateTime       @db.Date
+  dateOfJoining    DateTime       @db.Date
+  dateOfRetirement DateTime?      @db.Date
+  /// Set when the person leaves for any reason; access ends on this date (PRD §2 rule 6).
+  exitDate         DateTime?      @db.Date
+  sectionId        String
+  postId           String
+  payLevel         String?
+  payCell          Int?
+  mobile           String?
+  email            String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  section Section @relation(fields: [sectionId], references: [id])
+  post    Post    @relation(fields: [postId], references: [id])
+  users   User[]
+
+  @@unique([boardId, employeeCode])
+  @@index([boardId, sectionId])
+  @@index([boardId, status])
+}
+
+/// A login. A person may hold one login of each type (for example an HR clerk also has an Employee login
+/// for their own payslip), so the login type is part of the identity.
+model User {
+  id                 String       @id @default(cuid())
+  boardId            String
+  loginType          LoginType
+  /// Employee ID for staff; a short code for people who are not on the rolls (for example "IT01").
+  loginId            String
+  displayName        String
+  displayNameHi      String?
+  mobile             String
+  email              String?
+  passwordHash       String?
+  mustChangePassword Boolean      @default(true)
+  permissions        Permission[]
+  status             UserStatus   @default(ACTIVE)
+  language           String       @default("en")
+  employeeId         String?
+  failedLoginCount   Int          @default(0)
+  lockedUntil        DateTime?
+  lastLoginAt        DateTime?
+  createdById        String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  board    Board          @relation(fields: [boardId], references: [id])
+  employee Employee?      @relation(fields: [employeeId], references: [id])
+  sessions Session[]
+  otps     OtpChallenge[]
+
+  @@unique([boardId, loginType, loginId])
+  @@unique([boardId, loginType, mobile])
+  @@unique([employeeId, loginType])
+}
+
+model Session {
+  /// SHA-256 of the random token held in the cookie; the raw token is never stored.
+  id         String    @id
+  userId     String
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime  @default(now())
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  ip         String?
+  userAgent  String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+enum OtpPurpose {
+  LOGIN
+  CHANGE_MOBILE
+  APPROVE_SIGN
+}
+
+model OtpChallenge {
+  id          String     @id @default(cuid())
+  userId      String?
+  purpose     OtpPurpose
+  codeHash    String
+  sentTo      String
+  context     Json?
+  attempts    Int        @default(0)
+  resendCount Int        @default(0)
+  lastSentAt  DateTime   @default(now())
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  createdAt   DateTime   @default(now())
+  ip          String?
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+}
+
+enum AuditCategory {
+  /// Logins, users, permissions and settings — the only events the User & settings manager may see.
+  SYSTEM
+  /// Employee, pay, leave and everything else.
+  DATA
+}
+
+/// Every create, edit, approve and print with user, time, IP, old and new value (PRD §11, §16).
+/// Rows cannot be updated or deleted: a database trigger blocks it.
+model AuditLog {
+  id          BigInt        @id @default(autoincrement())
+  boardId     String
+  at          DateTime      @default(now())
+  userId      String?
+  userName    String?
+  loginType   LoginType?
+  action      String
+  entityType  String
+  entityId    String?
+  summary     String
+  category    AuditCategory @default(DATA)
+  isSensitive Boolean       @default(false)
+  ip          String?
+  userAgent   String?
+  oldValue    Json?
+  newValue    Json?
+
+  @@index([boardId, at])
+  @@index([boardId, entityType, entityId])
+  @@index([boardId, userId])
+}
+
+/// Every approved change writes an event here so later systems can subscribe (PRD §12 rule 5).
+model OutboxEvent {
+  id            BigInt    @id @default(autoincrement())
+  boardId       String
+  eventType     String
+  aggregateType String
+  aggregateId   String
+  payload       Json
+  createdAt     DateTime  @default(now())
+  publishedAt   DateTime?
+  attempts      Int       @default(0)
+
+  @@index([publishedAt, id])
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  RETURNED
+  CANCELLED
+}
+
+/// The maker-checker engine. One row per item waiting for a decision (S-04 Approvals inbox).
+model ApprovalTask {
+  id                 String         @id @default(cuid())
+  boardId            String
+  kind               String
+  title              String
+  titleHi            String?
+  details            Json?
+  payload            Json
+  requiredPermission Permission
+  /// Limits the task to reporting officers of this section.
+  sectionId          String?
+  /// Whose record, pay, loan or arrears this is; that person can never decide it (PRD §2 rule 2).
+  subjectEmployeeId  String?
+  entityType         String
+  entityId           String?
+  status             ApprovalStatus @default(PENDING)
+  makerId            String
+  makerName          String
+  makerNote          String?
+  deciderId          String?
+  deciderName        String?
+  decisionNote       String?
+  decidedAt          DateTime?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  @@index([boardId, status, requiredPermission])
+  @@index([boardId, entityType, entityId])
+}
+
+model Setting {
+  boardId     String
+  key         String
+  value       Json
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+
+  @@id([boardId, key])
+}
+
+/// Running numbers (Employee ID, order numbers…), allocated inside the same transaction as the record.
+model Sequence {
+  boardId String
+  name    String
+  next    Int    @default(1)
+
+  @@id([boardId, name])
+}
+
+enum FileDirection {
+  OUTGOING
+  INCOMING
+}
+
+enum FileStatus {
+  PREVIEW
+  APPROVED
+  REJECTED
+  DOWNLOADED
+  VALIDATED
+  INVALID
+  APPLIED
+}
+
+/// Every file the system builds or receives. Outgoing files are previewed, approved by an Admin and
+/// logged with a checksum (PRD §12 rule 2, ST-09); incoming files are validated first (rule 3).
+model FileRecord {
+  id            String        @id @default(cuid())
+  boardId       String
+  direction     FileDirection
+  kind          String
+  period        String?
+  fileName      String
+  mimeType      String
+  size          Int
+  sha256        String
+  storageKey    String
+  status        FileStatus
+  meta          Json?
+  createdById   String
+  createdByName String
+  approvedById  String?
+  approvedAt    DateTime?
+  downloadCount Int           @default(0)
+  lastDownloadAt DateTime?
+  createdAt     DateTime      @default(now())
+
+  @@index([boardId, kind, period])
+}
+
+enum MessageChannel {
+  SMS
+  EMAIL
+}
+
+model MessageLog {
+  id          String         @id @default(cuid())
+  boardId     String
+  channel     MessageChannel
+  recipient   String
+  template    String
+  /// Message text with any OTP replaced by ******.
+  body        String
+  status      String
+  providerRef String?
+  error       String?
+  createdAt   DateTime       @default(now())
+
+  @@index([boardId, createdAt])
+}

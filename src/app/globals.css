@@ -1,0 +1,137 @@
+@import "tailwindcss";
+
+/*
+ * DCB HRMS design tokens — white + green, after the Delhi Cantonment Board emblem.
+ * One dark primary button per screen (brand-700), calm neutrals with a hint of green, AA contrast.
+ */
+@theme {
+  --color-brand-50: #edfaf2;
+  --color-brand-100: #d3f3e0;
+  --color-brand-200: #a9e6c4;
+  --color-brand-300: #74d2a1;
+  --color-brand-400: #40b77c;
+  --color-brand-500: #1f9c61;
+  --color-brand-600: #137e4e;
+  --color-brand-700: #116541;
+  --color-brand-800: #115136;
+  --color-brand-900: #0f432e;
+  --color-brand-950: #062619;
+
+  --color-ink-50: #f6f8f7;
+  --color-ink-100: #eef2f0;
+  --color-ink-200: #dfe6e2;
+  --color-ink-300: #c5d0ca;
+  --color-ink-400: #94a39b;
+  --color-ink-500: #6b7a72;
+  --color-ink-600: #4f5d56;
+  --color-ink-700: #3b4741;
+  --color-ink-800: #27302b;
+  --color-ink-900: #17201b;
+  --color-ink-950: #0c120e;
+
+  --color-gold-50: #fdf8ec;
+  --color-gold-100: #f9ecc8;
+  --color-gold-500: #c9962b;
+  --color-gold-600: #a97a1c;
+
+  --color-canvas: #f6f8f7;
+
+  --font-sans: "Inter Variable", "Noto Sans Devanagari", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --shadow-card: 0 1px 2px 0 rgb(15 32 24 / 0.04), 0 1px 3px 0 rgb(15 32 24 / 0.05);
+  --shadow-raised: 0 4px 12px -2px rgb(15 32 24 / 0.08), 0 2px 4px -2px rgb(15 32 24 / 0.05);
+  --shadow-overlay: 0 24px 48px -12px rgb(15 32 24 / 0.25);
+
+  --animate-fade-in: fade-in 160ms ease-out;
+  --animate-slide-up: slide-up 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-slide-in-left: slide-in-left 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes slide-up {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes slide-in-left {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(0); }
+  }
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background: var(--color-canvas);
+    color: var(--color-ink-900);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Hindi reads better slightly larger and with more line height. */
+  html[lang="hi"] body {
+    line-height: 1.6;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand-600);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  ::selection {
+    background: var(--color-brand-100);
+    color: var(--color-brand-900);
+  }
+
+  dialog::backdrop {
+    background: rgb(12 18 14 / 0.45);
+    backdrop-filter: blur(2px);
+  }
+}
+
+@layer utilities {
+  /* Money and IDs line up in columns. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-ink-300) transparent;
+  }
+
+  .brand-gradient {
+    background:
+      radial-gradient(1200px 600px at 0% 0%, rgb(64 183 124 / 0.35), transparent 60%),
+      radial-gradient(900px 500px at 100% 100%, rgb(201 150 43 / 0.18), transparent 55%),
+      linear-gradient(160deg, #0f432e 0%, #116541 55%, #137e4e 100%);
+  }
+
+  .grid-pattern {
+    background-image:
+      linear-gradient(rgb(255 255 255 / 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(255 255 255 / 0.06) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+}
+
+@media print {
+  body {
+    background: white;
+  }
+  .no-print {
+    display: none !important;
+  }
+}

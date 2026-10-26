@@ -1,0 +1,14 @@
+@AGENTS.md
+
+# DCB HRMS & Payroll — working notes
+
+- **Source of truth:** the Release 1 PRD. Build order and PRD IDs: `PLAN.md`. What is done / pending / decided: `PROGRESS.md`.
+  Read both before starting work and update both when a module or feature lands.
+- **Stack:** Next.js 16 (App Router, `src/proxy.ts` instead of middleware), TypeScript strict, Tailwind v4, Prisma 7 + PostgreSQL 16.
+- **Layers:** `src/modules/<module>/service.ts` holds business rules and permission checks; `src/app/api/v1/**` are thin REST wrappers
+  (`apiRoute`); pages read through the same services. Every write: audit (`lib/audit.ts`) + outbox (`lib/outbox.ts`) in the same transaction;
+  maker-checker through `lib/approvals`.
+- **Permissions:** `lib/auth/access.ts` is PRD §14 as data — never hard-code role checks in pages. Menus: `lib/auth/menu.ts` (≤ 8 items).
+- **Text:** every visible string lives in `lib/i18n/en.ts` and `hi.ts` (same keys — a unit test enforces it). Simple words.
+- **Money:** `lib/money.ts` (paise maths, rupee rounding). **Dates:** `lib/dates.ts` (ISO strings, India time).
+- **Checks before commit:** `npm run typecheck && npm run lint && npm test && npm run build`; browser checks: `npm run test:e2e` (app running, demo seed).
