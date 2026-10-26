@@ -76,7 +76,7 @@ describe("resolving a day", () => {
 });
 
 describe("month totals (AT-05, AT-06)", () => {
-  const day = (status: DayStatus, half = false): ResolvedDay => ({ status, onRoll: true, unmarked: false, from: "saved", firstIn: null, lastOut: null, workedMinutes: null, half, checked: true });
+  const day = (status: DayStatus, half = false): ResolvedDay => ({ status, onRoll: true, unmarked: false, from: "saved", firstIn: null, lastOut: null, workedMinutes: null, half, checked: true, leaveCode: null });
 
   it("pays days on the rolls less dies-non, and counts days worked for wage workers", () => {
     const t = monthTotals([

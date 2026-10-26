@@ -25,7 +25,7 @@ export default async function MyTeamPage() {
   return (
     <div>
       <PageHeader title={t("my.teamTitle")} description={t("my.teamSubtitle", { section: (locale === "hi" ? section?.nameHi : section?.name) ?? "—" })} />
-      <TeamTabs active="people" labels={{ people: t("attendance.team.tabPeople"), attendance: t("attendance.team.tabAttendance") }} />
+      <TeamTabs active="people" labels={{ people: t("attendance.team.tabPeople"), attendance: t("attendance.team.tabAttendance"), leave: t("leave.title") }} />
       <Card>
         {data.rows.length === 0 ? (
           <EmptyState icon={<UsersRound className="size-6" aria-hidden="true" />} title={t("common.noData")} />

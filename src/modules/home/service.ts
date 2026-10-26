@@ -1,11 +1,14 @@
 import "server-only";
 import { countInbox, listInbox } from "@/lib/approvals";
-import { can } from "@/lib/auth/access";
 import { hasApprovalsInbox } from "@/lib/auth/menu";
 import type { Actor } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { formatDate, formatMonth, todayIST, fromISODate } from "@/lib/dates";
 import { locksDue, sectionScope, todayBoard } from "@/modules/attendance/service";
+import { ensureCredits, ledgerBalances } from "@/modules/leave/balance";
+import { can, scopeFor } from "@/lib/auth/access";
+
+const fmtDays = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
 /**
  * S-02 Home: "My work" list + dashboard tiles. Every screen opens from "My work" (PRD §13), so each
@@ -27,7 +30,7 @@ export interface Tile {
   value: string | number;
   href?: string;
   tone?: "green" | "amber" | "red" | "gray" | "blue";
-  icon: "users" | "sections" | "employees" | "history" | "inbox" | "probation" | "joining" | "attendance" | "lock";
+  icon: "users" | "sections" | "employees" | "history" | "inbox" | "probation" | "joining" | "attendance" | "lock" | "leave";
 }
 
 export async function myWork(actor: Actor): Promise<WorkItem[]> {
@@ -88,6 +91,17 @@ export async function homeTiles(actor: Actor): Promise<Tile[]> {
     ]);
     tiles.push({ key: "probationDue", value: probation, href: "/recruitment?tab=probation", icon: "probation", tone: probation ? "amber" : "gray" });
     tiles.push({ key: "joiningsOpen", value: joining, href: "/recruitment?tab=joining", icon: "joining", tone: "blue" });
+  }
+  // PRD §15: employees see their leave balance; HR & Accounts see leave waiting.
+  if (actor.loginType === "EMPLOYEE" && actor.employeeId) {
+    await ensureCredits(actor.boardId);
+    const bal = await ledgerBalances(actor.employeeId);
+    const parts = ["EL", "CL"].filter((c) => bal.has(c)).map((c) => `${c} ${fmtDays(bal.get(c)!)}`);
+    if (parts.length) tiles.push({ key: "leaveBalance", value: parts.join(" · "), href: "/leave", icon: "leave", tone: "green" });
+  }
+  if (scopeFor(actor, "leave", "view") === "all" && actor.loginType === "HR_ACCOUNTS") {
+    const waiting = await db.leaveApplication.count({ where: { boardId: actor.boardId, status: "PENDING" } });
+    tiles.push({ key: "leaveWaiting", value: waiting, href: "/leave/manage", icon: "leave", tone: waiting ? "amber" : "gray" });
   }
   if (sectionScope(actor) === "all") {
     const board = await todayBoard(actor);

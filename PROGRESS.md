@@ -11,8 +11,8 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 | 2 | Employee master | 🟢 Done & verified |
 | 3 | Recruitment & onboarding | 🟢 Done & verified |
 | 4 | Attendance & holidays | 🟢 Done & verified (AT-06 wages in Module 6) |
-| 5 | Leave | 🟡 Next |
-| 6 | Rates & rules + monthly payroll | ⚪ Pending |
+| 5 | Leave | 🟢 Done & verified |
+| 6 | Rates & rules + monthly payroll | 🟡 Next |
 | 7 | Pay changes, arrears, loans & salary slips | ⚪ Pending |
 | 8 | Statutory & tax | ⚪ Pending |
 | 9 | Pension | ⚪ Pending |
@@ -23,6 +23,38 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 ---
 
 ## Change log (newest first)
+
+### 2026-10-26 — Module 5: Leave ✅
+**Built**
+- Schema: LeaveType (the rules table, versioned), LeaveLedger (opening, credit, debit, lapse, restored — one credit per
+  person, leave and period), LeaveApplication (with certificate, paper sanction); attendance day links to its application;
+  month totals carry half-pay and no-pay leave.
+- Pure leave rules: counting days (CL skips holidays and weekly offs, EL counts them), credit periods, pro-rata for new
+  joiners, the EL cap, who decides. Default rules from the PRD table, loaded for every installation.
+- Automatic credits (LV-02) checked once a day per Board when leave is looked at; last year's CL and RH lapse first.
+- Apply with live preview (LV-03), commuted leave from HPL × 2 with a certificate, RH only on RH-list days, maternity and
+  paternity per spell, CCL against 730 days in service; overlaps, locked months and short balances refused.
+- Approval marks the days and debits the balance (LV-04); cancel restores both. HR paper-sanction entry (LV-05), opening
+  balances from Excel through a Checker (LV-06), leave account on screen and as a bilingual PDF (LV-07), rules changes
+  through an Admin (LV-01).
+- Month lock now offers "treat as leave" with the person's balances (AT-05 complete).
+- Screens: Leave (employee), Apply, Application, Leave account, Team leave, Leave for HR & Accounts (5 tabs), an
+  Attendance / Leave switch for the shared menu item, Home tiles.
+- Demo data: opening balances, credits for 2026, three approved leaves (EL, HPL, CL) with their days marked, and two
+  applications waiting — one for Health's reporting officer, one for an Admin.
+
+**Verified**
+- 225 unit + integration tests (15 new: day counting, credits and pro-rata, cap, routing; on a real database: credits once,
+  live preview, officer approval and cancellation, opening balances through a Checker, Admin for long leave, commuted
+  leave with certificate, HR paper entry, rules change through an Admin, leave decided at the month lock with its pay
+  effect), typecheck, lint, build clean.
+- 21 Playwright checks (3 new leave flows; every leave screen fits a phone).
+- Leave account PDF checked (Hindi headings, running balances). Screens reviewed in English, Hindi and on a phone.
+
+**Fixed while verifying**
+- Leave entered by HR now goes to the section's officer or an Admin, not a Checker — PRD §14 gives the Checker no role
+  in leave (caught when the Checker could not open the leave screens).
+- The live "balance after" now allows for applications already waiting.
 
 ### 2026-10-26 — Module 4: Attendance & holidays ✅
 **Built**
@@ -144,12 +176,11 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 ---
 
 ## Pending / next up
-- Module 5: Leave (LV-01…07, S-31): leave rules table with Admin approval, EL/HPL credits on 1 Jan / 1 Jul with caps,
-  apply / approve / cancel with live balance, approved leave marks attendance (source LEAVE) and adds "treat as leave" to
-  the month-lock decisions, HR entry on behalf, opening balances, printable ledger.
-- Carried items: wages from days worked (AT-06) and pro-rata first salary (Module 6 payroll run); pensioner view of the
-  Employee login (Module 9); email sending (Module 7); reports 7–8 (attendance register, absent and late) and the formal
-  accessibility pass (Module 10).
+- Module 6: Rates & rules + monthly payroll (PR-01…05, PR-10…14, S-40, S-81): dated pay matrix / DA / HRA / TA tables,
+  pay groups, five-stage payroll (run → fix exceptions → check → approve and sign with OTP → pay), pay from locked
+  attendance (payable days, half-pay and no-pay leave, wages from days worked), pro-rata first salary, bank file.
+- Carried items: pensioner view of the Employee login (Module 9); email sending (Module 7); reports 7–10 (attendance and
+  leave reports) and the formal accessibility pass (Module 10); leave encashment (Module 9 pension).
 
 ## Decisions taken (and why)
 | # | Decision | Reason |
@@ -173,6 +204,9 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 | D-18 | Punches are stored raw; a day's status is worked out when shown and saved only for decisions (muster, request, lock) | One source of truth; a late file or a corrected rule changes unlocked days without data repair |
 | D-19 | Office hours default to central government hours in Delhi (09:00, 15 min grace, half day under 4 h, Sat–Sun off; six-day week for health, water, hospital and gardens in the demo) | PRD §18 asks to confirm DCB's rules; all are settings, not code |
 | D-20 | Unexplained days at lock: present, on duty or dies-non now; "treat as leave" arrives with the Leave module | PRD AT-05 needs the officer's decision before any pay effect; leave debits need the leave ledger |
+| D-21 | Leave balances live in a ledger (sum of entries), never in a stored number | The printed leave account and the balance can never disagree; corrections are new entries |
+| D-22 | Leave credits run when leave is first looked at each day (and are safe to repeat), not by a separate scheduler | No extra process to run on the Board's server; a per-person, per-period key stops double credits |
+| D-23 | Leave decisions follow PRD §14: reporting officer (own section, within the limit set per leave type), Admin beyond it, for leave without an officer and for officers' own leave; HR paper entries follow the same route; opening balances (migration) go to a Checker | The Checker has no role in the §14 leave row; migration has |
 | D-08 | Delhi Cantt logo could not be downloaded from inside the build environment (network policy). A placeholder emblem sits at `public/brand/logo.svg`; drop the real logo at the same path | — |
 
 ## Known gaps / risks

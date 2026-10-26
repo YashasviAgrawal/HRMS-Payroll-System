@@ -4,3 +4,4 @@ import "@/modules/employees/approvals";
 import "@/lib/files-approvals";
 import "@/modules/recruitment/approvals";
 import "@/modules/attendance/approvals";
+import "@/modules/leave/approvals";

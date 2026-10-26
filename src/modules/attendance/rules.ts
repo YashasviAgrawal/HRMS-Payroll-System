@@ -7,7 +7,7 @@
  *   3. punches (present, late, half day, missed punch);
  *   4. nothing at all — absent for a device section once the day is over, "not marked" for a manual one.
  */
-import type { DayStatus } from "@/generated/prisma/enums";
+import type { DayStatus, LeavePay } from "@/generated/prisma/enums";
 import { istMinutes, weekday, type ISODate } from "@/lib/dates";
 
 export interface AttendanceRules {
@@ -24,8 +24,8 @@ export const EXCEPTION_STATUSES: readonly DayStatus[] = ["ABSENT", "MISSED_PUNCH
 export const MUSTER_STATUSES = ["PRESENT", "LATE", "HALF_DAY", "ABSENT", "ON_DUTY"] as const;
 export type MusterStatus = (typeof MUSTER_STATUSES)[number];
 
-/** What an officer may decide for an unexplained day at lock. Leave joins this list with the Leave module. */
-export const RESOLUTIONS = ["PRESENT", "ON_DUTY", "DIES_NON"] as const;
+/** What an officer may decide for an unexplained day at lock (AT-05): present, on duty, a kind of leave, or dies-non. */
+export const RESOLUTIONS = ["PRESENT", "ON_DUTY", "LEAVE", "DIES_NON"] as const;
 export type Resolution = (typeof RESOLUTIONS)[number];
 
 /** Short codes for the month register, printed the way muster rolls are written. */
@@ -98,7 +98,7 @@ export interface DayInput {
   onRollTo: ISODate | null;
   mode: "DEVICE" | "MANUAL";
   calendar: CalendarDay;
-  saved?: { status: DayStatus; half?: boolean; checked?: boolean } | null;
+  saved?: { status: DayStatus; half?: boolean; checked?: boolean; leaveCode?: string | null } | null;
   punches: Date[];
   rules: AttendanceRules;
 }
@@ -116,10 +116,12 @@ export interface ResolvedDay {
   workedMinutes: number | null;
   half: boolean;
   checked: boolean;
+  /** Leave type when the day is leave. */
+  leaveCode: string | null;
 }
 
 export function resolveDay(input: DayInput): ResolvedDay {
-  const base = { firstIn: null, lastOut: null, workedMinutes: null, half: false, checked: true };
+  const base = { firstIn: null, lastOut: null, workedMinutes: null, half: false, checked: true, leaveCode: null };
   const onRoll = input.date >= input.onRollFrom && (input.onRollTo === null || input.date <= input.onRollTo);
   if (!onRoll) return { ...base, status: null, onRoll: false, unmarked: false, from: "none" };
   const fromPunches = statusFromPunches(input.punches, input.rules);
@@ -132,6 +134,7 @@ export function resolveDay(input: DayInput): ResolvedDay {
       status: input.saved.status,
       half: input.saved.half ?? false,
       checked: input.saved.checked ?? true,
+      leaveCode: input.saved.leaveCode ?? null,
       onRoll,
       unmarked: false,
       from: "saved",
@@ -169,6 +172,9 @@ export interface MonthTotals {
   holidays: number;
   weeklyOffs: number;
   diesNon: number;
+  /** Leave on half pay (HPL) and no pay (EOL) — payroll applies the pay effect (LV-04). */
+  halfPayLeave: number;
+  noPayLeave: number;
   absent: number;
   missedPunch: number;
   unmarked: number;
@@ -178,9 +184,10 @@ export interface MonthTotals {
 
 /**
  * Month totals. A half day counts as half present; a half-day dies-non removes half a day from pay.
- * Payable days = days on the rolls − dies-non. Worked days = present + late + on duty (half days as ½).
+ * Payable days = days on the rolls − dies-non − leave on no pay. Leave on half pay is counted separately
+ * for payroll. Worked days = present + late + on duty (half days as ½).
  */
-export function monthTotals(days: ResolvedDay[]): MonthTotals {
+export function monthTotals(days: ResolvedDay[], leavePay: Map<string, LeavePay> = new Map()): MonthTotals {
   const t: MonthTotals = {
     daysInMonth: days.length,
     daysOnRoll: 0,
@@ -192,6 +199,8 @@ export function monthTotals(days: ResolvedDay[]): MonthTotals {
     holidays: 0,
     weeklyOffs: 0,
     diesNon: 0,
+    halfPayLeave: 0,
+    noPayLeave: 0,
     absent: 0,
     missedPunch: 0,
     unmarked: 0,
@@ -218,10 +227,14 @@ export function monthTotals(days: ResolvedDay[]): MonthTotals {
       case "ON_DUTY":
         t.onDuty += 1;
         break;
-      case "LEAVE":
+      case "LEAVE": {
         t.leave += share;
         if (d.half) t.present += 0.5;
+        const pay = d.leaveCode ? leavePay.get(d.leaveCode) : undefined;
+        if (pay === "HALF") t.halfPayLeave += share;
+        if (pay === "NONE") t.noPayLeave += share;
         break;
+      }
       case "HOLIDAY":
         t.holidays += 1;
         break;
@@ -243,6 +256,6 @@ export function monthTotals(days: ResolvedDay[]): MonthTotals {
     }
   }
   t.workedDays = t.present + t.onDuty;
-  t.payableDays = t.daysOnRoll - t.diesNon;
+  t.payableDays = t.daysOnRoll - t.diesNon - t.noPayLeave;
   return t;
 }

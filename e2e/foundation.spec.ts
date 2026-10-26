@@ -58,14 +58,15 @@ test.describe("Module 1 — foundation", () => {
     await expect(page.getByRole("heading", { name: "SMS gateway" })).toBeVisible();
   });
 
-  test("Approver sees the admin menu and an empty inbox", async ({ page }) => {
+  test("Approver sees the admin menu and their approvals inbox", async ({ page }) => {
     await signIn(page, { as: "Admin", id: "DCB10002" });
     const nav = page.getByRole("navigation", { name: "Menu" }).first();
     for (const item of ["Approvals", "Payroll and sign", "Reports", "Rates and rules", "Audit trail"]) {
       await expect(nav.getByRole("link", { name: item })).toBeVisible();
     }
     await nav.getByRole("link", { name: "Approvals" }).click();
-    await expect(page.getByText("Nothing is waiting for your approval.")).toBeVisible();
+    // The demo leaves a 5-day EL application waiting for an Admin (Education has no reporting officer).
+    await expect(page.getByRole("cell", { name: /EL 5 days: Pooja Bhatia/ })).toBeVisible();
   });
 
   test("not-yet-built screens show a friendly placeholder, unknown ones a 404", async ({ page }) => {

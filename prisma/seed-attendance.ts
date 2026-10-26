@@ -6,7 +6,8 @@
  * Uses only the pure attendance rules, so the totals frozen here are the ones the app would freeze.
  */
 import type { PrismaClient } from "../src/generated/prisma/client";
-import type { DayStatus } from "../src/generated/prisma/enums";
+import type { DayStatus, EmployeeType } from "../src/generated/prisma/enums";
+import { seedLeaveDemo } from "./seed-leave";
 import { addDays, datesOfMonth, fromISODate, istInstant, monthOf, shiftMonth, todayIST, type ISODate } from "../src/lib/dates";
 import { calendarDay, monthTotals, resolveDay, weeklyOffFor, type AttendanceRules, type ResolvedDay } from "../src/modules/attendance/rules";
 
@@ -77,6 +78,8 @@ interface SeedEmployee {
   sectionCode: string;
   sectionId: string;
   doj: ISODate;
+  gender: string;
+  type: EmployeeType;
 }
 
 /** `users`: Employee logins by Employee ID; `hr`: the HR user shown as having locked last month. */
@@ -158,6 +161,8 @@ export async function seedAttendance(db: PrismaClient, boardId: string, employee
   }
   await db.attendancePunch.createMany({ data: punches, skipDuplicates: true });
   await db.attendanceDay.createMany({ data: muster, skipDuplicates: true });
+  await seedLeaveDemo(db, boardId, employees, users, hr);
+  const leavePay = new Map((await db.leaveType.findMany({ where: { boardId } })).map((t) => [t.code, t.pay]));
 
   // An approved on-duty day last month (board exam duty) for the teacher who has a login.
   const pooja = byCode.get("DCB10014");
@@ -189,7 +194,7 @@ export async function seedAttendance(db: PrismaClient, boardId: string, employee
           onRollTo: null,
           mode: s.attendanceMode,
           calendar: calendarDay(d, holidays, weeklyOff),
-          saved: saved.get(d) ? { status: saved.get(d)!.status } : null,
+          saved: saved.get(d) ? { status: saved.get(d)!.status, leaveCode: saved.get(d)!.leaveCode } : null,
           punches: own.filter((p) => todayIST(p.at) === d).map((p) => p.at),
           rules: RULES,
         });
@@ -199,7 +204,7 @@ export async function seedAttendance(db: PrismaClient, boardId: string, employee
           data: { boardId, employeeId: e.id, date: fromISODate(d), status: day.status, source: day.from === "punches" ? "DEVICE" : "LOCK", firstIn: day.firstIn, lastOut: day.lastOut, workedMinutes: day.workedMinutes },
         });
       }
-      const t = monthTotals(days);
+      const t = monthTotals(days, leavePay);
       await db.attendanceMonth.create({
         data: {
           boardId,
@@ -216,6 +221,8 @@ export async function seedAttendance(db: PrismaClient, boardId: string, employee
           holidays: t.holidays,
           weeklyOffs: t.weeklyOffs,
           diesNon: t.diesNon,
+          halfPayLeave: t.halfPayLeave,
+          noPayLeave: t.noPayLeave,
           payableDays: t.payableDays,
           workedDays: t.workedDays,
         },

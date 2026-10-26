@@ -51,8 +51,10 @@ export const lockSchema = z.object({
         employeeId: z.string().min(1),
         date: isoDateField,
         outcome: z.enum(RESOLUTIONS),
+        /** Which leave, when the day is treated as leave. */
+        leaveCode: z.string().trim().max(10).optional(),
         note: z.string().trim().max(200).optional(),
-      }),
+      }).refine((r) => r.outcome !== "LEAVE" || !!r.leaveCode, { path: ["leaveCode"], message: "validation.required" }),
     )
     .max(2000),
 });

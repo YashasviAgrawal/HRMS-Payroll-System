@@ -53,7 +53,7 @@ All demo logins use the password **`Dcb@2026`**. With `SMS_PROVIDER=console` the
 
 Employees and pensioners can also choose **"With mobile OTP only"**.
 
-**Things to try in the demo:** Rajesh (`DCB10008`) has a missed-punch request from Suresh waiting and last month's Health attendance to lock; Neha (`DCB10007`) sees today's attendance board, the month register and the punch import; the holiday calendar is under Attendance → Holiday calendar. Every write goes to a second person (Checker or Admin) — sign in as `DCB10006` to check.
+**Things to try in the demo:** Rajesh (`DCB10008`) has a missed-punch request and a CL application from Suresh waiting, and last month's Health attendance to lock (an unexplained day can be treated as leave); Anil (`DCB10001`, Admin) has a 5-day EL application from Pooja; Suresh (`DCB10010`) can apply for leave with a live balance; Neha (`DCB10007`) sees today's attendance board, the month register and the punch import; the holiday calendar is under Attendance → Holiday calendar. Every write goes to a second person (Checker or Admin) — sign in as `DCB10006` to check.
 
 ## Commands
 

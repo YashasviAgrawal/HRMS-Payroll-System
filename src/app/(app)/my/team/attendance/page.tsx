@@ -36,7 +36,7 @@ export default async function TeamAttendancePage({ searchParams }: { searchParam
   return (
     <div className="space-y-6">
       <PageHeader title={t("attendance.team.title")} description={t("attendance.team.subtitle", { section: sectionName })} />
-      <TeamTabs active="attendance" labels={{ people: t("attendance.team.tabPeople"), attendance: t("attendance.team.tabAttendance") }} />
+      <TeamTabs active="attendance" labels={{ people: t("attendance.team.tabPeople"), attendance: t("attendance.team.tabAttendance"), leave: t("leave.title") }} />
 
       {lockOpen && due && canLockSection(actor, sectionId) && (
         <Card className={due.overdue ? "border-red-200" : "border-amber-200"}>

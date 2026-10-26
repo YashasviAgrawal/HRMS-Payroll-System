@@ -11,7 +11,7 @@ import { RowLink } from "@/components/ui/row-link";
 import { StatTile } from "@/components/ui/stat-tile";
 import { LinkTabs } from "@/components/ui/tabs";
 import { Table, Td, Th, THead, Tr } from "@/components/ui/table";
-import { scopeFor } from "@/lib/auth/access";
+import { can, scopeFor } from "@/lib/auth/access";
 import { requireActor } from "@/lib/auth/session";
 import { formatDate, formatDateTime, formatMonth, isMonth, monthOf, todayIST, toISODate } from "@/lib/dates";
 import { env } from "@/lib/env";
@@ -22,6 +22,7 @@ import { recentImports } from "@/modules/attendance/imports";
 import { attendanceRules, canEnterMuster, lockDue, lockOverview, openRequests, sectionRegister, sectionScope, todayBoard, visibleSections } from "@/modules/attendance/service";
 import { getSetting } from "@/modules/settings/service";
 import { fullName } from "@/modules/employees/present";
+import { AreaSwitch } from "./_components/area-switch";
 import { toGrid } from "./_components/grid-data";
 import { ImportPanel } from "./_components/import-panel";
 import { MonthNav } from "./_components/month-nav";
@@ -62,6 +63,7 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
           </LinkButton>
         }
       />
+      {can(actor, "leave", "view") && <AreaSwitch active="attendance" labels={{ attendance: t("attendance.title"), leave: t("leave.title") }} />}
       <LinkTabs className="mb-5" active={tab} tabs={tabs.map((k) => ({ key: k, label: t(`attendance.tabs.${k}`), href: `/attendance?tab=${k}` }))} />
       {content}
     </div>

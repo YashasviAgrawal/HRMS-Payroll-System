@@ -69,6 +69,7 @@ export default async function LockPage({ searchParams }: { searchParams: Promise
               monthLabel={monthLabel}
               blocked={blockers.length > 0}
               backHref={back}
+              leaveChoices={p.leaveChoices}
               exceptions={p.exceptions.map((x) => ({ ...x, firstIn: x.firstIn ? x.firstIn.toISOString() : null, lastOut: x.lastOut ? x.lastOut.toISOString() : null }))}
             />
           </Card>

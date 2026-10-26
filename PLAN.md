@@ -143,23 +143,24 @@ _Goal: a secure, bilingual shell that every later module plugs into._
 - [x] AT-02 Muster roll for sections without devices, and HR corrections for any section — entered on the month register, sent as one batch to a Checker before they count
 - [x] AT-03 Daily status: Present, Late, Half day, Absent, Missed punch, On duty, On leave, Holiday, Weekly off (+ Dies-non after the officer decides) — office start, grace and half-day time are settings
 - [x] AT-04 Missed-punch / on-duty request by the employee (this month and last); the section's reporting officer decides (an officer's own request goes to HR); approved days are regularised
-- [x] AT-05 Month lock by the reporting officer (own section) or HR (any section), due by the lock day (setting, 25th) for last month; blocked while requests or muster entries wait; every absent / missed-punch / half day must be decided (present, on duty or dies-non) before the lock; totals frozen for payroll; reopening goes to a Checker — _"treat as leave" joins the decisions with the Leave module (Module 5)_
+- [x] AT-05 Month lock by the reporting officer (own section) or HR (any section), due by the lock day (setting, 25th) for last month; blocked while requests or muster entries wait; every absent / missed-punch / half day must be decided (present, on duty or dies-non) before the lock; totals frozen for payroll; reopening goes to a Checker; "treat as leave" added in Module 5
 - [~] AT-06 Days worked for contract and daily-wage workers are counted and frozen at lock (`AttendanceMonth.workedDays`) — _wages computed from them in Module 6_
 - [x] AT-07 Today board: present, late, not in yet, on leave / duty, off — by section, with the list of people not in yet; Home tiles
 - [x] AT-08 Holiday calendar per year (gazetted + restricted), set by HR and approved by a Checker; months already locked cannot change; working week (weekly off) and attendance mode per section
 - [x] S-30 Attendance (Today · Month register · Month lock · Requests · Import) · S-32 Holiday calendar · My attendance (employee) · Team attendance (reporting officer)
 
 ## Module 5 — Leave (§7)
-- [ ] LV-01 Leave types, credits, caps and who can sanction held in an editable table (Admin approves changes)
-- [ ] Default rules: CL 8/yr lapses 31 Dec · EL 15 on 1 Jan & 1 Jul, cap 300 · HPL 10 on 1 Jan & 1 Jul · Commuted = 2 HPL per day + medical cert · EOL no pay · Maternity 180 · Paternity 15 · CCL 730 in service · RH 2/yr
-- [ ] LV-02 Automatic EL & HPL credit on 1 Jan / 1 Jul with caps (and pro-rata for joiners)
-- [ ] LV-03 Apply, approve, reject, cancel online with live balance; mobile-friendly
-- [ ] LV-04 Approved leave marks attendance and sets pay effect in next payroll
-- [ ] LV-05 HR enters leave for staff who do not use the system
-- [ ] LV-06 Opening balances from FoxPro / paper leave account
-- [ ] LV-07 Leave ledger per employee (credits, debits, balance), printable for the service book
-- [ ] Flow: beyond the officer's limit goes to HR or Admin
-- [ ] S-31 Leave
+- [x] LV-01 Leave rules table (credit mode and days, cap, pay effect, lapse, half day, certificate, holidays counted, who may sanction); HR proposes a change or a new type, an Admin approves; every row versioned
+- [x] Default rules: CL 8/yr lapses 31 Dec · EL 15 on 1 Jan & 1 Jul, cap 300 · HPL 10 on 1 Jan & 1 Jul · Commuted = 2 HPL per day + medical certificate · EOL no pay · Maternity 180 a time · Paternity 15 a time · CCL 730 in service · RH 2/yr from the RH list — _to confirm for DCB; CCL defaults to women employees_
+- [x] LV-02 Automatic credits: EL & HPL on 1 Jan / 1 Jul (cap applied), CL & RH on 1 Jan after last year's balance lapses, pro-rata for new joiners (completed months, ½ rounds up); once per person per period, checked daily
+- [x] LV-03 Apply with a live preview (days, balance after, who decides), approve / reject / send back, withdraw while waiting, cancel approved leave that has not started (HR can cancel any unlocked leave); works on a phone
+- [x] LV-04 Approved leave marks attendance (source LEAVE, half days, holidays counted for EL-type leave) and the month totals carry leave on half pay (HPL) and no pay (EOL) for payroll; payable days = days on rolls − dies-non − no-pay leave
+- [x] LV-05 HR enters leave sanctioned on paper (sanction order required); decided like any application
+- [x] LV-06 Opening balances from an Excel sheet (one row per person, one column per leave; CCL as days used), checked line by line, approved by a Checker; also usable for one person
+- [x] LV-07 Leave account per employee — credits, debits, running balance per leave — on screen and as a bilingual PDF for the service book
+- [x] Flow: the section's reporting officer within their limit; an Admin beyond it, for leave the officer cannot sanction and for an officer's own leave (PRD §14 leave row)
+- [x] Month lock: an unexplained day can be treated as leave (balance checked and debited) — completes AT-05
+- [x] S-31 Leave (employee) · Team leave (reporting officer) · Leave for HR & Accounts (applications, balances, enter leave, opening balances, rules) · Home tiles (leave balance, leave waiting)
 
 ## Module 6 — Rates & rules + monthly payroll (§8)
 - [ ] PR-01 7th CPC pay matrix as a dated table (level × cell); a new commission matrix can be added with a new date

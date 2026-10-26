@@ -22,6 +22,7 @@ import {
 import { badRequest, conflict, forbidden, notFound } from "@/lib/errors";
 import { emit } from "@/lib/outbox";
 import { fullName } from "@/modules/employees/present";
+import { balancesFor, leaveRules } from "@/modules/leave/balance";
 import { getSetting } from "@/modules/settings/service";
 import {
   EXCEPTION_STATUSES,
@@ -197,11 +198,13 @@ async function buildRows(input: BuildInput): Promise<RegisterRow[]> {
   const from = dates[0];
   const to = dates[dates.length - 1];
   const ids = employees.map((e) => e.id);
-  const [holidays, punches, saved] = await Promise.all([
+  const [holidays, punches, saved, leaveTypes] = await Promise.all([
     gazettedHolidays(input.boardId, from, to, input.tx),
     punchesBetween(ids, from, to, input.tx),
     savedBetween(ids, from, to, input.tx),
+    (input.tx ?? db).leaveType.findMany({ where: { boardId: input.boardId }, select: { code: true, pay: true } }),
   ]);
+  const leavePay = new Map(leaveTypes.map((l) => [l.code, l.pay]));
   const weeklyOff = weeklyOffFor(input.section.weeklyOff, rules.weeklyOff);
   const holidaySet = new Set(holidays.keys());
   return employees.map((e) => {
@@ -215,7 +218,7 @@ async function buildRows(input: BuildInput): Promise<RegisterRow[]> {
         onRollTo: e.exitDate ? toISODate(e.exitDate) : null,
         mode: input.section.attendanceMode,
         calendar: calendarDay(date, holidaySet, weeklyOff),
-        saved: s ? { status: s.status, half: s.half, checked: s.checked } : null,
+        saved: s ? { status: s.status, half: s.half, checked: s.checked, leaveCode: s.leaveCode } : null,
         punches: punches.get(key) ?? [],
         rules,
       });
@@ -240,7 +243,7 @@ async function buildRows(input: BuildInput): Promise<RegisterRow[]> {
         biometricId: e.biometricId,
       },
       days,
-      totals: monthTotals(days),
+      totals: monthTotals(days, leavePay),
     };
   });
 }
@@ -384,7 +387,7 @@ export async function myAttendance(actor: Actor, month: string) {
 // ─── Missed punch / on duty (AT-04) ───────────────────────────────────────────
 
 /** The reporting officer of a section, if one is on the rolls and active. */
-async function sectionOfficers(boardId: string, sectionId: string, tx: DbLike = db) {
+export async function sectionOfficers(boardId: string, sectionId: string, tx: DbLike = db) {
   return tx.user.findMany({
     where: { boardId, status: "ACTIVE", loginType: "EMPLOYEE", permissions: { has: "REPORTING_OFFICER" }, employee: { sectionId, status: "ACTIVE" } },
     select: { id: true, employeeId: true },
@@ -571,7 +574,17 @@ export async function lockPreview(actor: Actor, sectionId: string, month: string
     pendingMuster: !!reg.pendingMusterTaskId,
     unmarked: reg.rows.reduce((n, r) => n + r.totals.unmarked, 0),
   };
-  return { ...reg, exceptions, blockers };
+  // Leave each person could have the day treated as (AT-05: "goes to leave or dies-non").
+  const people = [...new Set(exceptions.map((x) => x.employeeId))];
+  const staff = await db.employee.findMany({ where: { id: { in: people } }, select: { id: true, gender: true, type: true } });
+  const leaveChoices: Record<string, { code: string; name: string; nameHi: string; available: number | null }[]> = {};
+  for (const e of staff) {
+    leaveChoices[e.id] = (await balancesFor(e, actor.boardId))
+      .filter((b) => b.creditMode === "HALF_YEARLY" || b.creditMode === "YEARLY" || (b.creditMode === "NONE" && !b.debitFrom))
+      .filter((b) => b.code !== "RH")
+      .map((b) => ({ code: b.code, name: b.name, nameHi: b.nameHi, available: b.available }));
+  }
+  return { ...reg, exceptions, blockers, leaveChoices };
 }
 
 export async function lockMonth(actor: Actor, raw: unknown) {
@@ -591,6 +604,21 @@ export async function lockMonth(actor: Actor, raw: unknown) {
   if (input.resolutions.some((r) => !exceptionKeys.has(`${r.employeeId}|${r.date}`))) throw badRequest("attendance.errors.notAnException");
 
   const exceptionStatus = new Map(preview.exceptions.map((x) => [`${x.employeeId}|${x.date}`, x.status]));
+  // Days treated as leave must fit the person's balance.
+  const leaveTypes = new Map((await leaveRules(actor.boardId)).map((t) => [t.code, t]));
+  const need = new Map<string, number>();
+  for (const r of input.resolutions.filter((x) => x.outcome === "LEAVE")) {
+    const choice = preview.leaveChoices[r.employeeId]?.find((c) => c.code === r.leaveCode);
+    if (!choice) throw badRequest("attendance.errors.leaveNotAllowed", undefined, { code: r.leaveCode ?? "" });
+    const share = exceptionStatus.get(`${r.employeeId}|${r.date}`) === "HALF_DAY" ? 0.5 : 1;
+    need.set(`${r.employeeId}|${r.leaveCode}`, (need.get(`${r.employeeId}|${r.leaveCode}`) ?? 0) + share);
+  }
+  for (const [key, days] of need) {
+    const [employeeId, code] = key.split("|");
+    const available = preview.leaveChoices[employeeId].find((c) => c.code === code)!.available;
+    if (available !== null && days > available) throw badRequest("attendance.errors.leaveShort", undefined, { code, days, available });
+  }
+
   return db.$transaction(async (tx) => {
     await assertUnlocked(tx, actor.boardId, input.sectionId, input.month);
     let diesNon = 0;
@@ -603,19 +631,36 @@ export async function lockMonth(actor: Actor, raw: unknown) {
         let half = d.half;
         let source: AttendanceDay["source"] = d.from === "punches" ? "DEVICE" : "LOCK";
         let note: string | null | undefined;
+        let leaveCode: string | null = null;
         if (r) {
-          // A half day confirmed as dies-non is half a day of dies-non; the other half was worked.
-          half = r.outcome === "DIES_NON" && exceptionStatus.get(key) === "HALF_DAY";
+          // A half day confirmed as dies-non (or leave) is half a day of it; the other half was worked.
+          half = (r.outcome === "DIES_NON" || r.outcome === "LEAVE") && exceptionStatus.get(key) === "HALF_DAY";
           status = r.outcome;
           source = "LOCK";
           note = r.note ?? null;
           if (r.outcome === "DIES_NON") diesNon += half ? 0.5 : 1;
+          if (r.outcome === "LEAVE") {
+            const type = leaveTypes.get(r.leaveCode!)!;
+            leaveCode = type.code;
+            await tx.leaveLedger.create({
+              data: {
+                boardId: actor.boardId,
+                employeeId: row.employee.id,
+                leaveCode: type.debitFrom ?? type.code,
+                date: fromISODate(d.date),
+                kind: "DEBIT",
+                days: -(half ? 0.5 : 1) * type.debitFactor,
+                note: `Unexplained day treated as ${type.code} at the month lock`,
+                createdById: actor.userId,
+              },
+            });
+          }
         } else if (d.from === "saved") continue; // already a saved row
         const date = fromISODate(d.date);
         await tx.attendanceDay.upsert({
           where: { employeeId_date: { employeeId: row.employee.id, date } },
-          create: { boardId: actor.boardId, employeeId: row.employee.id, date, status, half, source, note: note ?? null, firstIn: d.firstIn, lastOut: d.lastOut, workedMinutes: d.workedMinutes, updatedById: actor.userId },
-          update: { status, half, source, note: note ?? null, updatedById: actor.userId },
+          create: { boardId: actor.boardId, employeeId: row.employee.id, date, status, half, source, leaveCode, note: note ?? null, firstIn: d.firstIn, lastOut: d.lastOut, workedMinutes: d.workedMinutes, updatedById: actor.userId },
+          update: { status, half, source, leaveCode, note: note ?? null, updatedById: actor.userId },
         });
       }
     }
@@ -649,6 +694,8 @@ export async function lockMonth(actor: Actor, raw: unknown) {
         holidays: r.totals.holidays,
         weeklyOffs: r.totals.weeklyOffs,
         diesNon: r.totals.diesNon,
+        halfPayLeave: r.totals.halfPayLeave,
+        noPayLeave: r.totals.noPayLeave,
         payableDays: r.totals.payableDays,
         workedDays: r.totals.workedDays,
       })),

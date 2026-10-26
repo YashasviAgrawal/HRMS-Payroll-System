@@ -813,6 +813,8 @@ model AttendanceDay {
   note          String?
   /// Manual muster entries and HR corrections wait for a Checker (AT-02).
   checked       Boolean   @default(true)
+  /// The leave application that marked this day (LV-04), so cancelling it can undo the day.
+  applicationId String?
   updatedById   String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -879,6 +881,9 @@ model AttendanceMonth {
   holidays    Int
   weeklyOffs  Int
   diesNon     Decimal  @db.Decimal(5, 1)
+  /// Leave on half pay (HPL) and on no pay (EOL) in the month — payroll applies the pay effect (LV-04).
+  halfPayLeave Decimal @default(0) @db.Decimal(5, 1)
+  noPayLeave   Decimal @default(0) @db.Decimal(5, 1)
   /// Days paid for regular staff: days on the rolls less dies-non (and no-pay leave once the Leave module runs).
   payableDays Decimal  @db.Decimal(5, 1)
   /// Days actually worked — what contract and daily-wage workers are paid for (AT-06).
@@ -887,5 +892,130 @@ model AttendanceMonth {
 
   @@unique([employeeId, month])
   @@index([boardId, month])
+}
+
+// ─── Module 5: leave (PRD §7) ───────────────────────────────────────────────────
+
+enum LeavePay {
+  FULL
+  HALF
+  NONE
+}
+
+/// HALF_YEARLY: credited on 1 Jan and 1 Jul (EL, HPL). YEARLY: on 1 Jan (CL, RH). SPELL: up to creditDays per
+/// spell (maternity, paternity). SERVICE: creditDays in the whole service (CCL). NONE: no balance (EOL, commuted).
+enum LeaveCreditMode {
+  HALF_YEARLY
+  YEARLY
+  SPELL
+  SERVICE
+  NONE
+}
+
+/// The leave rules table (LV-01). HR proposes a change, an Admin approves it.
+model LeaveType {
+  id               String          @id @default(cuid())
+  boardId          String
+  code             String
+  name             String
+  nameHi           String
+  pay              LeavePay
+  creditMode       LeaveCreditMode
+  creditDays       Decimal         @default(0) @db.Decimal(6, 1)
+  /// Highest balance allowed (EL 300).
+  cap              Decimal?        @db.Decimal(6, 1)
+  lapsesAtYearEnd  Boolean         @default(false)
+  /// Commuted leave is taken from HPL at 2 days per day.
+  debitFrom        String?
+  debitFactor      Decimal         @default(1) @db.Decimal(3, 1)
+  /// Holidays and weekly offs inside the leave are counted (EL, HPL…); not for CL.
+  countsOffDays    Boolean         @default(true)
+  halfDayAllowed   Boolean         @default(false)
+  needsCertificate Boolean         @default(false)
+  /// Only on a day in the restricted-holiday list.
+  restrictedOnly   Boolean         @default(false)
+  /// "F" or "M" when the leave is for one gender only.
+  gender           String?
+  employeeTypes    EmployeeType[]
+  /// The reporting officer may sanction up to this many days; beyond that (or when null) an Admin decides.
+  officerLimitDays Int?
+  sortOrder        Int             @default(0)
+  isActive         Boolean         @default(true)
+  version          Int             @default(1)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@unique([boardId, code])
+}
+
+enum LeaveEntryKind {
+  OPENING
+  CREDIT
+  DEBIT
+  LAPSE
+  REVERSAL
+}
+
+/// Leave account (LV-07): every credit and debit; the balance is the sum.
+model LeaveLedger {
+  id            String         @id @default(cuid())
+  boardId       String
+  employeeId    String
+  leaveCode     String
+  date          DateTime       @db.Date
+  kind          LeaveEntryKind
+  days          Decimal        @db.Decimal(6, 1)
+  /// Credit or lapse period ("2026-H2", "2026", "lapse-2025"); one per person, leave and period.
+  period        String?
+  applicationId String?
+  note          String?
+  createdById   String?
+  createdAt     DateTime       @default(now())
+
+  @@unique([employeeId, leaveCode, period])
+  @@index([employeeId, leaveCode])
+  @@index([boardId, date])
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  RETURNED
+  CANCELLED
+}
+
+model LeaveApplication {
+  id               String      @id @default(cuid())
+  boardId          String
+  employeeId       String
+  leaveCode        String
+  fromDate         DateTime    @db.Date
+  toDate           DateTime    @db.Date
+  halfDay          Boolean     @default(false)
+  /// Days of leave counted under the type's rules.
+  days             Decimal     @db.Decimal(6, 1)
+  /// The balance it is taken from, and how many days (commuted: HPL × 2).
+  debitCode        String
+  debitDays        Decimal     @db.Decimal(6, 1)
+  reason           String
+  contact          String?
+  attachmentKey    String?
+  attachmentName   String?
+  attachmentSha256 String?
+  status           LeaveStatus @default(PENDING)
+  taskId           String?
+  /// Entered by HR for someone who does not use the system (LV-05), with the paper sanction.
+  onBehalf         Boolean     @default(false)
+  sanctionRef      String?
+  createdById      String
+  decidedAt        DateTime?
+  cancelledAt      DateTime?
+  cancelNote       String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@index([employeeId, fromDate])
+  @@index([boardId, status])
 }
 

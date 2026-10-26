@@ -14,7 +14,7 @@ import { formatDate, istTime } from "@/lib/dates";
 import { ApiError, api } from "@/lib/http";
 import { tDynamic } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/client";
-import { RESOLUTIONS, type Resolution } from "@/modules/attendance/rules";
+import { RESOLUTIONS } from "@/modules/attendance/rules";
 import { BADGE } from "../_components/tones";
 
 export interface Exception {
@@ -34,6 +34,7 @@ export function LockForm({
   month,
   monthLabel,
   exceptions,
+  leaveChoices,
   blocked,
   backHref,
 }: {
@@ -42,13 +43,16 @@ export function LockForm({
   month: string;
   monthLabel: string;
   exceptions: Exception[];
+  /** Leave each person may have a day treated as, with what is left. */
+  leaveChoices: Record<string, { code: string; name: string; nameHi: string; available: number | null }[]>;
   blocked: boolean;
   backHref: string;
 }) {
   const { t, locale } = useI18n();
   const toast = useToast();
   const router = useRouter();
-  const [decisions, setDecisions] = useState<Record<string, Resolution | "">>({});
+  // A decision is a resolution, or "LEAVE:<code>" for a kind of leave.
+  const [decisions, setDecisions] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -62,7 +66,10 @@ export function LockForm({
         body: {
           sectionId,
           month,
-          resolutions: exceptions.map((x) => ({ employeeId: x.employeeId, date: x.date, outcome: decisions[key(x)], note: notes[key(x)] || undefined })),
+          resolutions: exceptions.map((x) => {
+            const [outcome, leaveCode] = decisions[key(x)].split(":");
+            return { employeeId: x.employeeId, date: x.date, outcome, leaveCode, note: notes[key(x)] || undefined };
+          }),
         },
       });
       toast(t("attendance.lock.done"));
@@ -87,13 +94,13 @@ export function LockForm({
               label={t("attendance.lock.setAll")}
               value=""
               onChange={(e) => {
-                const v = e.target.value as Resolution;
+                const v = e.target.value;
                 if (v) setDecisions(Object.fromEntries(exceptions.map((x) => [key(x), v])));
               }}
               containerClassName="w-full sm:w-60"
             >
               <option value="">{t("attendance.lock.choose")}</option>
-              {RESOLUTIONS.map((r) => (
+              {RESOLUTIONS.filter((r) => r !== "LEAVE").map((r) => (
                 <option key={r} value={r}>
                   {tDynamic(t, `attendance.lock.outcome.${r}`)}
                 </option>
@@ -121,15 +128,24 @@ export function LockForm({
                   <select
                     aria-label={`${t("attendance.lock.decision")} · ${x.name} · ${formatDate(x.date, locale)}`}
                     value={decisions[key(x)] ?? ""}
-                    onChange={(e) => setDecisions((d) => ({ ...d, [key(x)]: e.target.value as Resolution }))}
+                    onChange={(e) => setDecisions((d) => ({ ...d, [key(x)]: e.target.value }))}
                     className={controlClass(false, "h-9 text-sm")}
                   >
                     <option value="">{t("attendance.lock.choose")}</option>
-                    {RESOLUTIONS.map((r) => (
+                    {RESOLUTIONS.filter((r) => r !== "LEAVE").map((r) => (
                       <option key={r} value={r}>
                         {tDynamic(t, `attendance.lock.outcome.${r}`)}
                       </option>
                     ))}
+                    {(leaveChoices[x.employeeId] ?? []).length > 0 && (
+                      <optgroup label={t("attendance.lock.outcome.LEAVE")}>
+                        {leaveChoices[x.employeeId].map((c) => (
+                          <option key={c.code} value={`LEAVE:${c.code}`} disabled={c.available !== null && c.available < (x.status === "HALF_DAY" ? 0.5 : 1)}>
+                            {c.available === null ? t("attendance.lock.leaveOptionNoLimit", { name: locale === "hi" ? c.nameHi : c.name }) : t("attendance.lock.leaveOption", { name: locale === "hi" ? c.nameHi : c.name, available: c.available })}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                   <input
                     aria-label={t("attendance.lock.noteOptional")}

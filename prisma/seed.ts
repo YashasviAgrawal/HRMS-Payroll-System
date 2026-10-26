@@ -15,6 +15,7 @@ import { addDays, addYears, fromISODate, retirementDate } from "../src/lib/dates
 import { hashPassword } from "../src/lib/password";
 import { verhoeffCheckDigit } from "../src/lib/validators";
 import { seedAttendance } from "./seed-attendance";
+import { seedLeaveTypes } from "./seed-leave";
 
 const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) });
 const DEMO = process.env.NODE_ENV !== "production" || process.env.SEED_DEMO === "1";
@@ -154,6 +155,9 @@ async function main() {
     });
     postIds.set(code, { id: p.id, level: payLevel, retirementAge });
   }
+
+  // The leave rules table (PRD §7 defaults) belongs to every installation, demo or not.
+  await seedLeaveTypes(db, board.id);
 
   const passwordHash = await hashPassword(DEMO_PASSWORD);
 
@@ -308,7 +312,7 @@ async function main() {
   await seedAttendance(
     db,
     board.id,
-    EMPLOYEES.map((e) => ({ id: employeeIds.get(e.code)!, code: e.code, sectionCode: e.section, sectionId: sectionIds.get(e.section)!, doj: e.doj })),
+    EMPLOYEES.map((e) => ({ id: employeeIds.get(e.code)!, code: e.code, sectionCode: e.section, sectionId: sectionIds.get(e.section)!, doj: e.doj, gender: e.gender, type: e.type })),
     new Map(employeeLogins.map((u) => [u.loginId, { id: u.id, name: u.displayName }])),
     { id: hrUser.id, name: hrUser.displayName },
   );
