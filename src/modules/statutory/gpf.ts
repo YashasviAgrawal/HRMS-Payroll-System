@@ -194,6 +194,9 @@ export async function onGpfAdvanceRejected(tx: Tx, advanceId: string) {
 
 // ─── Interest ─────────────────────────────────────────────────────────────────
 
+/** The note that marks the year's interest credit on 31 March (a final payment's interest has its own). */
+const annualNote = (fy: string) => `Interest for ${fy}`;
+
 /** The year's interest for every account, worked out at the notified rates — what an Admin approves on 31 March. */
 export async function gpfInterestFor(tx: DbLike, boardId: string, fy: string) {
   const [entries, rateFor] = await Promise.all([tx.gpfEntry.findMany({ where: { boardId }, orderBy: { month: "asc" } }), monthlyRate(tx, boardId, "GPF_INTEREST")]);
@@ -201,7 +204,8 @@ export async function gpfInterestFor(tx: DbLike, boardId: string, fy: string) {
   for (const r of entries) by.set(r.employeeId, [...(by.get(r.employeeId) ?? []), { month: r.month, fy: r.fy, kind: r.kind, amount: num(r.amount) }]);
   return [...by].map(([employeeId, moves]) => {
     const y = gpfYear(moves, fy, rateFor);
-    return { employeeId, interest: y.interest, credited: y.interestCredited, closing: y.closing };
+    // Interest already credited in the year (a final payment on leaving service) is not credited again.
+    return { employeeId, interest: Math.max(0, y.interest - y.interestCredited), credited: y.interestCredited, closing: y.closing };
   });
 }
 
@@ -209,12 +213,15 @@ export async function gpfInterestSummary(actor: Actor, fy: string) {
   if (!canSee(actor)) throw forbidden();
   const rows = await gpfInterestFor(db, actor.boardId, fy);
   const [, last] = fyMonths(fy);
-  const pending = await db.approvalTask.findFirst({ where: { boardId: actor.boardId, kind: "gpf.interest", status: "PENDING", entityId: fy } });
+  const [pending, annual] = await Promise.all([
+    db.approvalTask.findFirst({ where: { boardId: actor.boardId, kind: "gpf.interest", status: "PENDING", entityId: fy } }),
+    db.gpfEntry.findFirst({ where: { boardId: actor.boardId, fy, kind: "INTEREST", note: annualNote(fy) } }),
+  ]);
   return {
     fy,
     accounts: rows.filter((r) => r.interest > 0).length,
     interest: rows.reduce((s, r) => s + r.interest, 0),
-    credited: rows.some((r) => r.credited !== 0),
+    credited: Boolean(annual),
     yearOver: todayIST().slice(0, 7) > last,
     waiting: Boolean(pending),
     canPropose: canManage(actor),
@@ -251,10 +258,10 @@ export async function proposeGpfInterest(actor: Actor, fy: string) {
 }
 
 export async function onGpfInterestApproved(tx: Tx, task: ApprovalTask, fy: string) {
-  if (await tx.gpfEntry.findFirst({ where: { boardId: task.boardId, fy, kind: "INTEREST" } })) throw conflict("statutory.gpf.interestDone");
+  if (await tx.gpfEntry.findFirst({ where: { boardId: task.boardId, fy, kind: "INTEREST", note: annualNote(fy) } })) throw conflict("statutory.gpf.interestDone");
   const rows = (await gpfInterestFor(tx, task.boardId, fy)).filter((r) => r.interest > 0);
   const [, last] = fyMonths(fy);
-  await tx.gpfEntry.createMany({ data: rows.map((r) => ({ boardId: task.boardId, employeeId: r.employeeId, month: last, fy, kind: "INTEREST" as const, amount: r.interest, note: `Interest for ${fy}`, createdById: task.makerId })) });
+  await tx.gpfEntry.createMany({ data: rows.map((r) => ({ boardId: task.boardId, employeeId: r.employeeId, month: last, fy, kind: "INTEREST" as const, amount: r.interest, note: annualNote(fy), createdById: task.makerId })) });
   await emit(tx, task.boardId, "gpf.interest.credited", { type: "GpfInterest", id: fy }, { accounts: rows.length, total: rows.reduce((s, r) => s + r.interest, 0) });
 }
 

@@ -136,7 +136,7 @@ export function StagePanel(p: Props) {
           <p className="text-xs text-ink-500">{t("payroll.runAgainHelp")}</p>
         </CardBody>
         <CardFooter className="justify-between">
-          <Button variant="secondary" icon={<RefreshCw className="size-4" />} loading={busy === "rerun"} onClick={() => call("rerun", `/api/v1/payroll/runs/${p.runId}/rerun`, {}, t("payroll.runDone"))}>
+          <Button variant="secondary" icon={<RefreshCw className="size-4" />} loading={busy === "rerun"} onClick={() => call("rerun", `/api/v1/payroll/runs/${p.runId}/rerun`, {}, p.payGroup === "PENSION" ? t("pension.bills.runDone") : t("payroll.runDone"))}>
             {t("payroll.runAgain")}
           </Button>
           <Button variant="primary" icon={<Send className="size-4" />} loading={busy === "submit"} disabled={!p.can.submit} onClick={() => call("submit", `/api/v1/payroll/runs/${p.runId}/submit`, { note: note.trim() || undefined }, t("payroll.actions.sent"))}>

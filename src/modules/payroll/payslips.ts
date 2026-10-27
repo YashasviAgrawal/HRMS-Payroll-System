@@ -6,14 +6,15 @@ import { sendEmail } from "@/lib/connectors/email";
 import { sendSms } from "@/lib/connectors/sms";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
-import { financialYear, formatDateTime, formatMonth } from "@/lib/dates";
+import { financialYear, formatDate, formatDateTime, formatMonth, todayIST, toISODate } from "@/lib/dates";
 import { forbidden, notFound } from "@/lib/errors";
 import { amountInWords, formatINR } from "@/lib/money";
 import { embeddedFonts, logoDataUrl, renderPdf } from "@/lib/pdf";
 import { fullName } from "@/modules/employees/present";
 import { ensureCredits, ledgerBalances } from "@/modules/leave/balance";
 import type { ArrearMonth } from "./arrears";
-import { titleOf } from "./compute";
+import { fnOf, titleOf } from "./compute";
+import { lifeCertificateValidTill, PENSION_TYPE_LABEL, restorationDate } from "@/modules/pension/rules";
 import type { TaxDetail } from "@/modules/statutory/tds-projection";
 import type { PayLine } from "./engine";
 
@@ -36,11 +37,22 @@ const L = (lang: Lang, en: string, hi: string) => (lang === "hi" ? hi : en);
 export async function myPayslips(actor: Actor) {
   if (!actor.employeeId) throw forbidden();
   const slips = await db.payslip.findMany({
-    where: { employeeId: actor.employeeId, status: "INCLUDED", run: { status: { in: [...RELEASED] } } },
+    where: { employeeId: actor.employeeId, pensionerId: null, status: "INCLUDED", run: { status: { in: [...RELEASED] } } },
     include: { run: { select: { kind: true, seq: true, payGroup: true, month: true, source: true, paidAt: true } } },
     orderBy: [{ month: "desc" }, { createdAt: "desc" }],
   });
   return slips.map((s) => ({ id: s.id, month: s.month, kind: s.run.kind, title: titleOf(s.run), titleHi: titleOf(s.run, "hi"), gross: num(s.gross), deductions: num(s.deductions), net: num(s.net), creditStatus: s.creditStatus, paidAt: s.run.paidAt }));
+}
+
+/** PN-12: a pensioner's own released pension slips, newest first. */
+export async function myPensionSlips(actor: Actor) {
+  if (!actor.pensionerId) throw forbidden();
+  const slips = await db.payslip.findMany({
+    where: { pensionerId: actor.pensionerId, status: "INCLUDED", run: { status: { in: [...RELEASED] } } },
+    include: { run: { select: { kind: true, seq: true, payGroup: true, month: true, source: true, paidAt: true } } },
+    orderBy: [{ month: "desc" }, { createdAt: "desc" }],
+  });
+  return slips.map((s) => ({ id: s.id, month: s.month, kind: s.run.kind, title: titleOf(s.run), titleHi: titleOf(s.run, "hi"), gross: num(s.gross), deductions: num(s.deductions), net: num(s.net), creditStatus: s.creditStatus, paidAt: s.run.paidAt, catchUp: ((s.detail ?? {}) as { catchUp?: { month: string }[] }).catchUp?.map((c) => c.month) ?? [] }));
 }
 
 async function loadSlips(where: { id?: string; runId?: string; sectionId?: string }) {
@@ -72,23 +84,69 @@ async function fundsToDate(employeeId: string, month: string) {
   return { npsOwn, npsBoard, gpf };
 }
 
-async function slipHtml(s: Slip, lang: Lang) {
-  const e = s.employee;
+function earnDedTable(s: Slip, lang: Lang) {
   const lines = s.lines as unknown as PayLine[];
   const earn = lines.filter((l) => l.kind === "EARNING");
   const ded = lines.filter((l) => l.kind === "DEDUCTION");
   const name = (l: PayLine) => (lang === "hi" ? l.nameHi : l.name);
+  const rows = Math.max(earn.length, ded.length);
+  return Array.from({ length: rows }, (_, i) => {
+    const a = earn[i];
+    const d = ded[i];
+    return `<tr><td>${a ? esc(name(a)) : ""}</td><td class="n">${a ? rs(a.amount) : ""}</td><td>${d ? esc(name(d)) : ""}</td><td class="n">${d ? rs(d.amount) : ""}</td></tr>`;
+  }).join("");
+}
+
+/** PN-12: a pension slip — the payee, PPO, pension heads, months paid with it, and when the commuted part comes back. */
+async function pensionSlipHtml(s: Slip, lang: Lang) {
+  const p = await db.pensioner.findUniqueOrThrow({
+    where: { id: s.pensionerId! },
+    include: { lifeCertificates: { where: { status: "VERIFIED" }, orderBy: { certifiedOn: "desc" }, take: 1, select: { certifiedOn: true } } },
+  });
+  const e = s.employee;
+  const detail = (s.detail ?? {}) as { catchUp?: { month: string; net: number }[]; tax?: TaxDetail };
+  const tax = detail.tax && detail.tax.annualTax > 0 ? detail.tax : null;
+  const restored = p.commutationDate && num(p.commutedAmount) > 0 ? restorationDate(toISODate(p.commutationDate)) : null;
+  const validTill = lifeCertificateValidTill(p.lifeCertificates[0] ? toISODate(p.lifeCertificates[0].certifiedOn) : toISODate(p.startDate));
+  const type = PENSION_TYPE_LABEL[p.type] ?? PENSION_TYPE_LABEL.SUPERANNUATION;
+  const catchUp = detail.catchUp?.length
+    ? `<h3>${L(lang, "Earlier months paid with this slip", "इस पर्ची के साथ पिछले माहों का भुगतान")}</h3><table><thead><tr><th>${L(lang, "Month", "माह")}</th><th class="n">${L(lang, "Net", "शुद्ध")}</th></tr></thead><tbody>${detail.catchUp.map((c) => `<tr><td>${esc(formatMonth(c.month, lang))}</td><td class="n">${rs(c.net)}</td></tr>`).join("")}</tbody></table>`
+    : "";
+  return `<section class="slip">
+    <header><img src="${logoDataUrl()}" alt=""><div><h1>${L(lang, "Delhi Cantonment Board", "दिल्ली छावनी परिषद")}</h1><p>${L(lang, "Pension slip", "पेंशन पर्ची")} — ${esc(titleOf(s.run, lang))}</p></div></header>
+    <div class="who">
+      <div>${L(lang, "Name", "नाम")}: <b>${esc(lang === "hi" && p.payeeNameHi ? p.payeeNameHi : p.payeeName)}</b></div>
+      <div>${L(lang, "PPO number", "पीपीओ संख्या")}: <b>${esc(p.ppoNumber)}</b></div>
+      <div>${L(lang, "Pension", "पेंशन")}: <b>${esc(L(lang, type[0], type[1]))}</b></div>
+      ${p.relation !== "SELF" ? `<div>${L(lang, "Pension of", "किसकी पेंशन")}: <b>${esc(lang === "hi" && e.nameHi ? e.nameHi : fullName(e))}</b></div>` : `<div>${L(lang, "Retired as", "सेवानिवृत्ति पद")}: <b>${esc(lang === "hi" ? e.post.nameHi : e.post.name)}</b></div>`}
+      <div>${L(lang, "Bank account", "बैंक खाता")}: <b>••••${esc(s.bankLast4)}</b></div>
+      ${p.relation === "SELF" ? `<div>PAN: <b>${e.panLast4 ? `XXXXXX${esc(e.panLast4)}` : "—"}</b></div>` : ""}
+      <div>${L(lang, "Days paid", "भुगतान दिन")}: <b>${num(s.daysOnRoll)} / ${s.daysInMonth}</b></div>
+    </div>
+    <table class="main"><thead><tr><th>${L(lang, "Pension and relief", "पेंशन और राहत")}</th><th class="n">₹</th><th>${L(lang, "Deductions", "कटौतियाँ")}</th><th class="n">₹</th></tr></thead>
+      <tbody>${earnDedTable(s, lang)}<tr class="tot"><td>${L(lang, "Gross", "सकल")}</td><td class="n">${rs(num(s.gross))}</td><td>${L(lang, "Total deductions", "कुल कटौतियाँ")}</td><td class="n">${rs(num(s.deductions))}</td></tr></tbody></table>
+    <div class="net"><span>${L(lang, "Net pension", "शुद्ध पेंशन")}</span><b>₹${rs(num(s.net))}</b></div>
+    <p class="words">${esc(amountInWords(num(s.net), lang))}</p>
+    ${catchUp}
+    <div class="extra">
+      ${restored && restored > `${s.month}-01` ? `<div>${L(lang, "Commuted part restored from", "रूपांतरित भाग की बहाली")}: <b>${esc(formatDate(restored, lang))}</b></div>` : ""}
+      <div>${L(lang, "Life certificate good until", "जीवन प्रमाण पत्र मान्य")}: <b>${esc(formatDate(validTill, lang))}</b>${validTill < todayIST() ? ` <span class="warn">${L(lang, "— please give a new one", "— कृपया नया दें")}</span>` : ""}</div>
+      ${tax ? `<div>${L(lang, `Income tax ${tax.fy} (${tax.regime === "OLD" ? "old regime" : "new regime"})`, `आयकर ${tax.fy} (${tax.regime === "OLD" ? "पुरानी व्यवस्था" : "नई व्यवस्था"})`)}: <b>₹${rs(tax.annualTax)} ${L(lang, "for the year", "वर्ष का")}</b> · ${L(lang, "deducted before this month", "इस माह से पहले कटा")} ₹${rs(tax.deductedSoFar)}</div>` : ""}
+      ${s.creditStatus === "FAILED" ? `<div class="warn">${L(lang, "The bank could not credit this payment; it is being paid again.", "बैंक यह भुगतान जमा नहीं कर सका; इसे फिर से भेजा जा रहा है।")}</div>` : ""}
+    </div>
+    <footer>${L(lang, "Computer-generated slip; no signature needed.", "कंप्यूटर से बनी पर्ची; हस्ताक्षर की आवश्यकता नहीं।")} · DCB HRMS · ${esc(formatDateTime(new Date(), lang))}</footer>
+  </section>`;
+}
+
+async function slipHtml(s: Slip, lang: Lang) {
+  if (s.pensionerId) return pensionSlipHtml(s, lang);
+  const e = s.employee;
   await ensureCredits(e.boardId);
   const [balances, funds] = await Promise.all([ledgerBalances(e.id), fundsToDate(e.id, s.month)]);
   const leave = ["EL", "HPL", "CL"].filter((c) => balances.has(c)).map((c) => `${c} ${balances.get(c)}`).join(" · ");
   const detail = (s.detail ?? {}) as { arrears?: ArrearMonth[]; joinerMonth?: string; withheldMonth?: string; tax?: TaxDetail };
   const tax = detail.tax && detail.tax.annualTax > 0 ? detail.tax : null;
-  const rows = Math.max(earn.length, ded.length);
-  const table = Array.from({ length: rows }, (_, i) => {
-    const a = earn[i];
-    const d = ded[i];
-    return `<tr><td>${a ? esc(name(a)) : ""}</td><td class="n">${a ? rs(a.amount) : ""}</td><td>${d ? esc(name(d)) : ""}</td><td class="n">${d ? rs(d.amount) : ""}</td></tr>`;
-  }).join("");
+  const table = earnDedTable(s, lang);
   const arrears = detail.arrears?.length
     ? `<h3>${L(lang, "Arrears by month (due − drawn)", "माह-वार बकाया (देय − आहरित)")}</h3><table><thead><tr><th>${L(lang, "Month", "माह")}</th><th>${L(lang, "Head", "मद")}</th><th class="n">${L(lang, "Due", "देय")}</th><th class="n">${L(lang, "Drawn", "आहरित")}</th><th class="n">${L(lang, "Arrear", "बकाया")}</th></tr></thead><tbody>${detail.arrears
         .flatMap((m) => m.lines.map((l) => `<tr><td>${esc(formatMonth(m.month, lang))}</td><td>${esc(lang === "hi" ? l.nameHi : l.name)}</td><td class="n">${rs(l.due)}</td><td class="n">${rs(l.drawn)}</td><td class="n">${rs(l.diff)}</td></tr>`))
@@ -146,18 +204,20 @@ function doc(body: string) {
 export async function payslipPdf(actor: Actor, slipId: string, lang: Lang) {
   const [s] = await loadSlips({ id: slipId });
   if (!s || s.employee.boardId !== actor.boardId) throw notFound();
-  const own = s.employeeId === actor.employeeId && (RELEASED as readonly string[]).includes(s.run.status);
-  if (!own && !canAll(actor, "payroll", "view")) throw forbidden();
+  const mine = s.pensionerId ? s.pensionerId === actor.pensionerId : s.employeeId === actor.employeeId;
+  const own = mine && (RELEASED as readonly string[]).includes(s.run.status);
+  if (!own && !canAll(actor, fnOf(s.run.payGroup), "view")) throw forbidden();
   const pdf = await renderPdf(doc(await slipHtml(s, lang)));
-  await audit(db, actor, { action: "PRINT", entityType: "Payslip", entityId: slipId, summary: `Downloaded the payslip of ${fullName(s.employee)} for ${formatMonth(s.month)}`, sensitive: true });
-  return { pdf, fileName: `Payslip-${s.employee.employeeCode}-${s.month}${s.run.kind === "SUPPLEMENTARY" ? `-S${s.run.seq}` : ""}-${lang}.pdf` };
+  const what = s.pensionerId ? "pension slip" : "payslip";
+  await audit(db, actor, { action: "PRINT", entityType: "Payslip", entityId: slipId, summary: `Downloaded the ${what} of ${fullName(s.employee)} for ${formatMonth(s.month)}`, sensitive: true });
+  return { pdf, fileName: `${s.pensionerId ? "Pension-slip" : `Payslip-${s.employee.employeeCode}`}-${s.month}${s.run.kind === "SUPPLEMENTARY" ? `-S${s.run.seq}` : ""}-${lang}.pdf` };
 }
 
 /** SL-05: every payslip of a bill (or one section of it) as one PDF. */
 export async function bulkPayslipsPdf(actor: Actor, runId: string, sectionId: string | undefined, lang: Lang) {
-  if (!canAll(actor, "payroll", "view")) throw forbidden();
   const run = await db.payrollRun.findFirst({ where: { id: runId, boardId: actor.boardId } });
   if (!run) throw notFound();
+  if (!canAll(actor, fnOf(run.payGroup), "view")) throw forbidden();
   const slips = await loadSlips({ runId, ...(sectionId ? { sectionId } : {}) });
   if (!slips.length) throw notFound();
   const parts: string[] = [];
@@ -178,21 +238,30 @@ export async function sendPayslipNotices(boardId: string, runId: string) {
     where: { runId, status: "INCLUDED", sentAt: null },
     include: { employee: { select: { mobile: true, email: true, users: { where: { loginType: "EMPLOYEE" }, select: { language: true } } } } },
   });
+  // A pension goes to the pensioner's own mobile and email; a family pensioner has a login of their own.
+  const pensioners = new Map(
+    (await db.pensioner.findMany({ where: { id: { in: slips.flatMap((s) => (s.pensionerId ? [s.pensionerId] : [])) } }, select: { id: true, relation: true, mobile: true, email: true, users: { select: { language: true } } } })).map((p) => [p.id, p]),
+  );
   const base = env().APP_URL.replace(/\/$/, "");
   let sent = 0;
   for (const s of slips) {
-    const lang: Lang = s.employee.users[0]?.language === "hi" ? "hi" : "en";
+    const p = s.pensionerId ? pensioners.get(s.pensionerId) : undefined;
+    const to = p ? { mobile: p.mobile ?? (p.relation === "SELF" ? s.employee.mobile : null), email: p.email ?? (p.relation === "SELF" ? s.employee.email : null), language: (p.users[0] ?? s.employee.users[0])?.language } : { mobile: s.employee.mobile, email: s.employee.email, language: s.employee.users[0]?.language };
+    const lang: Lang = to.language === "hi" ? "hi" : "en";
     const month = formatMonth(s.month, lang);
-    if (s.employee.mobile) await sendSms(boardId, s.employee.mobile, "payslip", { month, net: rs(num(s.net)), url: `${base}/my/payslips` }, lang);
-    if (s.employee.email) {
+    const url = `${base}/my/${p ? "pension-slips" : "payslips"}`;
+    if (to.mobile) await sendSms(boardId, to.mobile, p ? "pensionSlip" : "payslip", { month, net: rs(num(s.net)), url }, lang);
+    if (to.email) {
       const [full] = await loadSlips({ id: s.id });
       const pdf = await renderPdf(doc(await slipHtml(full, lang)));
       await sendEmail(
         boardId,
-        s.employee.email,
-        L(lang, `Salary slip for ${month} — Delhi Cantonment Board`, `${month} की वेतन पर्ची — दिल्ली छावनी परिषद`),
-        L(lang, `Your salary slip for ${month} is attached. Net pay ₹${rs(num(s.net))} has been sent to your bank account.\n\nYou can also see every payslip at ${base}/my/payslips.`, `${month} की आपकी वेतन पर्ची संलग्न है। शुद्ध वेतन ₹${rs(num(s.net))} आपके बैंक खाते में भेजा गया है।\n\nसभी वेतन पर्चियाँ ${base}/my/payslips पर भी देख सकते हैं।`),
-        [{ filename: `Payslip-${s.month}.pdf`, content: pdf, contentType: "application/pdf" }],
+        to.email,
+        p ? L(lang, `Pension slip for ${month} — Delhi Cantonment Board`, `${month} की पेंशन पर्ची — दिल्ली छावनी परिषद`) : L(lang, `Salary slip for ${month} — Delhi Cantonment Board`, `${month} की वेतन पर्ची — दिल्ली छावनी परिषद`),
+        p
+          ? L(lang, `Your pension slip for ${month} is attached. Net pension ₹${rs(num(s.net))} has been sent to your bank account.\n\nYou can also see every pension slip at ${url}.`, `${month} की आपकी पेंशन पर्ची संलग्न है। शुद्ध पेंशन ₹${rs(num(s.net))} आपके बैंक खाते में भेजी गई है।\n\nसभी पेंशन पर्चियाँ ${url} पर भी देख सकते हैं।`)
+          : L(lang, `Your salary slip for ${month} is attached. Net pay ₹${rs(num(s.net))} has been sent to your bank account.\n\nYou can also see every payslip at ${url}.`, `${month} की आपकी वेतन पर्ची संलग्न है। शुद्ध वेतन ₹${rs(num(s.net))} आपके बैंक खाते में भेजा गया है।\n\nसभी वेतन पर्चियाँ ${url} पर भी देख सकते हैं।`),
+        [{ filename: `${p ? "Pension-slip" : "Payslip"}-${s.month}.pdf`, content: pdf, contentType: "application/pdf" }],
         "payslip",
       );
     }
@@ -206,7 +275,7 @@ export async function sendPayslipNotices(boardId: string, runId: string) {
 /** S-44 for HR & Accounts: released bills, with how many payslips went out. */
 export async function payslipRuns(actor: Actor) {
   if (!canAll(actor, "payroll", "view")) throw forbidden();
-  const runs = await db.payrollRun.findMany({ where: { boardId: actor.boardId, status: { in: ["APPROVED", ...RELEASED] } }, orderBy: [{ month: "desc" }, { kind: "asc" }, { payGroup: "asc" }, { seq: "asc" }], take: 60 });
+  const runs = await db.payrollRun.findMany({ where: { boardId: actor.boardId, payGroup: { not: "PENSION" }, status: { in: ["APPROVED", ...RELEASED] } }, orderBy: [{ month: "desc" }, { kind: "asc" }, { payGroup: "asc" }, { seq: "asc" }], take: 60 });
   const counts = await db.payslip.groupBy({ by: ["runId"], where: { runId: { in: runs.map((r) => r.id) }, status: "INCLUDED" }, _count: { _all: true } });
   const sent = await db.payslip.groupBy({ by: ["runId"], where: { runId: { in: runs.map((r) => r.id) }, status: "INCLUDED", sentAt: { not: null } }, _count: { _all: true } });
   const sections = await db.section.findMany({ where: { boardId: actor.boardId, isActive: true }, select: { id: true, name: true, nameHi: true }, orderBy: { name: "asc" } });
@@ -218,8 +287,8 @@ export async function payslipRuns(actor: Actor) {
 }
 
 export async function resendNotices(actor: Actor, runId: string) {
-  if (!canAll(actor, "payroll", "create")) throw forbidden();
   const run = await db.payrollRun.findFirst({ where: { id: runId, boardId: actor.boardId } });
   if (!run) throw notFound();
+  if (!canAll(actor, fnOf(run.payGroup), "create")) throw forbidden();
   return sendPayslipNotices(actor.boardId, runId);
 }

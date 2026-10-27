@@ -19,8 +19,8 @@ export function RunButton({ payGroup, month, again, variant = "primary", size = 
     setBusy(true);
     try {
       const r = await api<{ id: string }>("/api/v1/payroll/runs", { body: { payGroup, month } });
-      toast(t("payroll.runDone"));
-      router.push(`/payroll/${r.id}`);
+      toast(payGroup === "PENSION" ? t("pension.bills.runDone") : t("payroll.runDone"));
+      router.push(`${payGroup === "PENSION" ? "/pension/bills" : "/payroll"}/${r.id}`);
       router.refresh();
     } catch (err) {
       toast(err instanceof ApiError ? err.message : t("errors.generic"), "error");
@@ -30,7 +30,7 @@ export function RunButton({ payGroup, month, again, variant = "primary", size = 
 
   return (
     <Button variant={variant} size={size} loading={busy} icon={again ? <RefreshCw className="size-4" /> : <Play className="size-4" />} onClick={run}>
-      {again ? t("payroll.runAgain") : t("payroll.run")}
+      {payGroup === "PENSION" ? (again ? t("pension.bills.runAgain") : t("pension.bills.run")) : again ? t("payroll.runAgain") : t("payroll.run")}
     </Button>
   );
 }

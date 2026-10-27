@@ -9,7 +9,8 @@ import { amountInWords, formatINR } from "@/lib/money";
 import { embeddedFonts, logoDataUrl, renderPdf } from "@/lib/pdf";
 import { fullName } from "@/modules/employees/present";
 import type { PayLine } from "./engine";
-import { titleOf } from "./compute";
+import { PENSION_TYPE_LABEL, pensionOfSlip } from "@/modules/pension/rules";
+import { fnOf, titleOf } from "./compute";
 
 /**
  * PR-11: pay bill, salary register, schedules of deductions and acquittance roll, printed from the run.
@@ -33,9 +34,9 @@ const rs = (n: number) => formatINR(n, { symbol: false });
 const num = (v: { toString(): string } | null | undefined) => (v === null || v === undefined ? 0 : Number(v));
 
 async function load(actor: Actor, runId: string) {
-  if (!canAll(actor, "payroll", "view")) throw forbidden();
   const run = await db.payrollRun.findFirst({ where: { id: runId, boardId: actor.boardId } });
   if (!run) throw notFound();
+  if (!canAll(actor, fnOf(run.payGroup), "view")) throw forbidden();
   const [board, slips, sections, heads] = await Promise.all([
     db.board.findUniqueOrThrow({ where: { id: actor.boardId } }),
     db.payslip.findMany({
@@ -46,12 +47,17 @@ async function load(actor: Actor, runId: string) {
     db.payHead.findMany({ where: { boardId: actor.boardId }, orderBy: [{ sortOrder: "asc" }, { code: "asc" }] }),
   ]);
   const sectionBy = new Map(sections.map((s) => [s.id, s]));
+  // A pension bill lists the payee by PPO number, under the section the pensioner retired from.
   const people = slips
     .map((s) => ({
-      code: s.employee.employeeCode ?? "",
-      name: fullName(s.employee),
-      nameHi: s.employee.nameHi,
-      post: s.employee.post.name,
+      s,
+      pension: pensionOfSlip(s.detail),
+    }))
+    .map(({ s, pension }) => ({
+      code: pension?.ppoNumber ?? s.employee.employeeCode ?? "",
+      name: pension?.payee ?? fullName(s.employee),
+      nameHi: pension ? pension.payeeHi : s.employee.nameHi,
+      post: pension ? `${PENSION_TYPE_LABEL[pension.type]?.[0] ?? "Pension"}${pension.relation !== "SELF" ? ` — ${fullName(s.employee)}` : ""}` : s.employee.post.name,
       ids: { NPS: s.employee.pran, NPS_ER: s.employee.pran, GPF: s.employee.gpfNumber, EPF: s.employee.uan, EPF_ER: s.employee.uan, ESIC: s.employee.esicNumber, ESIC_ER: s.employee.esicNumber } as Record<string, string | null>,
       sectionId: s.sectionId,
       section: sectionBy.get(s.sectionId)?.name ?? "",
@@ -134,6 +140,19 @@ function headTotals(d: Loaded) {
   return [...totals.values()].sort((a, b) => (order.get(a.line.code) ?? 99) - (order.get(b.line.code) ?? 99));
 }
 
+const PAY_CERTS = [
+  "Certified that the pay and allowances drawn in this bill are according to the sanctioned rates and rules in force (CBAR 2020).",
+  "Certified that all appointments, promotions and increments included in this bill are approved and entered in the service books.",
+  "Certified that deductions shown have been made and will be credited to the heads concerned; pay of persons on leave or not on duty has been drawn only as admissible.",
+  "Certified that net pay will be credited to the bank accounts of the payees through the bank file; no payment is made in cash.",
+];
+const PENSION_CERTS = [
+  "Certified that the pensions drawn in this bill are according to the Pension Payment Orders and the rates of dearness relief in force.",
+  "Certified that a valid life certificate is held for every pensioner paid; pensions of those whose certificate is overdue are withheld.",
+  "Certified that the commuted part of pension is deducted until its restoration date, and additional pension is drawn only from the month of the age reached.",
+  "Certified that net pension will be credited to the bank accounts of the pensioners through the bank file; no payment is made in cash.",
+];
+
 function payBill(d: Loaded) {
   const totals = headTotals(d);
   const paid = d.people.filter((p) => p.status === "INCLUDED");
@@ -151,7 +170,7 @@ function payBill(d: Loaded) {
   const ded = sum("DEDUCTION");
   const net = gross - ded;
   return `
-    <div class="meta"><span>People paid / भुगतान: <b>${paid.length}</b></span><span>Pay withheld / रोका गया: <b>${withheld.length}</b></span></div>
+    <div class="meta"><span>${d.run.payGroup === "PENSION" ? "Pensioners paid" : "People paid"} / भुगतान: <b>${paid.length}</b></span><span>${d.run.payGroup === "PENSION" ? "Pension withheld" : "Pay withheld"} / रोका गया: <b>${withheld.length}</b></span></div>
     ${table("EARNING", "Earnings", "आय")}
     ${table("DEDUCTION", "Deductions", "कटौतियाँ")}
     <table style="margin-top:10px"><tbody>
@@ -159,12 +178,7 @@ function payBill(d: Loaded) {
     </tbody></table>
     <p class="words">Net payable: ${esc(amountInWords(net))}<br><span lang="hi">${esc(amountInWords(net, "hi"))}</span></p>
     ${table("EMPLOYER", "Employer contributions (memo)", "नियोक्ता अंशदान (ज्ञापन)")}
-    <div class="keep"><ol class="certs">
-      <li>Certified that the pay and allowances drawn in this bill are according to the sanctioned rates and rules in force (CBAR 2020).</li>
-      <li>Certified that all appointments, promotions and increments included in this bill are approved and entered in the service books.</li>
-      <li>Certified that deductions shown have been made and will be credited to the heads concerned; pay of persons on leave or not on duty has been drawn only as admissible.</li>
-      <li>Certified that net pay will be credited to the bank accounts of the payees through the bank file; no payment is made in cash.</li>
-    </ol>
+    <div class="keep"><ol class="certs">${(d.run.payGroup === "PENSION" ? PENSION_CERTS : PAY_CERTS).map((c) => `<li>${c}</li>`).join("")}</ol>
     <div class="signs">
       <div>Prepared by / तैयारकर्ता<br><b>${esc(d.run.runByName)}</b></div>
       <div>Checked by / जाँचकर्ता<br><b>${esc(d.run.checkedByName ?? "")}</b></div>
@@ -218,9 +232,10 @@ function register(d: Loaded) {
         sumRow(list, `Section total — ${section}`, "sub"),
     )
     .join("");
-  return `<table><thead><tr><th>#</th><th>Employee</th><th>Post / level</th><th class="n">Days</th>${earn.map((h) => `<th class="n">${esc(h.code)}</th>`).join("")}<th class="n">Gross</th>${ded.map((h) => `<th class="n">${esc(h.code)}</th>`).join("")}<th class="n">Total ded.</th><th class="n">Net</th></tr></thead>
+  const pension = d.run.payGroup === "PENSION";
+  return `<table><thead><tr><th>#</th><th>${pension ? "PPO / pensioner" : "Employee"}</th><th>${pension ? "Pension" : "Post / level"}</th><th class="n">Days</th>${earn.map((h) => `<th class="n">${esc(h.code)}</th>`).join("")}<th class="n">Gross</th>${ded.map((h) => `<th class="n">${esc(h.code)}</th>`).join("")}<th class="n">Total ded.</th><th class="n">Net</th></tr></thead>
     <tbody>${body}${sumRow(paid, "Grand total / कुल योग", "tot")}</tbody></table>
-    <p class="small muted">Days: on the rolls this month; − loss days (dies-non and no-pay leave) and ½ half-pay leave from last month's locked attendance.</p>`;
+    <p class="small muted">${pension ? "Days: days of the month the pension ran." : "Days: on the rolls this month; − loss days (dies-non and no-pay leave) and ½ half-pay leave from last month's locked attendance."}</p>`;
 }
 
 function schedules(d: Loaded) {
@@ -234,7 +249,7 @@ function schedules(d: Loaded) {
       return `<div class="${i ? "break" : ""}">
         <h2>Schedule ${i + 1}: ${esc(t.line.name)} (${esc(t.line.code)}) · <span lang="hi">${esc(t.line.nameHi)}</span></h2>
         <p class="muted small">Account head: ${esc(t.line.accountHead)}${t.line.kind === "EMPLOYER" ? " — employer contribution" : ""}</p>
-        <table><thead><tr><th style="width:6%">#</th><th style="width:13%">Employee ID</th><th>Name</th><th>Post</th>${idCol ? "<th>Account / PRAN / UAN</th>" : ""}<th class="n" style="width:15%">Amount (₹)</th></tr></thead><tbody>
+        <table><thead><tr><th style="width:6%">#</th><th style="width:13%">${d.run.payGroup === "PENSION" ? "PPO no." : "Employee ID"}</th><th>Name</th><th>Post</th>${idCol ? "<th>Account / PRAN / UAN</th>" : ""}<th class="n" style="width:15%">Amount (₹)</th></tr></thead><tbody>
         ${list.map((x, j) => `<tr><td>${j + 1}</td><td>${esc(x.p.code)}</td><td>${esc(x.p.name)}</td><td>${esc(x.p.post)}</td>${idCol ? `<td>${esc(x.p.ids[t.line.code] ?? "—")}</td>` : ""}<td class="n">${rs(x.amount)}</td></tr>`).join("")}
         <tr class="tot"><td colspan="${idCol ? 5 : 4}">Total (${list.length})</td><td class="n">${rs(t.amount)}</td></tr></tbody></table>
         <p class="words small">${esc(amountInWords(t.amount))}</p></div>`;
@@ -257,7 +272,8 @@ function acquittance(d: Loaded) {
     )
     .join("");
   const total = paid.reduce((s, p) => s + p.net, 0);
-  return `<table><thead><tr><th style="width:5%">#</th><th style="width:11%">Employee ID</th><th>Name</th><th>Post</th><th style="width:10%">Bank a/c</th><th class="n" style="width:12%">Net pay (₹)</th><th style="width:16%">Payment</th></tr></thead>
+  const pension = d.run.payGroup === "PENSION";
+  return `<table><thead><tr><th style="width:5%">#</th><th style="width:11%">${pension ? "PPO no." : "Employee ID"}</th><th>Name</th><th>${pension ? "Pension" : "Post"}</th><th style="width:10%">Bank a/c</th><th class="n" style="width:12%">${pension ? "Net pension (₹)" : "Net pay (₹)"}</th><th style="width:16%">Payment</th></tr></thead>
     <tbody>${body}<tr class="tot"><td colspan="5">Total / कुल (${paid.length})</td><td class="n">${rs(total)}</td><td></td></tr></tbody></table>
     <div class="keep"><p class="words">${esc(amountInWords(total))}<br><span lang="hi">${esc(amountInWords(total, "hi"))}</span></p>
     <p class="small muted">Paid by credit to the bank accounts above (no cash). The bank's credit report is kept with this roll.</p>

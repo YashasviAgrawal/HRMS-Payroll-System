@@ -50,6 +50,8 @@ export async function makeUser(boardId: string, loginType: LoginType, permission
 /** Builds the Actor a service would receive for this user. */
 export async function actorFor(userId: string): Promise<Actor> {
   const u = await db.user.findUniqueOrThrow({ where: { id: userId }, include: { employee: true } });
+  const pension = u.pensionerId ? { id: u.pensionerId } : u.employeeId ? await db.pensioner.findFirst({ where: { employeeId: u.employeeId, relation: "SELF" }, select: { id: true } }) : null;
+  const onRolls = Boolean(u.employee) && ["ACTIVE", "SUSPENDED"].includes(u.employee!.status);
   return {
     userId: u.id,
     sessionId: "test",
@@ -61,8 +63,9 @@ export async function actorFor(userId: string): Promise<Actor> {
     permissions: u.permissions,
     employeeId: u.employeeId,
     sectionId: u.employee?.sectionId ?? null,
-    isEmployee: Boolean(u.employee),
-    isPensioner: false,
+    isEmployee: pension ? onRolls : Boolean(u.employee),
+    isPensioner: Boolean(pension),
+    pensionerId: pension?.id ?? null,
     language: "en",
     mustChangePassword: false,
     ip: "127.0.0.1",

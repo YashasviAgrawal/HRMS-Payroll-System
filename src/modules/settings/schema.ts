@@ -23,6 +23,7 @@ export const settingsSchemas = {
       welcome: z.string().max(30),
       payslip: z.string().max(30),
       pensionSlip: z.string().max(30),
+      lifeCertificate: z.string().max(30).optional(),
       alert: z.string().max(30),
     }),
   }),
@@ -95,7 +96,7 @@ export const SETTING_DEFAULTS: { [K in SettingKey]: SettingValue<K> } = {
     senderId: "DCBHRM",
     dltEntityId: "",
     apiKeyEnv: "SMS_API_KEY",
-    templates: { otp: "", approveOtp: "", welcome: "", payslip: "", pensionSlip: "", alert: "" },
+    templates: { otp: "", approveOtp: "", welcome: "", payslip: "", pensionSlip: "", lifeCertificate: "", alert: "" },
   },
   email: {
     fromName: "Delhi Cantonment Board",

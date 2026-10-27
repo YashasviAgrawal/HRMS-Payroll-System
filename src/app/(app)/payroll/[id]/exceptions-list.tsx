@@ -12,7 +12,7 @@ import { useToast } from "@/components/ui/toast";
 import { ApiError, api } from "@/lib/http";
 import { tDynamic } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/client";
-import { formatMonth } from "@/lib/dates";
+import { formatDate, formatMonth, type ISODate } from "@/lib/dates";
 import { formatINR } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
@@ -56,6 +56,7 @@ export function ExceptionsList({ runId, items, canResolve }: { runId: string; it
     if (typeof v.pct === "number") v.pct = `${(v.pct as number) > 0 ? "+" : ""}${v.pct}`;
     if (locale === "hi" && v.sectionHi) v.section = v.sectionHi;
     if (typeof v.month === "string") v.month = formatMonth(v.month, locale);
+    if (typeof v.validTill === "string") v.validTill = formatDate(v.validTill as ISODate, locale);
     return v;
   };
 

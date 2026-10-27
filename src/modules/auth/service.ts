@@ -2,6 +2,7 @@ import "server-only";
 import type { EmployeeStatus, LoginType, OtpPurpose, UserStatus } from "@/generated/prisma/enums";
 import { audit } from "@/lib/audit";
 import { accessState } from "@/lib/auth/access-state";
+import { pensionOfUser } from "@/lib/auth/pensioner";
 import { createSession, revokeAllSessions, type Actor } from "@/lib/auth/session";
 import { currentBoard } from "@/lib/board";
 import { sendSms } from "@/lib/connectors/sms";
@@ -44,11 +45,14 @@ export interface OtpChallengeView {
   devOtp?: string;
 }
 
-function userAccess(user: {
+async function userAccess(user: {
   status: UserStatus;
   loginType: LoginType;
+  employeeId: string | null;
+  pensionerId: string | null;
   employee: { status: EmployeeStatus; exitDate: Date | null; dateOfRetirement: Date | null } | null;
 }) {
+  const pension = user.loginType === "EMPLOYEE" ? await pensionOfUser(user) : null;
   return accessState(
     {
       userStatus: user.status,
@@ -60,7 +64,7 @@ function userAccess(user: {
             dateOfRetirement: user.employee.dateOfRetirement ? toISODate(user.employee.dateOfRetirement) : null,
           }
         : null,
-      pensionFrom: null,
+      pensionFrom: pension?.from ?? null,
     },
     todayIST(),
   );
@@ -156,7 +160,7 @@ export async function startLogin(input: StartLoginInput, meta: RequestMeta): Pro
       throw new AppError(401, "bad_credentials", "errors.badCredentials");
     }
     if (user.failedLoginCount > 0) await db.user.update({ where: { id: user.id }, data: { failedLoginCount: 0 } });
-    const state = userAccess(user);
+    const state = await userAccess(user);
     if (!state.allowed) throw forbidden(state.reason === "disabled" ? "errors.userDisabled" : "errors.accessEnded");
   }
 
@@ -172,7 +176,7 @@ export async function verifyLogin(input: { challengeId: string; otp: string }, m
     include: { employee: { select: { status: true, exitDate: true, dateOfRetirement: true } } },
   });
   if (!user) throw new AppError(401, "otp_wrong", "errors.otpExpired");
-  const state = userAccess(user);
+  const state = await userAccess(user);
   if (!state.allowed) throw forbidden(state.reason === "disabled" ? "errors.userDisabled" : "errors.accessEnded");
 
   const session = await createSession(user.id, meta);

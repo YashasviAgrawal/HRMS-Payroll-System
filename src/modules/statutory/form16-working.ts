@@ -2,6 +2,7 @@ import "server-only";
 import type { DbLike } from "@/lib/db";
 import { endOfMonth } from "@/lib/dates";
 import { fullName } from "@/modules/employees/present";
+import { familyPensionIds } from "@/modules/pension/compute";
 import type { PayLine } from "@/modules/payroll/engine";
 import { statutorySettings } from "./settings";
 import { fyMonths, taxWorking, type TaxWorking } from "./tax-rules";
@@ -36,11 +37,11 @@ export interface YearWorking {
 export async function form16Workings(tx: DbLike, boardId: string, fy: string, employeeIds?: string[]): Promise<YearWorking[]> {
   const [from, to] = fyMonths(fy);
   const where = employeeIds ? { employeeId: { in: employeeIds } } : {};
-  const [heads, slips, carried, declarations, rules, settings] = await Promise.all([
+  const [heads, allSlips, carried, declarations, rules, settings] = await Promise.all([
     tx.payHead.findMany({ where: { boardId } }),
     tx.payslip.findMany({
       where: { boardId, ...where, month: { gte: from, lte: to }, status: "INCLUDED", run: { status: { in: [...PAID] } } },
-      select: { employeeId: true, month: true, lines: true },
+      select: { employeeId: true, pensionerId: true, month: true, lines: true },
       orderBy: { month: "asc" },
     }),
     tx.taxCarryIn.findMany({ where: { boardId, ...where, fy } }),
@@ -48,6 +49,8 @@ export async function form16Workings(tx: DbLike, boardId: string, fy: string, em
     taxRulesFor(tx, boardId, fy),
     statutorySettings(tx, boardId),
   ]);
+  const family = await familyPensionIds(tx, boardId);
+  const slips = allSlips.filter((s) => !s.pensionerId || !family.has(s.pensionerId));
   const ids = [...new Set([...slips.map((s) => s.employeeId), ...carried.map((c) => c.employeeId)])];
   const people = await tx.employee.findMany({ where: { id: { in: ids } }, select: { id: true, employeeCode: true, firstName: true, middleName: true, lastName: true, nameHi: true, panEnc: true, panLast4: true, post: { select: { name: true } } }, orderBy: { employeeCode: "asc" } });
   const flags = headFlags(heads);

@@ -12,17 +12,78 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 | 3 | Recruitment & onboarding | 🟢 Done & verified |
 | 4 | Attendance & holidays | 🟢 Done & verified |
 | 5 | Leave | 🟢 Done & verified |
-| 6 | Rates & rules + monthly payroll | 🟢 Done & verified (Pensioners pay group in Module 9) |
+| 6 | Rates & rules + monthly payroll | 🟢 Done & verified |
 | 7 | Pay changes, arrears, loans & salary slips | 🟢 Done & verified |
 | 8 | Statutory & tax | 🟢 Done & verified (24Q / CRA / ECR / ESIC layouts to check with one real upload — PRD §18) |
-| 9 | Pension | 🟡 Next |
-| 10 | Reports, dashboards, migration & go-live | ⚪ Pending |
+| 9 | Pension | 🟢 Done & verified (rules and the PPO layout to confirm for DCB — PRD §10, §18) |
+| 10 | Reports, dashboards, migration & go-live | 🟡 Next |
 
 🟢 Done & verified · 🟡 In progress · ⚪ Pending
 
 ---
 
 ## Change log (newest first)
+
+### 2026-10-27 — Module 9: Pension ✅
+**Built**
+- Pensioner record (PN-01): PPO, kind (superannuation, voluntary, invalid, compulsory, family), basic pension, commuted
+  part and date, family pension at the enhanced rate to a date then the normal rate, the payee's date of birth, bank
+  (encrypted), the service the pension comes from and the family. Pensioners from the old records and every change to a
+  record go to a Checker (only what changed is sent; a new bank number can be revealed by the Checker, audited).
+- Monthly pension bill (PN-02 to PN-04, S-61): the "Pensioners" pay group through the same five stages as salaries —
+  work out, fix exceptions, Checker, Admin approves and signs with OTP, bank file (to the pensioner's own account, listed
+  by PPO), return file, close. Pension = basic (family pension by days at each rate) + additional pension from the 1st of
+  the month of turning 80 / 85 / 90 / 95 / 100 + dearness relief at the staff DA rate on both + fixed medical allowance
+  (not for CGHS), less the commuted part until it is restored 15 years after commutation (by days; 29 Feb → 1 Mar).
+  Months due but not yet paid here (a late case, a family pension that began after the bill, a pension held for a
+  certificate) are paid with the next slip, month by month. TDS on the pensioner's own pension is projected like salary
+  TDS; recoveries come from pay items. The pay bill (with pension certificates), register, schedules and acquittance
+  roll list payees by PPO. The salary run screen is shared; pension bills open under Pension.
+- Arrears (PN-05): one job works out every pensioner's due vs drawn for the months already paid and makes one
+  supplementary pension bill; the arrears of a pensioner who has since died go to the family pensioner.
+- Life certificates (PN-06): November cycle (good until 30 November next year); entered by the Pension clerk (signed at
+  the office or a Jeevan Pramaan certificate) or uploaded by the pensioner and checked by the Pension clerk in
+  Approvals; SMS a month before and every two weeks while overdue; a pension more than a month overdue is held by the
+  bill itself (the exception is resolved by the system with the reason) and the held months are paid with the next
+  bill once the certificate is in. Register with due soon / overdue / held / to check.
+- New cases (PN-07 to PN-10, S-62): retirement alerts at 12 and 6 months (also in Home "My work"); a no-dues checklist
+  per section (dues are recovered from the benefits); the calculator reads the records — qualifying service in
+  six-monthly periods (3 months or more is a half-year, at most 66) less leave without pay and dies-non, emoluments (last
+  drawn or the 10-month average from approved bills, whichever is more), pension 50% (proportionate from 10 to 20 years,
+  ₹9,000 – ₹1,25,000), commutation up to 40% with the dated factor table, retirement / service / death gratuity within
+  the ceiling, leave encashment up to 300 days, GPF final payment with this year's interest, family pension enhanced
+  and normal with its end date; NPS staff get gratuity and leave encashment. Pension → Checker → Admin; approval issues
+  the PPO number and sets the pension up from the day after retirement; the bilingual PPO PDF is stored for physical
+  signature; the benefits bill pays gratuity, commuted value and leave encashment less dues. The day after retirement
+  the employee leaves the rolls (status, service book entry) and the GPF account is closed.
+- Deaths (PN-11): a pensioner's death stops the pension on the day; family pension (PPO "…/F") starts the next day at
+  rates from the case or the rules (editable before the Checker); the overpayment is worked out month by month and
+  recovered from the family pension (up to a third a month); logins close. A death in service stops pay after the day
+  and starts a family pension case (death gratuity, enhanced rate for 10 years); pay drawn after the death is recovered
+  from the benefits.
+- Pensioners (PN-12): sign in with mobile + OTP (retirees keep their login; family pensioners get their own); Home shows
+  the last pension and the certificate date; pension slips (PDF in Hindi or English; SMS and email on credit day); life
+  certificate page with how-to and Jeevan Pramaan upload; pension record.
+- Rules as tables: pension %, full / minimum years, minimum / maximum pension, family pension %, commutation limit,
+  gratuity ceiling, leave encashment days, additional pension slabs and FMA as dated rates; the commutation factor table
+  as a dated table changed through an Admin (Rates and rules → Pension tables).
+- Demo: five pensioners from the old system — a retiree with a login (DCB09001), an 80-year-old family pensioner with a
+  Hindi login (mobile 9810000202), an 86-year-old held for a certificate with a Jeevan Pramaan upload waiting, a retiree
+  on CGHS, a family pension at the enhanced rate after a death in service — two closed pension bills, and three
+  retirements coming up (Rekha Sharma retires on 30 November).
+
+**Verified**
+- Unit tests (12) and integration tests (12) with hand-checked figures: ₹30,000 + 20% + DR 60% + ₹1,000 − ₹12,000 =
+  ₹46,600; 40% of ₹75,550 = ₹30,220 × 12 × 8.194 = ₹29,71,472; gratuity capped at ₹25,00,000; restoration and part
+  months by days; held months caught up; DR arrears ₹800 a month on ₹20,000; death on the 10th → family pension from the
+  11th, overpayment for 21 days recovered; GPF closed once after retirement.
+- The demo PPO for Rekha Sharma checked by hand: pension ₹32,050 (50% of ₹64,100), 34 y 9 m 14 d (66 periods),
+  commuted value ₹12,60,565 (₹12,820 × 12 × 8.194), gratuity ₹16,92,240 (16½ × ₹1,02,560), leave encashment ₹5,05,963,
+  family pension ₹32,050 to 19 Nov 2033 then ₹19,230.
+- Browser checks: the pension bill with a held pension, the Jeevan Pramaan approval and the catch-up; a full case
+  through Checker and Admin to the PPO and the benefits bill; a family pensioner signing in with mobile OTP in Hindi;
+  phone layouts of every pension and pensioner screen (41 browser checks in all).
+- typecheck, lint, unit + integration tests, production build; Hindi slips, PPO and screens looked at.
 
 ### 2026-10-27 — Module 8: Statutory & tax ✅
 **Built**
@@ -329,14 +390,12 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 ---
 
 ## Pending / next up
-- Module 9: Pension (§10): pensioner record, the Pensioners pay group (basic + DR + medical − commutation, same five
-  stages), commutation restoration, additional pension at 80+, DR arrears, life certificates, retirement alerts and
-  no-dues, the new pension case calculator and PPO, death and family pension, pension slips and pensioner login.
-- Carried items: reports 7–19 and the formal accessibility pass (Module 10); leave encashment and GPF final payment
-  (Module 9); employee screens still show Basic from the built-in 7th CPC table (payroll and fixation read the dated
+- Module 10: dashboards per login, the 25 standard reports (incl. 24 pension register), the migration console with the
+  §15 checks and the parallel run, data export, hardening, accessibility pass and the deployment guide.
+- Carried items: employee screens still show Basic from the built-in 7th CPC table (payroll and fixation read the dated
   matrix) — one switch in Module 10 hardening; dev-tool audit items (Module 10); mid-year cut-over also needs the old
   system's GPF subscriptions for 80C (the carry-in holds salary and TDS) and its 24Q deductee rows for the cut-over
-  quarter (migration console, Module 10).
+  quarter, and bulk loading of pensioners (migration console, Module 10).
 
 ## Decisions taken (and why)
 | # | Decision | Reason |
@@ -380,11 +439,24 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 | D-38 | GPF interest = Σ month-end balance × rate ÷ 1200 at the rate in force each month (recoveries count from their month; money taken out stops earning from its month), rounded once a year; credited for a finished year only, after an Admin approves | GPF Rules r. 11 in its usual monthly-product form; interest is a once-a-year posting the Board signs off |
 | D-39 | A monthly filing is "done" when its file is released by an Admin (or its challans cover the month's TDS); "nothing due" when no one had that deduction that month | The calendar is driven by records, not ticks, so it cannot say done when nothing went out |
 | D-40 | Form 16 Part B can be generated any time as a marked draft, but publishing to employees opens only after 31 March and needs an Admin | Lets HR check figures early without an employee ever seeing a mid-year "Form 16" |
+| D-41 | Every pension hangs on the employee record of the service that earned it (retirees and the deceased stay as Retired / Deceased employees); a family pensioner has a login of their own linked to the pension; one running pension per service at a time | Service, pay history and family are already on that record; family pensioners have no service of their own |
+| D-42 | Pension bills are payrolls of the pay group "Pensioners" — same five stages, OTP, bank file and prints — under the §14 Pension row (Pension prepares, Checker checks, Admin approves and signs); retirement benefits and pension arrears are supplementary pension bills | PN-02 "same five-stage flow and maker-checker as staff payroll" with one control path for every rupee |
+| D-43 | A month due but not yet paid here (late case, family pension begun after the bill, pension held for a certificate) is paid with the next regular slip at the rates in force; months before the first pension bill in the system belong to the old system | Nobody waits for a separate bill; nothing is paid twice |
+| D-44 | Life certificates run on one November cycle: given October–December → good until 30 November next year, otherwise until 30 November that year; the pension is held from the 1st of the month after the month following, by the system with the reason | PN-06 "held after one month overdue" made exact; no clerk has to remember to hold |
+| D-45 | A family pension beginning mid-month after a pensioner's death starts on the next bill (that month's slip stays the deceased's, to the death date); pension paid for days after a death is kept per month and head, so a later DR arrears bill never recovers it twice | One slip per service per bill; arrears and recoveries agree |
+| D-46 | After the death of a pensioner brought over from the old records, family pension is suggested from emoluments of twice the basic pension (full pension is half of them); the Pension clerk can change it before the Checker approves | The old records rarely hold last pay; the order on paper decides |
+| D-47 | The GPF account is closed when the person has left the rolls and the case is approved: this year's interest to the month of leaving is credited and the final payment taken out; the 31 March credit skips interest already credited | The ledger ends at zero and the annual credit stays correct for everyone else |
+| D-48 | The commutation factor table is a dated rule table changed through an Admin; every other pension figure is a dated rate | PRD §10: "all formulas are editable tables with central-rule defaults" |
 | D-08 | Delhi Cantt logo could not be downloaded from inside the build environment (network policy). A placeholder emblem sits at `public/brand/logo.svg`; drop the real logo at the same path | — |
 
 ## Known gaps / risks
 - Exact bank bulk-file, CRA contribution, e-Chhawani and Form 24Q layouts, the pay bill / register / schedule formats (CBAR 2020) and the e-Chhawani account heads must be confirmed against real samples before go-live (PRD §18 open questions). They are built as switchable templates.
-- Leave, pension and tax defaults follow central rules and are marked "to confirm for DCB" in the rules tables.
+- Leave, pension and tax defaults follow central rules and are marked "to confirm for DCB" in the rules tables; pension
+  rules (CCS (Pension) Rules 2021, the 2008 commutation table) to confirm against the Cantonment Board Employees Service
+  Rules 2021 (PRD §10); the PPO layout to match DCB's printed PPO (PRD §18).
+- One family pension runs at a time on a service (two eligible widows sharing is not handled); Jeevan Pramaan is an
+  upload of the certificate, not a live API pull, in Release 1; disability / extraordinary pension beyond invalid
+  pension is not modelled.
 - Form 24Q (including Annexure II), the CRA contribution file, ECR and the ESIC file follow the published layouts but must
   pass the Protean FVU / one real portal upload before the first filing; the 24Q of the cut-over quarter covers only the
   months paid through this system.

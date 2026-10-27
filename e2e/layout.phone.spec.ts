@@ -67,3 +67,25 @@ test("statutory screens fit a phone screen", async ({ page }) => {
   await page.waitForURL(/\/statutory\/funds\/.+/);
   await expectNoSidewaysScroll(page, new URL(page.url()).pathname);
 });
+
+test("pension screens fit a phone screen", async ({ page }) => {
+  await signIn(page, { as: "HR & Accounts", id: "DCB10005" });
+  for (const path of ["/pension", "/pension/pensioners", "/pension/pensioners/new", "/pension/life-certificates", "/pension/cases", "/pension/cases/new", "/pension/arrears", "/admin/rates?tab=pension"]) {
+    await expectNoSidewaysScroll(page, path);
+  }
+  await page.goto("/pension/pensioners");
+  await page.getByRole("link", { name: "Dharam Pal" }).click();
+  await page.waitForURL(/\/pension\/pensioners\/(?!new).+/);
+  await expectNoSidewaysScroll(page, new URL(page.url()).pathname);
+  await page.goto("/pension");
+  await page.getByRole("link", { name: /^(January|February|March|April|May|June|July|August|September|October|November|December) \d{4}$/ }).first().click();
+  await page.waitForURL(/\/pension\/bills\/.+/);
+  await expectNoSidewaysScroll(page, `${new URL(page.url()).pathname}?tab=people`);
+});
+
+test("pensioner screens fit a phone screen", async ({ page }) => {
+  await signIn(page, { as: "Employee / Pensioner", id: "DCB09001" });
+  for (const path of ["/home", "/my/pension-slips", "/my/life-certificate", "/my/record", "/profile"]) {
+    await expectNoSidewaysScroll(page, path);
+  }
+});

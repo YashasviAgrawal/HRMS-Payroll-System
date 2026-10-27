@@ -13,6 +13,7 @@ import { gpfRefundsDue } from "@/modules/statutory/gpf-posting";
 import { statutorySettings } from "@/modules/statutory/settings";
 import { professionalTaxFor } from "@/modules/statutory/tax-rules";
 import { headFlags, monthsStillToCome, partsOf, projectTds, taxContext } from "@/modules/statutory/tds-projection";
+import { computePensionRun } from "@/modules/pension/compute";
 import { computePay, TYPES_IN_GROUP, type HeadRule, type PayInput, type PayLine } from "./engine";
 import { loanPosition } from "./loan-rules";
 
@@ -57,17 +58,22 @@ export async function itemsFor(boardId: string, month: string, employeeIds: stri
   return out;
 }
 
-/** Pay groups run here; pensioners get their own payroll in Module 9. */
+/** Staff pay groups (S-40). Pensioners are a pay group of their own, run through the same stages (S-61, PN-02). */
 export const RUN_GROUPS = ["OPS", "NPS", "CONTRACT"] as const;
-export type RunGroup = (typeof RUN_GROUPS)[number];
+export const PAY_GROUPS = [...RUN_GROUPS, "PENSION"] as const;
+export type StaffGroup = (typeof RUN_GROUPS)[number];
+export type RunGroup = (typeof PAY_GROUPS)[number];
+/** Salaries are Payroll's (§14 payroll); pension bills are Pension's (§14 pension) — the stages are the same. */
+export const fnOf = (group: string): "payroll" | "pension" => (group === "PENSION" ? "pension" : "payroll");
 
 const MATRIX_TYPES: EmployeeType[] = ["PERMANENT_OPS", "PERMANENT_NPS", "DEPUTATION"];
 
 const num = (v: { toString(): string } | null | undefined) => (v === null || v === undefined ? 0 : Number(v));
-const groupLabel: Record<RunGroup, string> = { OPS: "Permanent – OPS", NPS: "Permanent – NPS", CONTRACT: "Contract and daily wage" };
-const groupLabelHi: Record<RunGroup, string> = { OPS: "स्थायी – ओपीएस", NPS: "स्थायी – एनपीएस", CONTRACT: "संविदा और दैनिक वेतन" };
+const groupLabel: Record<RunGroup, string> = { OPS: "Permanent – OPS", NPS: "Permanent – NPS", CONTRACT: "Contract and daily wage", PENSION: "Pensioners" };
+const groupLabelHi: Record<RunGroup, string> = { OPS: "स्थायी – ओपीएस", NPS: "स्थायी – एनपीएस", CONTRACT: "संविदा और दैनिक वेतन", PENSION: "पेंशनभोगी" };
 export type SupplementarySource =
-  | { type: "ARREARS"; employeeIds: string[]; fromMonth: string; toMonth: string; reason: string }
+  | { type: "ARREARS"; employeeIds: string[]; fromMonth: string; toMonth: string; reason: string; pensionerIds?: string[] }
+  | { type: "BENEFITS"; caseId: string; name: string }
   | { type: "WITHHELD"; payslipIds: string[] }
   | { type: "JOINER"; employeeIds: string[]; forMonth: string };
 
@@ -89,14 +95,24 @@ export function titleOf(run: { payGroup: string; month: string; kind?: string; s
           ? lang === "hi"
             ? `कार्यग्रहण — ${formatMonth(src.forMonth!, "hi")} का वेतन`
             : `Joiners — pay for ${formatMonth(src.forMonth!)}`
-          : "";
+          : src.type === "BENEFITS"
+            ? lang === "hi"
+              ? `सेवानिवृत्ति लाभ — ${src.name}`
+              : `Retirement benefits — ${src.name}`
+            : "";
   return lang === "hi"
     ? `पूरक बिल ${run.seq ?? ""} · ${formatMonth(run.month, "hi")} — ${groupLabelHi[group]} — ${what}`
     : `Supplementary bill ${run.seq ?? ""} · ${formatMonth(run.month)} — ${groupLabel[group]} — ${what}`;
 }
 
 export const runTitle = (group: RunGroup, month: string, lang: "en" | "hi" = "en") =>
-  lang === "hi" ? `वेतन ${formatMonth(month, "hi")} — ${groupLabelHi[group]}` : `Payroll ${formatMonth(month)} — ${groupLabel[group]}`;
+  group === "PENSION"
+    ? lang === "hi"
+      ? `पेंशन बिल ${formatMonth(month, "hi")}`
+      : `Pension bill ${formatMonth(month)}`
+    : lang === "hi"
+      ? `वेतन ${formatMonth(month, "hi")} — ${groupLabelHi[group]}`
+      : `Payroll ${formatMonth(month)} — ${groupLabel[group]}`;
 
 // ─── Working out the pay ──────────────────────────────────────────────────────
 
@@ -122,6 +138,8 @@ export interface ComputedSlip {
   changePct: number | null;
   /** Loan instalments in a regular bill; month-by-month arrears in a supplementary one. */
   detail?: unknown;
+  /** Pension slips: the pension paid (PN-02). */
+  pensionerId?: string;
 }
 
 export interface PayAsOf {
@@ -175,6 +193,7 @@ export async function loansDue(tx: DbLike, employeeIds: string[], month: string)
  * nothing is saved. `ignoreAttendance` (with `assumeWorkedDays` for daily wages) is for the demo history only.
  */
 export async function computeRun(tx: DbLike, boardId: string, group: RunGroup, month: string, opts: { ignoreAttendance?: boolean; assumeWorkedDays?: number } = {}) {
+  if (group === "PENSION") return computePensionRun(tx, boardId, month);
   const monthStart = `${month}-01`;
   const monthEnd = endOfMonth(monthStart);
   const dim = datesOfMonth(month).length;
@@ -204,7 +223,7 @@ export async function computeRun(tx: DbLike, boardId: string, group: RunGroup, m
     tx.attendanceLock.findMany({ where: { boardId, month: last, unlockedAt: null }, select: { sectionId: true } }),
     tx.attendanceMonth.findMany({ where: { employeeId: { in: ids }, month: last } }),
     // Last month's pay as approved — a draft that never went out is not "last month".
-    tx.payslip.findMany({ where: { employeeId: { in: ids }, month: last, status: "INCLUDED", run: { status: { in: ["APPROVED", "PAID", "CLOSED"] } } }, select: { employeeId: true, net: true }, orderBy: { createdAt: "asc" } }),
+    tx.payslip.findMany({ where: { employeeId: { in: ids }, pensionerId: null, month: last, status: "INCLUDED", run: { status: { in: ["APPROVED", "PAID", "CLOSED"] } } }, select: { employeeId: true, net: true }, orderBy: { createdAt: "asc" } }),
     tx.employee.groupBy({ by: ["bankAccountHash"], where: { boardId, bankAccountHash: { not: null }, status: { in: ["ACTIVE", "SUSPENDED"] } }, _count: { _all: true } }),
     payAsOf(tx, employees, monthStart),
     loansDue(tx, ids, month),
@@ -387,7 +406,11 @@ export async function saveRun(tx: Tx, who: { boardId: string; userId: string; na
         code: f.code,
         severity: EXCEPTION_RULES[f.code].severity,
         vars: f.vars,
-        ...(keep ? { resolution: prev.resolution, note: prev.note, resolvedById: prev.resolvedById, resolvedByName: prev.resolvedByName, resolvedAt: prev.resolvedAt } : {}),
+        ...(keep
+          ? { resolution: prev.resolution, note: prev.note, resolvedById: prev.resolvedById, resolvedByName: prev.resolvedByName, resolvedAt: prev.resolvedAt }
+          : f.resolved
+            ? { resolution: f.resolved.resolution, note: f.resolved.note, resolvedByName: "System", resolvedAt: new Date() }
+            : {}),
       };
     }),
   });

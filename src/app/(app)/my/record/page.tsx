@@ -7,11 +7,14 @@ import { requireActor } from "@/lib/auth/session";
 import { getT } from "@/lib/i18n/server";
 import { getEmployee } from "@/modules/employees/service";
 import { EmployeeProfile, PROFILE_TABS, type ProfileTab } from "../../employees/_components/profile";
+import { PensionRecord } from "./pension-record";
 
 export const metadata: Metadata = { title: "My record" };
 
 export default async function MyRecordPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const actor = await requireActor();
+  // PN-12: a pensioner (retired, or a family pensioner with no service of their own) sees the pension record.
+  if (actor.pensionerId && !actor.isEmployee) return <PensionRecord actor={actor} />;
   if (!actor.employeeId) return <NoAccess />;
   const { t, locale } = await getT();
   const { tab } = await searchParams;

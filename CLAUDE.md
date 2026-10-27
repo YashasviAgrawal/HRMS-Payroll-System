@@ -20,3 +20,10 @@
 - **Statutory & tax:** pure rules in `modules/statutory/` (`tax-rules.ts`, `gpf-rules.ts`, `formats.ts`, `calendar.ts`); TDS is projected
   inside `computeRun` (`tds-projection.ts`, no "server-only") — never a pay item; `gpf-posting.ts` posts GPF from approved bills;
   `stat-build.ts` builds the monthly files (seed-safe). Worked-out deductions (LOAN, GPF_REFUND, IT, PT) pass to the engine in `items`.
+- **Pension:** pure rules in `modules/pension/rules.ts` (a month's pension, restoration, additional pension, life
+  certificate dates) and `calculator.ts` (the case); `compute.ts` works out the pension bill (pay group PENSION, called
+  from `computeRun`, seed-safe) with catch-up of unpaid months and the system hold; `case-facts.ts` reads a case's facts
+  (seed-safe); `bills.ts` arrears and benefits bills; `cases.ts`, `events.ts` (retirements, deaths), `pensioners.ts`,
+  `life-certificates.ts`, `tables.ts`, `ppo.ts`. Pension bills reuse the payroll run screen (`payroll/[id]/run-screen.tsx`)
+  under `/pension/bills`; rights follow `fnOf(payGroup)`. Every pension slip carries `pensionerId`; salary-side readers
+  filter `pensionerId: null`.

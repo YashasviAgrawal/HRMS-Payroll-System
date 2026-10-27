@@ -15,12 +15,13 @@ import type { RequestMeta } from "@/lib/request-meta";
 import { checkOtp, startSignOtp } from "@/modules/auth/service";
 import { fullName } from "@/modules/employees/present";
 import { EXCEPTION_RULES, type ExceptionCode, type Resolution } from "./checks";
-import { applyDuePayChanges, applyResolutions, computeRun, recordLoanRecoveries, RUN_GROUPS, runTitle, saveRun, titleOf, undoLoanRecoveries, type RunGroup } from "./compute";
+import { applyDuePayChanges, applyResolutions, computeRun, fnOf, PAY_GROUPS, recordLoanRecoveries, RUN_GROUPS, runTitle, saveRun, titleOf, undoLoanRecoveries, type RunGroup } from "./compute";
 import { recordGpf, undoGpf } from "@/modules/statutory/gpf-posting";
 import type { TaxDetail } from "@/modules/statutory/tds-projection";
 import type { PayLine } from "./engine";
+import { PENSION_TYPE_LABEL, pensionOfSlip, type PensionSlipDetail } from "@/modules/pension/rules";
 
-export { RUN_GROUPS, runTitle, type RunGroup };
+export { fnOf, RUN_GROUPS, runTitle, type RunGroup };
 
 /** How long a used approve-and-sign OTP stays good for the approval it was asked for. */
 const SIGN_OTP_WINDOW_MS = 3 * 60 * 1000;
@@ -43,15 +44,21 @@ const num = (v: { toString(): string } | null | undefined) => (v === null || v =
 // ─── Stage 1: run ─────────────────────────────────────────────────────────────
 
 export const runSchema = z.object({
-  payGroup: z.enum(RUN_GROUPS),
+  payGroup: z.enum(PAY_GROUPS),
   month: z.string().refine(isMonth, "validation.invalid"),
 });
 
-const canRun = (actor: Actor) => canAll(actor, "payroll", "create");
+const canRun = (actor: Actor, group: string) => canAll(actor, fnOf(group), "create");
+
+async function groupOfRun(actor: Actor, runId: string) {
+  const r = await db.payrollRun.findFirst({ where: { id: runId, boardId: actor.boardId }, select: { payGroup: true } });
+  if (!r) throw notFound();
+  return r.payGroup;
+}
 
 export async function runPayroll(actor: Actor, raw: unknown) {
-  if (!canRun(actor)) throw forbidden();
   const input = runSchema.parse(raw);
+  if (!canRun(actor, input.payGroup)) throw forbidden();
   const thisMonth = todayIST().slice(0, 7);
   if (input.month > thisMonth) throw badRequest("errors.validation", { month: "payroll.errors.futureMonth" });
   const started = Date.now();
@@ -103,7 +110,7 @@ export async function payrollOverview(actor: Actor, month?: string) {
     }),
     supplementary: runs.filter((r) => r.month === current && r.kind === "SUPPLEMENTARY").map((r) => ({ ...money(r), title: titleOf(r), titleHi: titleOf(r, "hi"), openExceptions: openBy.get(r.id) ?? 0 })),
     history: runs.filter((r) => r.month !== current).map((r) => ({ ...money(r), title: titleOf(r), titleHi: titleOf(r, "hi") })),
-    canRun: canRun(actor),
+    canRun: canRun(actor, "OPS"),
   };
 }
 
@@ -115,8 +122,9 @@ async function loadRun(actor: Actor, runId: string, tx: DbLike = db) {
 
 /** Everything the S-40 run screen shows, and what this person may do at this stage. */
 export async function getRun(actor: Actor, runId: string) {
-  assertView(actor);
   const run = await loadRun(actor, runId);
+  const fn = fnOf(run.payGroup);
+  if (!canAll(actor, fn, "view")) throw forbidden();
   const [slips, exceptions, tasks, bankFile, sections, previous] = await Promise.all([
     db.payslip.findMany({
       where: { runId },
@@ -132,15 +140,18 @@ export async function getRun(actor: Actor, runId: string) {
   const fileIds = [...repayIds, ...(run.summaryFileId ? [run.summaryFileId] : [])];
   const files = fileIds.length ? await db.fileRecord.findMany({ where: { id: { in: fileIds } } }) : [];
   const sectionBy = new Map(sections.map((s) => [s.id, s]));
+  // A pension bill lists the payee by PPO number; "post" shows the kind of pension.
   const people = slips
-    .map((s) => ({
+    .map((s) => ({ s, pension: pensionOfSlip(s.detail) }))
+    .map(({ s, pension }) => ({
       id: s.id,
       employeeId: s.employeeId,
-      code: s.employee.employeeCode ?? "",
-      name: fullName(s.employee),
-      nameHi: s.employee.nameHi,
+      pensionerId: s.pensionerId,
+      code: pension?.ppoNumber ?? s.employee.employeeCode ?? "",
+      name: pension?.payee ?? fullName(s.employee),
+      nameHi: pension ? pension.payeeHi : s.employee.nameHi,
       type: s.employee.type,
-      post: s.employee.post,
+      post: pension ? { code: pension.type, name: PENSION_TYPE_LABEL[pension.type]?.[0] ?? pension.type, nameHi: PENSION_TYPE_LABEL[pension.type]?.[1] ?? pension.type } : s.employee.post,
       sectionId: s.sectionId,
       section: sectionBy.get(s.sectionId) ?? null,
       payLevel: s.payLevel,
@@ -221,17 +232,17 @@ export async function getRun(actor: Actor, runId: string) {
     open,
     failed,
     can: {
-      run: run.status === "DRAFT" && canRun(actor),
-      resolve: run.status === "DRAFT" && canRun(actor),
-      submit: run.status === "DRAFT" && canRun(actor) && open === 0 && run.employees > 0,
+      run: run.status === "DRAFT" && canRun(actor, run.payGroup),
+      resolve: run.status === "DRAFT" && canRun(actor, run.payGroup),
+      submit: run.status === "DRAFT" && canRun(actor, run.payGroup) && open === 0 && run.employees > 0,
       withdraw: run.status === "CHECKING" && pendingTask?.makerId === actor.userId,
       check: run.status === "CHECKING" && pendingTask?.kind === "payroll.check" && mayDecide,
-      approve: run.status === "APPROVING" && pendingTask?.kind === "payroll.approve" && mayDecide && can(actor, "payroll", "approve"),
-      reopen: run.status === "APPROVED" && !released && can(actor, "payroll", "approve"),
-      bankFile: run.status === "APPROVED" && canRun(actor) && (!bankFile || bankFile.status === "REJECTED"),
-      returnFile: run.status === "PAID" && canRun(actor) && !run.returnAt,
-      repay: run.status === "PAID" && canRun(actor) && failed > 0,
-      close: run.status === "PAID" && canRun(actor) && Boolean(run.returnAt) && failed === 0,
+      approve: run.status === "APPROVING" && pendingTask?.kind === "payroll.approve" && mayDecide && can(actor, fn, "approve"),
+      reopen: run.status === "APPROVED" && !released && can(actor, fn, "approve"),
+      bankFile: run.status === "APPROVED" && canRun(actor, run.payGroup) && (!bankFile || bankFile.status === "REJECTED"),
+      returnFile: run.status === "PAID" && canRun(actor, run.payGroup) && !run.returnAt,
+      repay: run.status === "PAID" && canRun(actor, run.payGroup) && failed > 0,
+      close: run.status === "PAID" && canRun(actor, run.payGroup) && Boolean(run.returnAt) && failed === 0,
       print: true,
     },
     isMaker,
@@ -246,7 +257,7 @@ export const resolveSchema = z.object({
 });
 
 export async function resolveException(actor: Actor, runId: string, exceptionId: string, raw: unknown) {
-  if (!canRun(actor)) throw forbidden();
+  if (!canRun(actor, await groupOfRun(actor, runId))) throw forbidden();
   const input = resolveSchema.parse(raw);
   return db.$transaction(async (tx) => {
     const run = await loadRun(actor, runId, tx);
@@ -268,7 +279,7 @@ export async function resolveException(actor: Actor, runId: string, exceptionId:
 
 /** Undo a resolution (while the run is still a draft). */
 export async function clearResolution(actor: Actor, runId: string, exceptionId: string) {
-  if (!canRun(actor)) throw forbidden();
+  if (!canRun(actor, await groupOfRun(actor, runId))) throw forbidden();
   return db.$transaction(async (tx) => {
     const run = await loadRun(actor, runId, tx);
     if (run.status !== "DRAFT") throw conflict("payroll.errors.notDraft");
@@ -300,7 +311,7 @@ function runDetails(run: { id: string; employees: number; gross: unknown; deduct
 }
 
 export async function submitRun(actor: Actor, runId: string, raw: unknown) {
-  if (!canRun(actor)) throw forbidden();
+  if (!canRun(actor, await groupOfRun(actor, runId))) throw forbidden();
   const { note } = z.object({ note: z.string().trim().max(500).optional() }).parse(raw ?? {});
   return db.$transaction(async (tx) => {
     const run = await loadRun(actor, runId, tx);
@@ -360,7 +371,7 @@ export async function checkRun(actor: Actor, runId: string, raw: unknown) {
 export async function startSigning(actor: Actor, runId: string, meta: RequestMeta) {
   const run = await loadRun(actor, runId);
   if (run.status !== "APPROVING") throw conflict("payroll.errors.wrongStage");
-  if (!can(actor, "payroll", "approve") || !can(actor, "payroll", "sign")) throw forbidden();
+  if (!can(actor, fnOf(run.payGroup), "approve") || !can(actor, fnOf(run.payGroup), "sign")) throw forbidden();
   const task = await pendingTaskOf(actor, runId, "payroll.approve");
   const blocker = decisionBlocker(actor, task);
   if (blocker) throw forbidden(blocker);
@@ -373,7 +384,8 @@ export async function approveRun(actor: Actor, runId: string, raw: unknown) {
   const input = approveSchema.parse(raw);
   const task = await pendingTaskOf(actor, runId, "payroll.approve");
   if (input.decision === "APPROVE") {
-    if (!can(actor, "payroll", "approve") || !can(actor, "payroll", "sign")) throw forbidden();
+    const fn = fnOf(await groupOfRun(actor, runId));
+    if (!can(actor, fn, "approve") || !can(actor, fn, "sign")) throw forbidden();
     if (!input.challengeId || !input.otp) throw badRequest("errors.validation", { otp: "validation.required" });
     const challenge = await checkOtp(input.challengeId, input.otp, "APPROVE_SIGN", actor.userId);
     const ctx = challenge.context as { kind?: string; id?: string } | null;
@@ -408,7 +420,7 @@ export async function onChecked(tx: Tx, task: ApprovalTask, actor: Actor, runId:
 export async function onApproved(tx: Tx, actor: Actor, runId: string) {
   const run = await tx.payrollRun.findUniqueOrThrow({ where: { id: runId } });
   if (run.status !== "APPROVING") throw conflict("payroll.errors.wrongStage");
-  if (!can(actor, "payroll", "approve")) throw forbidden();
+  if (!can(actor, fnOf(run.payGroup), "approve")) throw forbidden();
   await assertSigned(tx, actor, runId);
   await tx.payrollRun.update({ where: { id: runId }, data: { status: "APPROVED", approvedById: actor.userId, approvedByName: actor.name, approvedAt: new Date() } });
   await recordLoanRecoveries(tx, runId);
@@ -425,7 +437,7 @@ export async function onSentBack(tx: Tx, runId: string) {
 // ─── PR-13: reopen ────────────────────────────────────────────────────────────
 
 export async function reopenRun(actor: Actor, runId: string, raw: unknown) {
-  if (!can(actor, "payroll", "approve")) throw forbidden();
+  if (!can(actor, fnOf(await groupOfRun(actor, runId)), "approve")) throw forbidden();
   const { note } = z.object({ note: z.string().trim().min(10, "validation.tooShort").max(500) }).parse(raw);
   return db.$transaction(async (tx) => {
     const run = await loadRun(actor, runId, tx);
@@ -453,7 +465,7 @@ export async function reopenRun(actor: Actor, runId: string, raw: unknown) {
 
 /** One person's pay sheet in a run: every line, the days and the totals. */
 export async function getPayslip(actor: Actor, runId: string, slipId: string) {
-  assertView(actor);
+  if (!canAll(actor, fnOf(await groupOfRun(actor, runId)), "view")) throw forbidden();
   const slip = await db.payslip.findFirst({
     where: { id: slipId, runId, boardId: actor.boardId },
     include: {
@@ -466,7 +478,17 @@ export async function getPayslip(actor: Actor, runId: string, slipId: string) {
   return {
     id: slip.id,
     run: { id: slip.run.id, month: slip.run.month, payGroup: slip.run.payGroup as RunGroup, status: slip.run.status, kind: slip.run.kind, title: titleOf(slip.run), titleHi: titleOf(slip.run, "hi") },
-    detail: (slip.detail ?? {}) as { loans?: { loanId: string; principal: number; interest: number }[]; arrears?: { month: string; lines: { code: string; name: string; nameHi: string; due: number; drawn: number; diff: number }[] }[]; joinerMonth?: string; withheldMonth?: string; tax?: TaxDetail },
+    detail: (slip.detail ?? {}) as {
+      loans?: { loanId: string; principal: number; interest: number }[];
+      arrears?: { month: string; lines: { code: string; name: string; nameHi: string; due: number; drawn: number; diff: number }[] }[];
+      joinerMonth?: string;
+      withheldMonth?: string;
+      tax?: TaxDetail;
+      pension?: PensionSlipDetail;
+      catchUp?: { month: string; net: number }[];
+      benefits?: { caseId: string };
+    },
+    pensionerId: slip.pensionerId,
     employee: { ...slip.employee, name: fullName(slip.employee) },
     payLevel: slip.payLevel,
     payCell: slip.payCell,

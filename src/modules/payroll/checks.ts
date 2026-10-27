@@ -12,7 +12,8 @@ export type ExceptionCode =
   | "NO_PAY_LEVEL"
   | "SUSPENDED"
   | "ATTENDANCE_NOT_LOCKED"
-  | "NET_CHANGE";
+  | "NET_CHANGE"
+  | "LIFE_CERTIFICATE";
 
 export type Resolution = "EXPLAINED" | "WITHHELD" | "WAIVED";
 
@@ -27,6 +28,8 @@ export const EXCEPTION_RULES: Record<ExceptionCode, { severity: "BLOCK" | "WARN"
   // One per section: pay without last month's loss days (they are recovered next month), or hold the section's pay.
   ATTENDANCE_NOT_LOCKED: { severity: "BLOCK", resolutions: ["WAIVED", "WITHHELD"] },
   NET_CHANGE: { severity: "WARN", resolutions: ["EXPLAINED"] },
+  // PN-06: a pension is held once the life certificate is more than a month overdue (the system withholds it).
+  LIFE_CERTIFICATE: { severity: "BLOCK", resolutions: ["WITHHELD"] },
 };
 
 export const EXCEPTION_CODES = Object.keys(EXCEPTION_RULES) as ExceptionCode[];
@@ -55,6 +58,8 @@ export interface Found {
   employeeId: string | null;
   code: ExceptionCode;
   vars: Record<string, string | number>;
+  /** Resolved by a rule rather than a person (a pension held for a missing life certificate). */
+  resolved?: { resolution: Resolution; note: string };
 }
 
 /**

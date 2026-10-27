@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CalendarClock, Download, Grid3x3, Landmark, Layers, Percent } from "lucide-react";
+import { Calculator, CalendarClock, Download, Grid3x3, Landmark, Layers, Percent } from "lucide-react";
 import { NoAccess } from "@/components/no-access";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
@@ -15,6 +15,9 @@ import { cn } from "@/lib/utils";
 import { levelOrder } from "@/modules/payroll/compute";
 import { rulesOverview } from "@/modules/payroll/rates";
 import { dueRulesScreen, taxRulesScreen } from "@/modules/statutory/rules";
+import { commutationTables } from "@/modules/pension/tables";
+import { COMMUTATION_FACTORS_2008 } from "@/modules/pension/calculator";
+import { CommutationButton } from "./commutation-button";
 import { HeadsTable } from "./heads-table";
 import { MatrixUpload } from "./matrix-upload";
 import { DueRuleButton } from "./due-rule-button";
@@ -23,7 +26,7 @@ import { TaxRuleButton } from "./tax-rule-button";
 
 export const metadata: Metadata = { title: "Rates and rules" };
 
-const TABS = ["rates", "heads", "matrix", "tax", "dues"] as const;
+const TABS = ["rates", "heads", "matrix", "tax", "dues", "pension"] as const;
 type Tab = (typeof TABS)[number];
 
 /** S-81: the dated tables the pay engine reads. HR & Accounts propose, an Admin approves. */
@@ -33,10 +36,10 @@ export default async function RatesPage({ searchParams }: { searchParams: Promis
   const { t, locale } = await getT();
   const sp = await searchParams;
   const tab: Tab = (TABS as readonly string[]).includes(sp.tab ?? "") ? (sp.tab as Tab) : "rates";
-  const [data, taxRules, dueRules] = await Promise.all([rulesOverview(actor), tab === "tax" ? taxRulesScreen(actor) : null, tab === "dues" ? dueRulesScreen(actor) : null]);
+  const [data, taxRules, dueRules, commutation] = await Promise.all([rulesOverview(actor), tab === "tax" ? taxRulesScreen(actor) : null, tab === "dues" ? dueRulesScreen(actor) : null, tab === "pension" ? commutationTables(actor) : null]);
   const today = todayIST();
   const pendingKeys = new Set(data.pending.map((p) => `${p.kind}|${p.entityId}`));
-  const fmt = (unit: string, v: number) => (unit === "PERCENT" ? t("rates.percent", { value: v }) : t("rates.rupees", { value: v.toLocaleString("en-IN") }));
+  const fmt = (unit: string, v: number) => (unit === "PERCENT" ? t("rates.percent", { value: v }) : unit === "COUNT" ? v.toLocaleString("en-IN") : t("rates.rupees", { value: v.toLocaleString("en-IN") }));
 
   return (
     <div>
@@ -44,7 +47,7 @@ export default async function RatesPage({ searchParams }: { searchParams: Promis
       <LinkTabs className="mb-5" active={tab} tabs={TABS.map((k) => ({ key: k, label: t(`rates.tabs.${k}`), href: `/admin/rates?tab=${k}` }))} />
 
       {tab === "rates" &&
-        (["PAY", "ALLOWANCE", "STATUTORY"] as const).map((group) => (
+        (["PAY", "ALLOWANCE", "STATUTORY", "PENSION"] as const).map((group) => (
           <Card key={group} className="mb-5">
             <CardHeader title={t(`rates.groups.${group}`)} icon={<Percent className="size-4.5" aria-hidden="true" />} />
             <Table stack>
@@ -253,6 +256,40 @@ export default async function RatesPage({ searchParams }: { searchParams: Promis
             </CardBody>
           </Card>
         </>
+      )}
+      {tab === "pension" && commutation && (
+        <Card>
+          <CardHeader
+            title={t("rates.pension.title")}
+            description={t("rates.pension.help")}
+            icon={<Calculator className="size-4.5" aria-hidden="true" />}
+            actions={commutation.canPropose && !commutation.pending.length && <CommutationButton factors={commutation.tables.find((x) => x.inForce)?.factors ?? COMMUTATION_FACTORS_2008} />}
+          />
+          {commutation.pending.length > 0 && (
+            <CardBody className="border-b border-ink-100 py-3">
+              <Badge tone="amber">{t("rates.pending")}</Badge> <span className="ml-2 text-sm text-ink-600">{commutation.pending[0].title}</span>
+            </CardBody>
+          )}
+          {commutation.tables.map((tb) => (
+            <CardBody key={tb.id} className="border-b border-ink-100 last:border-0">
+              <p className="mb-3 flex flex-wrap items-center gap-2 text-sm">
+                <span className="font-semibold text-ink-900">{t("rates.pension.fromDate", { date: formatDate(tb.effectiveFrom, locale) })}</span>
+                {tb.inForce && <Badge tone="green">{t("rates.pension.inForce")}</Badge>}
+                {tb.note && <span className="text-ink-500">{tb.note}</span>}
+              </p>
+              <dl className="grid grid-cols-3 gap-x-4 gap-y-1 text-sm sm:grid-cols-6 lg:grid-cols-8">
+                {Object.entries(tb.factors)
+                  .sort((a, b) => Number(a[0]) - Number(b[0]))
+                  .map(([age, f]) => (
+                    <div key={age} className="flex justify-between gap-2 border-b border-ink-50 py-0.5">
+                      <dt className="text-ink-500">{age}</dt>
+                      <dd className="tabular font-medium text-ink-900">{f}</dd>
+                    </div>
+                  ))}
+              </dl>
+            </CardBody>
+          ))}
+        </Card>
       )}
     </div>
   );

@@ -4,12 +4,14 @@ import { hasApprovalsInbox } from "@/lib/auth/menu";
 import type { Actor } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { formatDate, formatMonth, todayIST, fromISODate } from "@/lib/dates";
+import { formatINR } from "@/lib/money";
 import { locksDue, sectionScope, todayBoard } from "@/modules/attendance/service";
 import { ensureCredits, ledgerBalances } from "@/modules/leave/balance";
 import { can, canAll, scopeFor } from "@/lib/auth/access";
 import { RUN_GROUPS } from "@/modules/payroll/compute";
 import { dueSoon, sendDueReminders } from "@/modules/statutory/calendar-service";
 import { currentFy } from "@/modules/statutory/tax";
+import { pensionDailyJobs, pensionerHome, pensionWork } from "@/modules/pension/overview";
 
 const fmtDays = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
@@ -33,7 +35,7 @@ export interface Tile {
   value: string | number;
   href?: string;
   tone?: "green" | "amber" | "red" | "gray" | "blue";
-  icon: "users" | "sections" | "employees" | "history" | "inbox" | "probation" | "joining" | "attendance" | "lock" | "leave" | "payroll" | "statutory";
+  icon: "users" | "sections" | "employees" | "history" | "inbox" | "probation" | "joining" | "attendance" | "lock" | "leave" | "payroll" | "statutory" | "pension" | "certificate";
 }
 
 export async function myWork(actor: Actor): Promise<WorkItem[]> {
@@ -77,8 +79,38 @@ export async function myWork(actor: Actor): Promise<WorkItem[]> {
       tone: late ? "red" : "amber",
     });
   }
+  // PN-07, PN-06: pension cases to start for people retiring within six months; pensions held for a certificate.
+  const pension = await pensionWork(actor);
+  if (pension) {
+    for (const r of pension.retiring.slice(0, 5)) {
+      items.push({
+        key: `pension-case-${r.id}`,
+        title: `Start the pension case of ${r.name} (retires ${formatDate(r.lastDay)})`,
+        titleHi: `${r.nameHi ?? r.name} का पेंशन प्रकरण शुरू करें (सेवानिवृत्ति ${formatDate(r.lastDay, "hi")})`,
+        href: `/pension/cases/new?employee=${r.id}`,
+        tone: "amber",
+      });
+    }
+    if (pension.held) items.push({ key: "pension-held", title: `Pensions held for want of a life certificate: ${pension.held}`, titleHi: `जीवन प्रमाण पत्र न मिलने से रुकी पेंशन: ${pension.held}`, href: "/pension/life-certificates?lc=HELD", tone: "red" });
+  }
+  // PN-06, PN-12: the pensioner's own life certificate.
+  const mine = await pensionerHome(actor);
+  if (mine) {
+    pensionDailyJobs(actor.boardId);
+    if (mine.returnedNote) items.unshift({ key: "lc-returned", title: `Your life certificate was not accepted: ${mine.returnedNote}`, titleHi: `आपका जीवन प्रमाण पत्र स्वीकार नहीं हुआ: ${mine.returnedNote}`, href: "/my/life-certificate", tone: "red" });
+    else if (mine.lc.waiting === 0 && mine.state !== "VALID") {
+      const held = mine.state === "HELD";
+      items.unshift({
+        key: "lc-due",
+        title: held ? "Your pension is on hold — please give your life certificate" : `Please give your life certificate by ${formatDate(mine.lc.validTill)}`,
+        titleHi: held ? "आपकी पेंशन रुकी है — कृपया जीवन प्रमाण पत्र दें" : `कृपया ${formatDate(mine.lc.validTill, "hi")} तक जीवन प्रमाण पत्र दें`,
+        href: "/my/life-certificate",
+        tone: held || mine.state === "OVERDUE" ? "red" : "amber",
+      });
+    }
+  }
   // ST-02, ST-03: the employee's own tax declaration — the regime at the start of the year, proofs before January.
-  if (actor.loginType === "EMPLOYEE" && actor.employeeId) {
+  if (actor.loginType === "EMPLOYEE" && actor.employeeId && actor.isEmployee) {
     const fy = currentFy();
     const today = todayIST();
     const month = Number(today.slice(5, 7));
@@ -122,8 +154,14 @@ export async function homeTiles(actor: Actor): Promise<Tile[]> {
     tiles.push({ key: "probationDue", value: probation, href: "/recruitment?tab=probation", icon: "probation", tone: probation ? "amber" : "gray" });
     tiles.push({ key: "joiningsOpen", value: joining, href: "/recruitment?tab=joining", icon: "joining", tone: "blue" });
   }
+  // PN-12: a pensioner sees the last pension paid and the life certificate.
+  const mine = await pensionerHome(actor);
+  if (mine) {
+    tiles.push({ key: "lastPension", value: mine.lastSlip ? formatINR(mine.lastSlip.net) : "—", href: "/my/pension-slips", icon: "pension", tone: "green" });
+    tiles.push({ key: "lifeCertificate", value: formatDate(mine.lc.validTill), href: "/my/life-certificate", icon: "certificate", tone: mine.state === "VALID" ? "green" : mine.state === "DUE_SOON" ? "amber" : "red" });
+  }
   // PRD §15: employees see their leave balance; HR & Accounts see leave waiting.
-  if (actor.loginType === "EMPLOYEE" && actor.employeeId) {
+  if (actor.loginType === "EMPLOYEE" && actor.employeeId && actor.isEmployee) {
     await ensureCredits(actor.boardId);
     const bal = await ledgerBalances(actor.employeeId);
     const parts = ["EL", "CL"].filter((c) => bal.has(c)).map((c) => `${c} ${fmtDays(bal.get(c)!)}`);
@@ -145,6 +183,16 @@ export async function homeTiles(actor: Actor): Promise<Tile[]> {
     const runs = await db.payrollRun.findMany({ where: { boardId: actor.boardId, month, payGroup: { in: [...RUN_GROUPS] } }, select: { status: true } });
     const approved = runs.filter((r) => ["APPROVED", "PAID", "CLOSED"].includes(r.status)).length;
     tiles.push({ key: "payrollMonth", value: `${approved} / ${RUN_GROUPS.length}`, href: "/payroll", icon: "payroll", tone: approved === RUN_GROUPS.length ? "green" : "amber" });
+  }
+  // S-61: the month's pension bill and the pensioners, for the people who run, check or sign it.
+  if (canAll(actor, "pension", "view") && actor.loginType !== "EMPLOYEE") {
+    const month = todayIST().slice(0, 7);
+    const [run, pensioners] = await Promise.all([
+      db.payrollRun.findFirst({ where: { boardId: actor.boardId, month, payGroup: "PENSION", kind: "REGULAR" }, select: { status: true } }),
+      db.pensioner.count({ where: { boardId: actor.boardId, status: "ACTIVE" } }),
+    ]);
+    const paid = run && ["APPROVED", "PAID", "CLOSED"].includes(run.status);
+    tiles.push({ key: "pensionMonth", value: pensioners, href: "/pension", icon: "pension", tone: paid ? "green" : "amber" });
   }
   // ST-08: open filings due in the next 5 days.
   if (canAll(actor, "statutory", "create")) {

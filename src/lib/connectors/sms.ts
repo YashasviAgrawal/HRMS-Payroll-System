@@ -7,7 +7,7 @@ import { getSetting } from "@/modules/settings/service";
  * SMS gateway — the only live connection in Release 1, because OTP needs it (PRD §12).
  * Message texts must match the templates registered on the DLT platform, so they live here in one place.
  */
-export type SmsTemplate = "otp" | "approveOtp" | "welcome" | "alert" | "payslip";
+export type SmsTemplate = "otp" | "approveOtp" | "welcome" | "alert" | "payslip" | "pensionSlip" | "lifeCertificate";
 
 const TEXTS: Record<SmsTemplate, { en: string; hi: string }> = {
   otp: {
@@ -25,6 +25,14 @@ const TEXTS: Record<SmsTemplate, { en: string; hi: string }> = {
   payslip: {
     en: "Your salary slip for {month} is ready. Net pay Rs {net} sent to your bank account. See it at {url} - Delhi Cantonment Board",
     hi: "{month} की आपकी वेतन पर्ची तैयार है। शुद्ध वेतन रु {net} आपके बैंक खाते में भेजा गया। यहाँ देखें: {url} - दिल्ली छावनी परिषद",
+  },
+  pensionSlip: {
+    en: "Your pension for {month} is paid. Net pension Rs {net} sent to your bank account. See the slip at {url} - Delhi Cantonment Board",
+    hi: "{month} की आपकी पेंशन का भुगतान हो गया। शुद्ध पेंशन रु {net} आपके बैंक खाते में भेजी गई। पर्ची यहाँ देखें: {url} - दिल्ली छावनी परिषद",
+  },
+  lifeCertificate: {
+    en: "Please give your life certificate by {date} through Jeevan Pramaan or at the Board office so that your pension continues. PPO {ppo}. - Delhi Cantonment Board",
+    hi: "पेंशन जारी रखने के लिए कृपया {date} तक जीवन प्रमाण या परिषद कार्यालय में अपना जीवन प्रमाण पत्र दें। पीपीओ {ppo}। - दिल्ली छावनी परिषद",
   },
   alert: {
     en: "{text} - Delhi Cantonment Board",

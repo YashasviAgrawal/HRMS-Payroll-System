@@ -10,6 +10,7 @@ import { badRequest, forbidden, notFound } from "@/lib/errors";
 import { formatINR, fromPaise, toPaise } from "@/lib/money";
 import { emit } from "@/lib/outbox";
 import { fullName } from "@/modules/employees/present";
+import { rerunPensionBill } from "@/modules/pension/bills";
 import type { GpfRefund } from "@/modules/statutory/gpf-posting";
 import { preChecks, type Found } from "./checks";
 import {
@@ -25,6 +26,7 @@ import {
   type ComputedSlip,
   type LoanDue,
   type RunGroup,
+  type StaffGroup,
   type SupplementarySource,
 } from "./compute";
 import { computePay, TYPES_IN_GROUP, WORKED_OUT, type PayLine } from "./engine";
@@ -77,13 +79,13 @@ export interface PersonArrears {
 /** Due vs drawn for each person and month in the range. Months with no approved pay bill are skipped. */
 export async function computeArrears(tx: DbLike, boardId: string, employeeIds: string[], fromMonth: string, toMonth: string): Promise<PersonArrears[]> {
   const slips = await tx.payslip.findMany({
-    where: { boardId, employeeId: { in: employeeIds }, month: { gte: fromMonth, lte: toMonth }, status: "INCLUDED", run: { status: { in: [...PAID_STATUSES] } } },
+    where: { boardId, employeeId: { in: employeeIds }, pensionerId: null, month: { gte: fromMonth, lte: toMonth }, status: "INCLUDED", run: { status: { in: [...PAID_STATUSES] } } },
     include: { run: { select: { kind: true } }, employee: { include: { post: true } } },
     orderBy: { month: "asc" },
   });
   // Arrears already paid for a month (by an earlier supplementary bill) count as drawn.
   const earlier = await tx.payslip.findMany({
-    where: { boardId, employeeId: { in: employeeIds }, status: "INCLUDED", run: { kind: "SUPPLEMENTARY", status: { in: [...PAID_STATUSES] } } },
+    where: { boardId, employeeId: { in: employeeIds }, pensionerId: null, status: "INCLUDED", run: { kind: "SUPPLEMENTARY", status: { in: [...PAID_STATUSES] } } },
     select: { employeeId: true, detail: true },
   });
   const paidBefore = new Map<string, number>();
@@ -210,7 +212,7 @@ async function paidElsewhere(boardId: string) {
 }
 
 /** People with no payslip in a month whose regular bill is already approved (joined late in the month). */
-export async function joinerCandidates(actor: Actor, payGroup: RunGroup, forMonth: string) {
+export async function joinerCandidates(actor: Actor, payGroup: StaffGroup, forMonth: string) {
   if (!canSee(actor)) throw forbidden();
   if (!isMonth(forMonth)) throw badRequest();
   const regular = await db.payrollRun.findUnique({ where: { boardId_payGroup_month_kind_seq: { boardId: actor.boardId, payGroup: payGroup as PayGroup, month: forMonth, kind: "REGULAR", seq: 0 } } });
@@ -226,6 +228,7 @@ export async function joinerCandidates(actor: Actor, payGroup: RunGroup, forMont
 
 /** The slips and pre-checks for a supplementary bill, from its source. */
 async function buildSupplementary(boardId: string, src: Source, month: string): Promise<{ slips: ComputedSlip[]; found: Found[] }> {
+  if (src.type === "BENEFITS" || src.payGroup === "PENSION") throw new Error("Pension bills are built by the pension module");
   const dim = datesOfMonth(month).length;
   const bankHolders = new Map((await db.employee.groupBy({ by: ["bankAccountHash"], where: { boardId, bankAccountHash: { not: null }, status: { in: ["ACTIVE", "SUSPENDED"] } }, _count: { _all: true } })).map((h) => [h.bankAccountHash!, h._count._all]));
   if (src.type === "JOINER") {
@@ -355,16 +358,17 @@ async function saveSupplementary(actor: Actor, src: Source, month: string, runId
 
 /** "Work out again" for a supplementary bill still in draft. */
 export async function rerunSupplementary(actor: Actor, runId: string) {
-  if (!canMake(actor)) throw forbidden();
   const run = await db.payrollRun.findFirst({ where: { id: runId, boardId: actor.boardId, kind: "SUPPLEMENTARY" } });
   if (!run) throw notFound();
+  if (run.payGroup === "PENSION") return rerunPensionBill(actor, run.id);
+  if (!canMake(actor)) throw forbidden();
   return saveSupplementary(actor, { ...(run.source as unknown as Source), payGroup: run.payGroup as RunGroup }, run.month, run.id);
 }
 
 /** S-42 list: every supplementary bill. */
 export async function supplementaryBills(actor: Actor) {
   if (!canSee(actor)) throw forbidden();
-  const runs = await db.payrollRun.findMany({ where: { boardId: actor.boardId, kind: "SUPPLEMENTARY" }, orderBy: [{ month: "desc" }, { seq: "desc" }], take: 100 });
+  const runs = await db.payrollRun.findMany({ where: { boardId: actor.boardId, kind: "SUPPLEMENTARY", payGroup: { not: "PENSION" } }, orderBy: [{ month: "desc" }, { seq: "desc" }], take: 100 });
   return runs.map((r) => ({ id: r.id, month: r.month, seq: r.seq, payGroup: r.payGroup, status: r.status, employees: r.employees, net: num(r.net), title: titleOf(r), titleHi: titleOf(r, "hi"), reason: r.title }));
 }
 

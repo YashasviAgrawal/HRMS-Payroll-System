@@ -17,7 +17,7 @@ import { fullName } from "@/modules/employees/present";
 import { getSetting } from "@/modules/settings/service";
 import { buildBankFile, parseReturnRows, type BankRow } from "./bank-formats";
 import type { PayLine } from "./engine";
-import { titleOf } from "./compute";
+import { fnOf, titleOf } from "./compute";
 import { sendPayslipNotices } from "./payslips";
 
 /**
@@ -29,36 +29,51 @@ import { sendPayslipNotices } from "./payslips";
 const num = (v: { toString(): string } | null | undefined) => (v === null || v === undefined ? 0 : Number(v));
 const mask = (account: string) => `••••${account.slice(-4)}`;
 
-function assertPayroll(actor: Actor) {
-  if (!canAll(actor, "payroll", "create")) throw forbidden();
-}
-
+/** Loads a bill the actor may work on: salary bills need payroll rights, pension bills pension rights (§14). */
 async function loadRun(actor: Actor, runId: string, tx: Tx | typeof db = db) {
   const run = await tx.payrollRun.findFirst({ where: { id: runId, boardId: actor.boardId } });
   if (!run) throw notFound();
+  if (!canAll(actor, fnOf(run.payGroup), "create")) throw forbidden();
   return run;
 }
 
-/** Bank rows for the given payslips, from the bank details on the record now (an approved change counts). */
+/**
+ * Bank rows for the given payslips, from the bank details on the record now (an approved change counts). A pension is
+ * paid to the pensioner's own account and listed by PPO number.
+ */
 async function bankRows(slipIds: string[], month: string, tx: Tx | typeof db = db): Promise<BankRow[]> {
   const slips = await tx.payslip.findMany({
     where: { id: { in: slipIds } },
     include: { employee: { select: { employeeCode: true, firstName: true, middleName: true, lastName: true, bankAccountEnc: true, ifsc: true } } },
   });
+  const pensioners = await tx.pensioner.findMany({ where: { id: { in: slips.flatMap((s) => (s.pensionerId ? [s.pensionerId] : [])) } } });
+  const pensionerBy = new Map(pensioners.map((p) => [p.id, p]));
   const rows: BankRow[] = [];
-  for (const s of slips.sort((a, b) => (a.employee.employeeCode ?? "").localeCompare(b.employee.employeeCode ?? ""))) {
-    const code = s.employee.employeeCode ?? "";
-    if (!s.employee.bankAccountEnc || !s.employee.ifsc) throw badRequest("payroll.errors.noBankFor", undefined, { code });
+  for (const s of slips) {
+    const p = s.pensionerId ? pensionerBy.get(s.pensionerId) : undefined;
+    // Benefits on a death with no pension to pay go to the family member's account given on the case.
+    const payTo = (s.detail as { payTo?: { name: string; accountEnc: string; ifsc: string } } | null)?.payTo;
+    const code = p ? p.ppoNumber : (s.employee.employeeCode ?? "");
+    const enc = payTo ? payTo.accountEnc : p ? p.bankAccountEnc : s.employee.bankAccountEnc;
+    const ifsc = payTo ? payTo.ifsc : p ? p.ifsc : s.employee.ifsc;
+    if (!enc || !ifsc) throw badRequest("payroll.errors.noBankFor", undefined, { code });
     rows.push({
       employeeCode: code,
-      name: fullName(s.employee),
-      account: decrypt(s.employee.bankAccountEnc),
-      ifsc: s.employee.ifsc,
+      name: payTo ? payTo.name : p ? p.payeeName : fullName(s.employee),
+      account: decrypt(enc),
+      ifsc,
       amount: num(s.net),
-      narration: `DCB SALARY ${month.replace("-", "")} ${code}`,
+      narration: `DCB ${p ? "PENSION" : "SALARY"} ${month.replace("-", "")} ${code}`,
     });
   }
-  return rows;
+  return rows.sort((a, b) => a.employeeCode.localeCompare(b.employeeCode));
+}
+
+/** The code each slip of a bill is listed by in its bank file and the bank's return file. */
+async function slipCodes(runId: string) {
+  const slips = await db.payslip.findMany({ where: { runId, status: "INCLUDED" }, include: { employee: { select: { employeeCode: true } } } });
+  const ppo = new Map((await db.pensioner.findMany({ where: { id: { in: slips.flatMap((s) => (s.pensionerId ? [s.pensionerId] : [])) } }, select: { id: true, ppoNumber: true } })).map((p) => [p.id, p.ppoNumber]));
+  return { slips, byCode: new Map(slips.map((s) => [s.pensionerId ? ppo.get(s.pensionerId) : s.employee.employeeCode, s])) };
 }
 
 async function bankFileFor(actor: Actor, tx: Tx, run: { id: string; month: string; payGroup: string }, rows: BankRow[], kind: "bank.salary" | "bank.repay") {
@@ -72,12 +87,12 @@ async function bankFileFor(actor: Actor, tx: Tx, run: { id: string; month: strin
     {
       kind,
       period: run.month,
-      fileName: `${repay ? "repay" : "salary"}-${run.month}-${run.payGroup.toLowerCase()}${repay ? `-${Date.now().toString(36)}` : ""}.${out.ext}`,
+      fileName: `${repay ? "repay" : run.payGroup === "PENSION" ? "pension" : "salary"}-${run.month}-${run.payGroup.toLowerCase()}${repay ? `-${Date.now().toString(36)}` : ""}.${out.ext}`,
       ext: out.ext,
       mimeType: out.mimeType,
       buffer: Buffer.from(out.content, "utf8"),
       preview: {
-        columns: ["Employee ID", "Name", "Account", "IFSC", "Amount"],
+        columns: [run.payGroup === "PENSION" ? "PPO no." : "Employee ID", "Name", "Account", "IFSC", "Amount"],
         rows: rows.slice(0, 25).map((r) => [r.employeeCode, r.name, mask(r.account), r.ifsc, r.amount.toFixed(2)]),
         totalRows: rows.length,
         totals: { "Total amount": formatINR(total, { decimals: true }), Format: bank.format },
@@ -92,7 +107,6 @@ async function bankFileFor(actor: Actor, tx: Tx, run: { id: string; month: strin
 
 /** PR-12: the salary bank file for everyone paid in the run. */
 export async function buildSalaryBankFile(actor: Actor, runId: string) {
-  assertPayroll(actor);
   return db.$transaction(async (tx) => {
     const run = await loadRun(actor, runId, tx);
     if (run.status !== "APPROVED") throw conflict("payroll.errors.wrongStage");
@@ -110,14 +124,12 @@ export async function buildSalaryBankFile(actor: Actor, runId: string) {
 
 /** The bank's return file: every credit not listed as failed is marked credited. */
 export async function importReturnFile(actor: Actor, runId: string, buffer: Buffer, fileName: string) {
-  assertPayroll(actor);
   const run = await loadRun(actor, runId);
   if (run.status !== "PAID" || run.returnAt) throw conflict("payroll.errors.wrongStage");
   const table = await readTable(buffer);
   const parsed = parseReturnRows(table);
   if (parsed.errors.length) throw badRequest("payroll.errors.returnFile", undefined, { lines: parsed.errors.map((e) => e.line).join(", ") });
-  const slips = await db.payslip.findMany({ where: { runId, status: "INCLUDED" }, include: { employee: { select: { employeeCode: true } } } });
-  const byCode = new Map(slips.map((s) => [s.employee.employeeCode, s]));
+  const { slips, byCode } = await slipCodes(runId);
   const bad = parsed.rows.filter((r) => {
     const s = byCode.get(r.employeeCode);
     return !s || Math.abs(num(s.net) - r.amount) > 0.5;
@@ -157,7 +169,6 @@ export async function importReturnFile(actor: Actor, runId: string, buffer: Buff
 
 /** No return file from the bank — every credit went through. */
 export async function markAllCredited(actor: Actor, runId: string) {
-  assertPayroll(actor);
   return db.$transaction(async (tx) => {
     const run = await loadRun(actor, runId, tx);
     if (run.status !== "PAID" || run.returnAt) throw conflict("payroll.errors.wrongStage");
@@ -170,7 +181,6 @@ export async function markAllCredited(actor: Actor, runId: string) {
 
 /** PR-12: a new bank file for failed credits (after the bank details are corrected through the Checker). */
 export async function buildRepayFile(actor: Actor, runId: string) {
-  assertPayroll(actor);
   return db.$transaction(async (tx) => {
     const run = await loadRun(actor, runId, tx);
     if (run.status !== "PAID") throw conflict("payroll.errors.wrongStage");
@@ -209,7 +219,6 @@ export async function accountingSummary(tx: Tx | typeof db, runId: string) {
 
 /** Closes the month: every failed credit has a re-pay file; the accounting summary goes to the file registry. */
 export async function closeRun(actor: Actor, runId: string) {
-  assertPayroll(actor);
   return db.$transaction(async (tx) => {
     const run = await loadRun(actor, runId, tx);
     if (run.status !== "PAID" || !run.returnAt) throw conflict("payroll.errors.wrongStage");

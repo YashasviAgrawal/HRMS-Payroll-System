@@ -3,8 +3,8 @@
  * Delhi, TA by level with DA on TA) and central rules for the statutory rates — all to confirm for DCB (PRD §18).
  * Values live in the dated PayRate table; this file only names them.
  */
-export type RateUnit = "PERCENT" | "RUPEES";
-export type RateGroup = "PAY" | "ALLOWANCE" | "STATUTORY";
+export type RateUnit = "PERCENT" | "RUPEES" | "COUNT";
+export type RateGroup = "PAY" | "ALLOWANCE" | "STATUTORY" | "PENSION";
 
 export interface RateDef {
   key: string;
@@ -40,6 +40,23 @@ export const RATE_CATALOG: RateDef[] = [
   { key: "ESIC_EMPLOYEE", name: "ESIC — employee share", nameHi: "ईएसआईसी — कर्मचारी अंश", unit: "PERCENT", group: "STATUTORY" },
   { key: "ESIC_EMPLOYER", name: "ESIC — employer share", nameHi: "ईएसआईसी — नियोक्ता अंश", unit: "PERCENT", group: "STATUTORY" },
   { key: "ESIC_CEILING", name: "ESIC wage ceiling", nameHi: "ईएसआईसी वेतन सीमा", unit: "RUPEES", group: "STATUTORY" },
+  // Pension (PN-02, PN-04, PN-08): central rules, to confirm against the Cantonment Board Employees Service Rules 2021.
+  { key: "FMA", name: "Fixed medical allowance to pensioners", nameHi: "पेंशनभोगियों को नियत चिकित्सा भत्ता", unit: "RUPEES", group: "PENSION" },
+  { key: "PENSION_PERCENT", name: "Pension — share of emoluments for full service", nameHi: "पेंशन — पूर्ण सेवा पर परिलब्धियों का भाग", unit: "PERCENT", group: "PENSION" },
+  { key: "PENSION_FULL_YEARS", name: "Pension — years of service for full pension", nameHi: "पेंशन — पूर्ण पेंशन हेतु सेवा वर्ष", unit: "COUNT", group: "PENSION" },
+  { key: "PENSION_MIN_YEARS", name: "Pension — least years of service", nameHi: "पेंशन — न्यूनतम सेवा वर्ष", unit: "COUNT", group: "PENSION" },
+  { key: "PENSION_MIN", name: "Pension — lowest amount a month", nameHi: "पेंशन — न्यूनतम मासिक राशि", unit: "RUPEES", group: "PENSION" },
+  { key: "PENSION_MAX", name: "Pension — highest amount a month", nameHi: "पेंशन — अधिकतम मासिक राशि", unit: "RUPEES", group: "PENSION" },
+  { key: "FAMILY_PENSION_ENHANCED", name: "Family pension — enhanced rate (of last pay)", nameHi: "पारिवारिक पेंशन — बढ़ी दर (अंतिम वेतन का)", unit: "PERCENT", group: "PENSION" },
+  { key: "FAMILY_PENSION_NORMAL", name: "Family pension — normal rate (of last pay)", nameHi: "पारिवारिक पेंशन — सामान्य दर (अंतिम वेतन का)", unit: "PERCENT", group: "PENSION" },
+  { key: "COMMUTATION_MAX", name: "Commutation — most of the pension", nameHi: "रूपांतरण — पेंशन का अधिकतम भाग", unit: "PERCENT", group: "PENSION" },
+  { key: "GRATUITY_CEILING", name: "Gratuity — ceiling", nameHi: "उपदान — अधिकतम सीमा", unit: "RUPEES", group: "PENSION" },
+  { key: "LEAVE_ENCASH_MAX_DAYS", name: "Leave encashment — most days of earned leave", nameHi: "अवकाश नकदीकरण — अर्जित अवकाश के अधिकतम दिन", unit: "COUNT", group: "PENSION" },
+  { key: "ADDL_PENSION_80", name: "Additional pension from age 80", nameHi: "80 वर्ष से अतिरिक्त पेंशन", unit: "PERCENT", group: "PENSION" },
+  { key: "ADDL_PENSION_85", name: "Additional pension from age 85", nameHi: "85 वर्ष से अतिरिक्त पेंशन", unit: "PERCENT", group: "PENSION" },
+  { key: "ADDL_PENSION_90", name: "Additional pension from age 90", nameHi: "90 वर्ष से अतिरिक्त पेंशन", unit: "PERCENT", group: "PENSION" },
+  { key: "ADDL_PENSION_95", name: "Additional pension from age 95", nameHi: "95 वर्ष से अतिरिक्त पेंशन", unit: "PERCENT", group: "PENSION" },
+  { key: "ADDL_PENSION_100", name: "Additional pension from age 100", nameHi: "100 वर्ष से अतिरिक्त पेंशन", unit: "PERCENT", group: "PENSION" },
 ];
 
 export const RATE_KEYS = RATE_CATALOG.map((r) => r.key);
@@ -72,4 +89,21 @@ export const RATE_DEFAULTS: [string, number, string][] = [
   ["ESIC_EMPLOYEE", 0.75, "2019-07-01"],
   ["ESIC_EMPLOYER", 3.25, "2019-07-01"],
   ["ESIC_CEILING", 21000, "2017-01-01"],
+  ["FMA", 1000, "2017-07-01"],
+  ["PENSION_PERCENT", 50, "2006-01-01"],
+  ["PENSION_FULL_YEARS", 20, "2006-01-01"],
+  ["PENSION_MIN_YEARS", 10, "2006-01-01"],
+  ["PENSION_MIN", 9000, "2016-01-01"],
+  ["PENSION_MAX", 125000, "2016-01-01"],
+  ["FAMILY_PENSION_ENHANCED", 50, "2006-01-01"],
+  ["FAMILY_PENSION_NORMAL", 30, "2006-01-01"],
+  ["COMMUTATION_MAX", 40, "2006-01-01"],
+  ["GRATUITY_CEILING", 2000000, "2016-01-01"],
+  ["GRATUITY_CEILING", 2500000, "2024-01-01"],
+  ["LEAVE_ENCASH_MAX_DAYS", 300, "2006-01-01"],
+  ["ADDL_PENSION_80", 20, "2006-01-01"],
+  ["ADDL_PENSION_85", 30, "2006-01-01"],
+  ["ADDL_PENSION_90", 40, "2006-01-01"],
+  ["ADDL_PENSION_95", 50, "2006-01-01"],
+  ["ADDL_PENSION_100", 100, "2006-01-01"],
 ];

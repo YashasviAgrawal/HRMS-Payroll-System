@@ -10,6 +10,7 @@ import { secureCookies } from "@/lib/env";
 import { getRequestMeta } from "@/lib/request-meta";
 import type { Principal } from "./access";
 import { accessState } from "./access-state";
+import { pensionOfUser } from "./pensioner";
 
 export const SESSION_COOKIE = "dcb_session";
 /** PRD §2 rule 7 / §16: sessions time out after 15 minutes idle. */
@@ -30,6 +31,8 @@ export interface Actor extends Principal {
   loginType: LoginType;
   permissions: Permission[];
   employeeId: string | null;
+  /** The pension this login sees, once the person is a pensioner (PN-12). */
+  pensionerId: string | null;
   /** Section of the person's own employee record — the reporting officer's scope (PRD §2 rule 5). */
   sectionId: string | null;
   language: "en" | "hi";
@@ -90,6 +93,7 @@ export const getActor = cache(async (): Promise<Actor | null> => {
 
   const { user } = session;
   const employee = user.employee;
+  const pension = user.loginType === "EMPLOYEE" ? await pensionOfUser(user) : null;
   const state = accessState(
     {
       userStatus: user.status,
@@ -101,7 +105,7 @@ export const getActor = cache(async (): Promise<Actor | null> => {
             dateOfRetirement: employee.dateOfRetirement ? toISODate(employee.dateOfRetirement) : null,
           }
         : null,
-      pensionFrom: null,
+      pensionFrom: pension?.from ?? null,
     },
     todayIST(),
   );
@@ -122,6 +126,7 @@ export const getActor = cache(async (): Promise<Actor | null> => {
     loginType: user.loginType,
     permissions: user.permissions,
     employeeId: employee?.id ?? null,
+    pensionerId: state.isPensioner ? pension!.id : null,
     sectionId: employee?.sectionId ?? null,
     isEmployee: state.isEmployee,
     isPensioner: state.isPensioner,

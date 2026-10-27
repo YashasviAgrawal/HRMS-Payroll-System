@@ -80,7 +80,7 @@ _Goal: a secure, bilingual shell that every later module plugs into._
 - [x] S-01 Login: Employee ID or mobile + password + OTP; employees and pensioners may use mobile + OTP only (rule 4)
 - [x] OTP: 6 digits, 5-minute expiry, 5 tries, 30 s resend cool-down, 5 per 10 min; 5 wrong passwords lock 15 min; no account probing
 - [x] Sessions time out after 15 minutes idle (rule 7) with a 2-minute warning; password change signs out other devices
-- [~] Access ends automatically on retirement / resignation / transfer / death (rule 6) — _pensioner view switches on with the pensioner record in Module 9_
+- [x] Access ends automatically on retirement / resignation / transfer / death (rule 6) — _pensioner view from the day after retirement (Module 9)_
 - [x] Access matrix (§14) coded as one permission table + scope (own record / own section) + unit tests for every cell
 - [x] User & settings manager can never see pay, bank or Aadhaar (rule 3, §14 note); cannot be combined with Approver / Pay bill signer
 - [x] Reporting officer sees only own section; scope is read from the person's employee record, so moving the person moves the access (rule 5)
@@ -167,7 +167,7 @@ _Goal: a secure, bilingual shell that every later module plugs into._
 - [x] PR-02 DA / HRA / TA dated rate table: DA 60% from 1 Jan 2026, HRA 30% (Delhi, X city), TA by level with DA on TA — plus the statutory rates (NPS, GPF, GIS, EPF, ESIC, pension fund)
 - [x] PR-03 Pay heads master (Basic, DA, HRA, TA, NPA, special, washing, uniform, conservancy, risk…) each with formula + account head; changes and new heads through an Admin, versioned
 - [x] PR-04 Deductions: GPF/CPF, NPS 10%, income tax, group insurance, licence fee, loans, court attachment, society dues, overpayment recovery — standing amounts per person as pay items, checked by a Checker
-- [x] PR-05 Pay groups: Permanent-OPS (with deputation), Permanent-NPS, Contract & daily wage (with re-employed) — _the Pensioners group runs with the pension payroll in Module 9_
+- [x] PR-05 Pay groups: Permanent-OPS (with deputation), Permanent-NPS, Contract & daily wage (with re-employed) — _the Pensioners group runs the pension bill (Module 9)_
 - [x] PR-10 Pre-checks: no bank account, negative net, pay after retirement (or contract end), net change > 25%, duplicate bank account — plus no pay level, suspension and last month's attendance not locked
 - [x] PR-11 Pay bill, schedules, acquittance roll, salary register as bilingual PDFs — _layouts to be matched to DCB's printed formats (PRD §18)_
 - [x] PR-12 Bank file in the bank's format (generic, SBI CMP, PNB, BoB, Canara) through the file registry; return file of failed credits read; re-pay file
@@ -210,20 +210,20 @@ _Goal: a secure, bilingual shell that every later module plugs into._
 - [x] S-50 GPF & NPS · S-51 Tax declarations · S-52 Statutory files · S-53 Form 16
 
 ## Module 9 — Pension (§10)
-- [ ] PN-01 Pensioner record: PPO, type, basic pension, commuted amount & date, DOB, bank, family
-- [ ] PN-02 Pension payroll: basic + DR (= DA rate) + fixed medical allowance − commutation; same five stages
-- [ ] PN-03 Commuted portion restored after 15 years automatically
-- [ ] PN-04 Additional pension at 80 and later slabs
-- [ ] PN-05 DR change → arrears for all pensioners in one job
-- [ ] PN-06 Life certificate status (manual / Jeevan Pramaan upload), SMS reminder, pension held after one month overdue
-- [ ] PN-07 Retirement alerts at 12 and 6 months; no-dues checklist per section
-- [ ] PN-08 New pension case calculator: qualifying service, emoluments, pension, commutation, gratuity, leave encashment, GPF final, family pension
-- [ ] PN-09 Case prepared (Pension), checked (Checker), approved (Admin); PPO PDF
-- [ ] PN-10 Retiree moves to pensioner group the day after retirement; gratuity, commutation, encashment in supplementary bill
-- [ ] PN-11 Death: pension stops, family pension next day, overpayment recovered
-- [ ] PN-12 Pension slip by SMS / email; pensioner login with mobile + OTP
-- [ ] All formulas as editable tables (pension %, commutation factors, gratuity, slab ages)
-- [ ] S-60 Pensioners · S-61 Pension payroll · S-62 Pension case & PPO
+- [x] PN-01 Pensioner record: PPO, type, basic pension, commuted amount & date, DOB, bank, family — _additions from the old records and every change go to a Checker_
+- [x] PN-02 Pension payroll: basic + DR (= DA rate) + fixed medical allowance − commutation; same five stages — _pay group "Pensioners": OTP approval, bank file to the pensioner's account by PPO, prints, close; months not yet paid here are caught up on the next slip; TDS on own pension_
+- [x] PN-03 Commuted portion restored after 15 years automatically — _by days in the month of restoration; 29 Feb → 1 Mar_
+- [x] PN-04 Additional pension at 80 and later slabs — _from the 1st of the month of turning 80 / 85 / 90 / 95 / 100, on basic pension, DR on both_
+- [x] PN-05 DR change → arrears for all pensioners in one job — _due vs drawn for the months paid, one supplementary pension bill_
+- [x] PN-06 Life certificate status (manual / Jeevan Pramaan upload), SMS reminder, pension held after one month overdue — _November cycle; upload checked by Pension in Approvals; the bill holds by itself and pays the held months next time_
+- [x] PN-07 Retirement alerts at 12 and 6 months; no-dues checklist per section — _alerts on the case screen and in Home "My work"; dues recovered from the benefits_
+- [x] PN-08 New pension case calculator: qualifying service, emoluments, pension, commutation, gratuity, leave encashment, GPF final, family pension — _from the service book, approved pay bills, leave ledger, GPF ledger; NPS staff: gratuity and leave encashment_
+- [x] PN-09 Case prepared (Pension), checked (Checker), approved (Admin); PPO PDF — _bilingual PPO stored at approval for physical signature_
+- [x] PN-10 Retiree moves to pensioner group the day after retirement; gratuity, commutation, encashment in supplementary bill — _leaves the rolls (status, service book), GPF account closed_
+- [x] PN-11 Death: pension stops, family pension next day, overpayment recovered — _pensioner or employee in service; recovery from family pension (≤ ⅓ a month) or from the benefits_
+- [x] PN-12 Pension slip by SMS / email; pensioner login with mobile + OTP — _retirees keep their login; family pensioners get their own; Home, slips, life certificate, record_
+- [x] All formulas as editable tables (pension %, commutation factors, gratuity, slab ages) — _dated rates (Pension group) + dated commutation table through Admin approval_
+- [x] S-60 Pensioners · S-61 Pension payroll · S-62 Pension case & PPO
 
 ## Module 10 — Reports, dashboards, migration & go-live (§11, §15, §16)
 - [ ] Dashboards per login (Admin / HR & Accounts / Employee / Pensioner tiles per §11)

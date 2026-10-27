@@ -11,12 +11,13 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import type { EmployeeType, LoginType, Permission } from "../src/generated/prisma/enums";
 import { sealWith } from "../src/lib/crypto-core";
-import { addDays, addYears, fromISODate, retirementDate } from "../src/lib/dates";
+import { addDays, addYears, fromISODate, retirementDate, shiftMonth, todayIST } from "../src/lib/dates";
 import { hashPassword } from "../src/lib/password";
 import { verhoeffCheckDigit } from "../src/lib/validators";
 import { seedAttendance } from "./seed-attendance";
 import { seedLeaveTypes } from "./seed-leave";
 import { seedPayrollDemo, seedPayrollRules } from "./seed-payroll";
+import { seedPensionDemo, seedPensionRules } from "./seed-pension";
 import { seedStatutoryRules } from "./seed-statutory";
 
 const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) });
@@ -163,6 +164,7 @@ async function main() {
   // So are the pay matrix, the dated rates and the pay heads (PRD §8).
   await seedPayrollRules(db, board.id);
   await seedStatutoryRules(db, board.id);
+  await seedPensionRules(db, board.id);
 
   const passwordHash = await hashPassword(DEMO_PASSWORD);
 
@@ -329,6 +331,17 @@ async function main() {
     return { id: u.id, name: u.displayName };
   };
   await seedPayrollDemo(db, board.id, employeeIds, { payroll: await userOf("DCB10004"), checker: await userOf("DCB10006"), signer: await userOf("DCB10002") });
+
+  // Pension: pensioners from the old system and the last two pension bills closed (Module 9).
+  const thisMonth = todayIST().slice(0, 7);
+  await seedPensionDemo(db, board.id, {
+    seal: (kind, value) => sealWith(ENC_KEY, IDX_KEY, kind, value),
+    sections: sectionIds,
+    posts: postIds,
+    months: [shiftMonth(thisMonth, -2), shiftMonth(thisMonth, -1)],
+    users: { pension: await userOf("DCB10005"), checker: await userOf("DCB10006"), signer: await userOf("DCB10002") },
+    passwordHash,
+  });
 
   // A demo vacancy (advertised, with applicants) so the recruitment screens have something to show.
   if ((await db.vacancy.count({ where: { boardId: board.id } })) === 0) {
