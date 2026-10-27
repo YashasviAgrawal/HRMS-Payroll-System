@@ -69,7 +69,7 @@ _Goal: a secure, bilingual shell that every later module plugs into._
 - [x] Theme tokens (brand green scale, neutrals, success/warn/danger), Inter + Noto Sans Devanagari
 - [x] Components: Button (one dark primary per screen), Input, Select, Textarea, Checkbox, Card, Badge, Tabs, Table (keyboard-first rows), Dialog, Toast, EmptyState, PageHeader, StatTile, Segmented, OTP input, Pagination, Skeleton — Stepper added with the payroll screen (Module 6)
 - [x] Logo slot — drop the official file at `public/brand/logo.png`; placeholder emblem until then
-- [~] Accessibility basics: focus rings, labelled fields, skip link, AA colours, rem sizing (§16) — _formal GIGW/WCAG pass in Module 10_
+- [x] Accessibility basics: focus rings, labelled fields, skip link, AA colours, rem sizing (§16) — _formal GIGW/WCAG pass done in Module 10 (axe: 0 violations on 128 screens)_
 
 **Language**
 - [x] Hindi / English switch on every screen incl. login (S-01, §16), remembered per user (S-03)
@@ -90,9 +90,9 @@ _Goal: a secure, bilingual shell that every later module plugs into._
 - [x] Outbox: every approved change writes an event (§12 rule 5)
 - [x] Maker-checker engine: nobody approves their own entry (rule 1); nobody processes their own pay, loan or arrears (rule 2)
 - [x] S-04 Approvals inbox: everything waiting for me, oldest first (+ raised by me, decided by me)
-- [~] Connector framework (file now / API later) + SMS gateway (console mode / HTTP provider with DLT ids) (§12) — _email sending arrives with payslips (Module 7)_
+- [x] Connector framework (file now / API later) + SMS gateway (console mode / HTTP provider with DLT ids) (§12) — _email through the Board's SMTP server added with payslips (Module 7)_
 - [x] Outgoing file registry: preview → Admin approves → SHA-256 checksum → audited download (ST-09) — _built in Module 3 with the PRAN and EPF/ESIC files_
-- [ ] Document storage (PDF / image ≤ 5 MB) with checksum — _moved to Module 2 (EM-05)_
+- [x] Document storage (PDF / image ≤ 5 MB) with checksum — _built in Module 2 (EM-05)_
 
 **Screens**
 - [x] App shell: menu of at most 8 items per login, built from ticked permissions (§13); phone bottom bar for employees
@@ -233,8 +233,8 @@ _Goal: a secure, bilingual shell that every later module plugs into._
 - [x] Migration checks table (§15): record counts, money totals, GPF, pension, duplicates, exceptions — _worked out from the data; signed by the people the PRD names, only while passing; the figures are kept with each signature_
 - [x] Parallel-run comparison: every difference > ₹1 listed per employee per head — _FoxPro pay sheet (one row per head, or one column per head) against the month's bills; each difference explained; three explained months in a row allow the cut-over_
 - [x] Data ownership: full export CSV / JSON (§16) — _every table, Admin only, logged; no sign-in secrets; Aadhaar / PAN / bank stay encrypted_
-- [ ] Hardening: security headers, rate limits, CSP, backup & restore scripts, performance test (200 users), accessibility pass (GIGW 3.0 / WCAG 2.1 AA)
-- [ ] Deployment guide for NIC MeghRaj / MeitY cloud (prod, test, training copies)
+- [x] Hardening: security headers, rate limits, CSP, backup & restore scripts, performance test (200 users), accessibility pass (GIGW 3.0 / WCAG 2.1 AA) — _nonce CSP + HSTS, 429 limits per address and session, `no-store` API, trusted client address; backup → restore drill identical; 200 users: 0 errors, 95% under 0.33 s; payroll for 1,675 staff + 1,255 pensioners in 1.7 s; slow-4G pages under 3 s; axe 0 violations on 128 screens, nothing scrolls sideways at 320 px; screens read the dated pay matrix_
+- [x] Deployment guide for NIC MeghRaj / MeitY cloud (prod, test, training copies) — _[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md): sizing, copies, server, NIC/NPL time, PostgreSQL + WAL, keys, systemd, nginx, backups, logs, go-live checklist, controls for the auditor_
 
 ---
 

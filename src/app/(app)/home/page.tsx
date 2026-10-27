@@ -42,7 +42,7 @@ export default async function HomePage() {
           <h2 id="glance" className="sr-only">
             {t("home.atAGlance")}
           </h2>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {tiles.map((tile) => {
               const Icon = TILE_ICONS[tile.icon];
               return (

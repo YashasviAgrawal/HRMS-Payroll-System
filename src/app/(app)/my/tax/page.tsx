@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { NoAccess } from "@/components/no-access";
 import { PageHeader } from "@/components/ui/page-header";
+import { can } from "@/lib/auth/access";
 import { requireActor } from "@/lib/auth/session";
 import { getT } from "@/lib/i18n/server";
 import { myTax } from "@/modules/statutory/tax";
@@ -12,7 +13,8 @@ export const metadata: Metadata = { title: "My tax" };
 /** ST-02, ST-03, S-51 (employee): regime for the year, investment declaration and proofs. */
 export default async function MyTaxPage() {
   const actor = await requireActor();
-  if (!actor.employeeId) return <NoAccess />;
+  // Retirees reach their pension slips here but their tax is no longer worked out through salary.
+  if (!actor.employeeId || !can(actor, "statutory", "view")) return <NoAccess />;
   const { t } = await getT();
   const data = await myTax(actor);
 

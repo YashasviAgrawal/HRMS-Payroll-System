@@ -46,7 +46,7 @@ export function MatrixUpload({ pending }: { pending: boolean }) {
   }
 
   return (
-    <div className="grid max-w-2xl gap-4 sm:grid-cols-2">
+    <div className="grid grid-cols-1 max-w-2xl gap-4 sm:grid-cols-2">
       <Input label={t("rates.matrix.name")} placeholder={t("rates.matrix.namePlaceholder")} value={name} onChange={(e) => setName(e.target.value)} error={errors.name} required />
       <Input label={t("rates.effectiveFrom")} type="date" value={effectiveFrom} onChange={(e) => setEffectiveFrom(e.target.value)} error={errors.effectiveFrom} required />
       <Input ref={input} label={t("rates.matrix.file")} type="file" accept=".xlsx" onChange={(e) => setFile(e.target.files?.[0] ?? null)} error={errors.file} containerClassName="sm:col-span-2" required />

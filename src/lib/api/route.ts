@@ -2,16 +2,18 @@ import "server-only";
 import { NextResponse, type NextRequest } from "next/server";
 import { ZodError, type ZodType } from "zod";
 import { getActor, type Actor } from "@/lib/auth/session";
-import { AppError, badRequest, forbidden, unauthorized } from "@/lib/errors";
+import { AppError, RateLimitError, badRequest, forbidden, unauthorized } from "@/lib/errors";
 import { makeT, type TKey } from "@/lib/i18n";
 import { lookup } from "@/lib/i18n/types";
 import { en } from "@/lib/i18n/en";
 import { getLocale } from "@/lib/i18n/server";
+import { hit, LIMITS, type Limit } from "@/lib/rate-limit";
 import { getRequestMeta, type RequestMeta } from "@/lib/request-meta";
 
 /**
  * Every REST endpoint under /api/v1 goes through here (PRD §12 rule 4: the screens use the same APIs).
- * It handles the session, a same-origin check on writes, JSON validation and translated error messages.
+ * It handles the session, a same-origin check on writes, rate limits, JSON validation and translated
+ * error messages.
  */
 type Params = Record<string, string>;
 
@@ -43,6 +45,11 @@ function checkOrigin(req: NextRequest) {
   }
 }
 
+function limit(key: string, rule: Limit) {
+  const result = hit(key, rule);
+  if (!result.ok) throw new RateLimitError(result.retryAfterS);
+}
+
 function zodToAppError(error: ZodError): AppError {
   const fields: Record<string, string> = {};
   for (const issue of error.issues) {
@@ -72,7 +79,7 @@ async function toErrorResponse(error: unknown) {
     : undefined;
   return NextResponse.json(
     { ok: false, error: { code: appError.code, message: t(appError.key, appError.vars), fields } },
-    { status: appError.status },
+    { status: appError.status, headers: appError instanceof RateLimitError ? { "Retry-After": String(appError.retryAfterS) } : undefined },
   );
 }
 
@@ -96,9 +103,14 @@ function build<P extends Params>(req: NextRequest, params: P, meta: RequestMeta)
   };
 }
 
+/** Personal data must not stay in the browser cache of a shared office PC. */
+function noStore(res: Response) {
+  if (!res.headers.has("cache-control")) res.headers.set("cache-control", "no-store");
+  return res;
+}
+
 function respond(result: unknown) {
-  if (result instanceof Response) return result;
-  return NextResponse.json({ ok: true, data: result ?? null });
+  return noStore(result instanceof Response ? result : NextResponse.json({ ok: true, data: result ?? null }));
 }
 
 export function apiRoute<P extends Params = Params>(handler: AuthedHandler<P>) {
@@ -107,11 +119,12 @@ export function apiRoute<P extends Params = Params>(handler: AuthedHandler<P>) {
       checkOrigin(req);
       const actor = await getActor();
       if (!actor) throw unauthorized();
+      limit(`session:${actor.sessionId}`, LIMITS.session);
       const params = (await context?.params) ?? ({} as P);
       const meta = await getRequestMeta();
       return respond(await handler({ ...build(req, params, meta), actor }));
     } catch (e) {
-      return toErrorResponse(e);
+      return noStore(await toErrorResponse(e));
     }
   };
 }
@@ -120,12 +133,13 @@ export function publicRoute<P extends Params = Params>(handler: PublicHandler<P>
   return async (req: NextRequest, context: RouteContext<P>) => {
     try {
       checkOrigin(req);
+      const meta = await getRequestMeta();
+      if (req.method !== "GET" && req.method !== "HEAD") limit(`public:${meta.ip ?? "unknown"}`, LIMITS.publicWrite);
       const actor = await getActor();
       const params = (await context?.params) ?? ({} as P);
-      const meta = await getRequestMeta();
       return respond(await handler({ ...build(req, params, meta), actor }));
     } catch (e) {
-      return toErrorResponse(e);
+      return noStore(await toErrorResponse(e));
     }
   };
 }

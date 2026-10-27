@@ -1,7 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import type { ApprovalTask, Prisma } from "@/generated/prisma/client";
-import { submitForApproval } from "@/lib/approvals/engine";
+import { canOpenTask, submitForApproval } from "@/lib/approvals/engine";
 import type { ApprovalDetails } from "@/lib/approvals/details";
 import { audit } from "@/lib/audit";
 import { can, canAll } from "@/lib/auth/access";
@@ -135,7 +135,7 @@ export async function pensionerProfile(actor: Actor, id: string) {
     }),
     db.pensioner.findMany({ where: { employeeId: p.employeeId, id: { not: id } }, select: { id: true, ppoNumber: true, payeeName: true, payeeNameHi: true, relation: true, type: true, status: true, startDate: true, endDate: true, endReason: true }, orderBy: { startDate: "asc" } }),
     own ? Promise.resolve([]) : db.employeePayItem.findMany({ where: { employeeId: p.employeeId, headCode: { in: ["RECOVERY", "COURT"] }, OR: [{ toMonth: null }, { toMonth: { gte: today.slice(0, 7) } }] }, orderBy: { fromMonth: "asc" } }),
-    db.approvalTask.findMany({ where: { boardId: actor.boardId, status: "PENDING", kind: { in: ["pension.record", "pension.lifecert", "pension.death"] }, entityId: id }, select: { id: true, kind: true, title: true, titleHi: true, makerName: true, createdAt: true } }),
+    db.approvalTask.findMany({ where: { boardId: actor.boardId, status: "PENDING", kind: { in: ["pension.record", "pension.lifecert", "pension.death"] }, entityId: id }, select: { id: true, kind: true, title: true, titleHi: true, makerName: true, createdAt: true, requiredPermission: true, makerId: true, deciderId: true } }),
     db.payRate.findMany({ where: { boardId: actor.boardId, effectiveFrom: { lte: fromISODate(`${today.slice(0, 7)}-01`) } }, orderBy: { effectiveFrom: "asc" } }),
   ]);
   const r: Record<string, number> = {};
@@ -189,7 +189,7 @@ export async function pensionerProfile(actor: Actor, id: string) {
     slips: slips.map((s) => ({ id: s.id, month: s.month, kind: s.run.kind, status: s.status, runStatus: s.run.status, gross: num(s.gross), deductions: num(s.deductions), net: num(s.net), catchUp: ((s.detail ?? {}) as { catchUp?: { month: string }[] }).catchUp?.map((c) => c.month) ?? [] })),
     history: history.map((h) => ({ ...h, startDate: toISODate(h.startDate), endDate: h.endDate ? toISODate(h.endDate) : null })),
     recoveries: items.map((i) => ({ id: i.id, headCode: i.headCode, amount: num(i.amount), fromMonth: i.fromMonth, toMonth: i.toMonth, note: i.note })),
-    pending: pending.map((t) => ({ ...t, createdAt: t.createdAt.toISOString() })),
+    pending: pending.map(({ requiredPermission, makerId, deciderId, ...t }) => ({ ...t, createdAt: t.createdAt.toISOString(), canOpen: canOpenTask(actor, { requiredPermission, makerId, deciderId }) })),
     own,
     can: {
       manage: !own && canManagePension(actor),

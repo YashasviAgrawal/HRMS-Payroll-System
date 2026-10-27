@@ -1,4 +1,5 @@
 import { z } from "zod";
+import "@/lib/validators"; // zod set-up for the browser (no eval under the CSP)
 
 /**
  * Board settings (S-82). Secrets — gateway keys, SMTP passwords, portal passwords — are never stored:

@@ -84,7 +84,7 @@ export function HeadsTable({ heads, pending, canPropose }: { heads: HeadRow[]; p
         </THead>
         <tbody>
           {heads.map((h) => (
-            <Tr key={h.code} className={h.isActive ? undefined : "opacity-60"}>
+            <Tr key={h.code} className={h.isActive ? undefined : "bg-ink-50/70"}>
               <Td>
                 <span className="font-medium text-ink-900">{locale === "hi" ? h.nameHi : h.name}</span> <span className="text-xs font-semibold text-ink-400">{h.code}</span>
                 <span className="block text-xs text-ink-500">
@@ -144,7 +144,7 @@ export function HeadsTable({ heads, pending, canPropose }: { heads: HeadRow[]; p
         }
       >
         {edit && (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input label={t("rates.heads.code")} value={edit.row.code} disabled={!edit.isNew} onChange={(e) => set({ code: e.target.value.toUpperCase() })} error={errors.code} required />
             <Select label={t("rates.heads.kind")} value={edit.row.kind} disabled={!edit.isNew} onChange={(e) => set({ kind: e.target.value as HeadRow["kind"] })}>
               {(["EARNING", "DEDUCTION", "EMPLOYER"] as const).map((k) => (

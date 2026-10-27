@@ -31,7 +31,7 @@ export default async function ReportsPage() {
   return (
     <div>
       <PageHeader title={t("reports.title")} description={t("reports.subtitle")} />
-      <div className="grid items-start gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
         {AREAS.map((area) => {
           const list = mine.filter((r) => r.area === area);
           if (!list.length) return null;

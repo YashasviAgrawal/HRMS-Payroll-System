@@ -53,7 +53,7 @@ export default async function PensionPage({ searchParams }: { searchParams: Prom
       />
       <PensionTabs active="bills" t={t} />
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatTile label={t("pension.stats.pensioners")} value={s.pensioners} href="/pension/pensioners" icon={<Users className="size-5" aria-hidden="true" />} tone="blue" />
         <StatTile label={t("pension.stats.monthly")} value={s.monthlyNet === null ? "—" : formatINR(s.monthlyNet)} icon={<Wallet className="size-5" aria-hidden="true" />} hint={s.lastPaidMonth ? formatMonth(s.lastPaidMonth, locale) : undefined} />
         <StatTile
@@ -77,7 +77,7 @@ export default async function PensionPage({ searchParams }: { searchParams: Prom
           description={t("pension.bills.regularHelp")}
           actions={r ? <Badge tone={STATUS_TONE[r.status]}>{tDynamic(t, `payroll.status.${r.status}`)}</Badge> : <Badge>{t("payroll.notRun")}</Badge>}
         />
-        <CardBody className="grid gap-5 lg:grid-cols-[1fr_auto] lg:items-end">
+        <CardBody className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_auto] lg:items-end">
           <div className="space-y-4">
             <Stepper steps={steps} current={stageIndex(r?.status ?? null)} label={t("pension.title")} compact />
             {r ? (

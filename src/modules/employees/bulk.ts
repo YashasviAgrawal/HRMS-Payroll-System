@@ -10,6 +10,7 @@ import { isISODate, toISODate } from "@/lib/dates";
 import { badRequest, forbidden } from "@/lib/errors";
 import { lookup } from "@/lib/i18n/types";
 import { en } from "@/lib/i18n/en";
+import { matrixToday } from "@/modules/payroll/compute";
 import { createEmployeeSchema, crossCheck, EMPLOYEE_TYPES } from "./schema";
 import { ACTIVE_STATUSES, createEmployee } from "./service";
 
@@ -171,10 +172,11 @@ export async function checkBulkValues(actor: Actor, entries: { row: number; v: R
 
 /** The checks alone, for callers that have checked access themselves (the migration console shows them to its Checker). */
 export async function bulkChecks(boardId: string, entries: { row: number; v: Record<string, string> }[]) {
-  const [sections, posts, codes] = await Promise.all([
+  const [sections, posts, codes, matrix] = await Promise.all([
     db.section.findMany({ where: { boardId } }),
     db.post.findMany({ where: { boardId } }),
     db.employee.findMany({ where: { boardId, employeeCode: { not: null } }, select: { employeeCode: true } }),
+    matrixToday(boardId, db),
   ]);
   const sectionByCode = new Map(sections.map((s) => [s.code.toUpperCase(), s]));
   const postByCode = new Map(posts.map((p) => [p.code.toUpperCase(), p]));
@@ -237,7 +239,7 @@ export async function bulkChecks(boardId: string, entries: { row: number; v: Rec
         errors.push(`${label}: ${text}`);
       }
     } else {
-      for (const [k, m] of Object.entries(crossCheck(parsed.data.personal, parsed.data.job, parsed.data.ids))) {
+      for (const [k, m] of Object.entries(crossCheck(parsed.data.personal, parsed.data.job, parsed.data.ids, matrix))) {
         const field = k.split(".").pop()!;
         errors.push(`${BULK_COLUMNS.find((c) => c.key === field)?.header ?? field}: ${msg(m)}`);
       }

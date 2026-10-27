@@ -42,7 +42,7 @@ export function UploadCertificate() {
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <Input label={t("pension.lc.jpId")} hint={t("pension.my.jpIdHelp")} value={form.jpId} onChange={(e) => setForm({ ...form, jpId: e.target.value })} error={errors.jpId} required maxLength={40} />
       <Input label={t("pension.lc.date")} type="date" value={form.certifiedOn} onChange={(e) => setForm({ ...form, certifiedOn: e.target.value })} error={errors.certifiedOn} required />
       <Input label={t("pension.my.file")} hint={t("pension.lc.scanHelp")} type="file" accept="application/pdf,image/png,image/jpeg" onChange={(e) => setFile(e.target.files?.[0] ?? null)} error={errors.file} required containerClassName="sm:col-span-2" />

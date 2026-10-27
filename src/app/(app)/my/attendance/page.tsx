@@ -59,7 +59,7 @@ export default async function MyAttendancePage({ searchParams }: { searchParams:
           }))}
         />
       </Card>
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <Card>
           <CardHeader title={t("attendance.my.myRequests")} icon={<History className="size-4.5" aria-hidden="true" />} />
           {data.requests.length === 0 ? (

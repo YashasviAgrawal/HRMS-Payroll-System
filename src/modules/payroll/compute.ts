@@ -6,7 +6,7 @@
 import type { EmployeeType, PayGroup } from "@/generated/prisma/enums";
 import type { PayHead, Prisma } from "@/generated/prisma/client";
 import type { DbLike, Tx } from "@/lib/db";
-import { datesOfMonth, daysBetweenInclusive, endOfMonth, formatMonth, fromISODate, maxDate, shiftMonth, toISODate, type ISODate } from "@/lib/dates";
+import { datesOfMonth, daysBetweenInclusive, endOfMonth, formatMonth, fromISODate, maxDate, shiftMonth, todayIST, toISODate, type ISODate } from "@/lib/dates";
 import { badRequest, conflict } from "@/lib/errors";
 import { changePct, EXCEPTION_RULES, exceptionKey, preChecks, type Found } from "./checks";
 import { gpfRefundsDue } from "@/modules/statutory/gpf-posting";
@@ -16,6 +16,7 @@ import { headFlags, monthsStillToCome, partsOf, projectTds, taxContext } from "@
 import { computePensionRun } from "@/modules/pension/compute";
 import { computePay, TYPES_IN_GROUP, type HeadRule, type PayInput, type PayLine } from "./engine";
 import { loanPosition, loanTermsOf } from "./loan-rules";
+import { basicIn, seventhCpcMatrix, type MatrixLevels } from "./matrix-7cpc";
 
 // ─── Reading ──────────────────────────────────────────────────────────────────
 
@@ -34,9 +35,19 @@ export async function matrixOn(boardId: string, date: ISODate, tx: DbLike) {
 }
 
 export function basicFrom(levels: Record<string, number[]> | null | undefined, level: string | null, cell: number | null): number | null {
-  if (!levels || !level || !cell) return null;
-  return levels[level]?.[cell - 1] ?? null;
+  return basicIn(levels, level, cell);
 }
+
+/**
+ * The levels of the matrix in force on a date for screens and letters: the dated one, or the built-in
+ * 7th CPC table before any matrix has been stored.
+ */
+export async function matrixLevelsOn(boardId: string, date: ISODate, tx: DbLike): Promise<MatrixLevels> {
+  return (await matrixOn(boardId, date, tx))?.levels ?? seventhCpcMatrix();
+}
+
+/** The matrix the screens show today (employee records, recruitment). */
+export const matrixToday = (boardId: string, tx: DbLike) => matrixLevelsOn(boardId, todayIST(), tx);
 
 export function toHeadRule(h: PayHead): HeadRule {
   return { code: h.code, name: h.name, nameHi: h.nameHi, kind: h.kind, calc: h.calc, value: Number(h.value), postCodes: h.postCodes, prorate: h.prorate, countsForDa: h.countsForDa, accountHead: h.accountHead };
@@ -419,10 +430,7 @@ export async function saveRun(tx: Tx, who: { boardId: string; userId: string; na
 }
 
 
-/** Pay levels in matrix order: 1, 2 … 13, 13A, 14 … (JSON objects come back in key order, not matrix order). */
-export function levelOrder(a: string, b: string): number {
-  return parseInt(a, 10) - parseInt(b, 10) || a.localeCompare(b);
-}
+export { levelOrder } from "./matrix-7cpc";
 
 /** PR-09: an approved payroll records each loan instalment it recovered; a loan repaid in full closes. */
 export async function recordLoanRecoveries(tx: Tx, runId: string) {

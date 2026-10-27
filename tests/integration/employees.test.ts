@@ -218,4 +218,28 @@ describe.skipIf(!hasTestDb)("employee master (EM-01…EM-10)", () => {
     const fresh = await db.employee.findFirstOrThrow({ where: { boardId, firstName: "Vivek" } });
     expect(fresh.employeeCode).toMatch(/^DCB\d{5}$/);
   });
+
+  it("the record shows Basic from the dated matrix in force, and a new matrix's levels are accepted (PR-01)", async () => {
+    const e = await createEmployee(hr, input());
+    await approveLatest(e.id);
+    const before = await db.payMatrix.findMany({ where: { boardId }, select: { id: true } });
+    // The shared test Board may already hold the seeded matrix; either way level 6, cell 5 is ₹39,900 today.
+    expect((await getEmployee(hr, e.id)).basicPay).toBe(39900);
+    // A later dated matrix (in force since 2025) and next century's, which is not in force yet.
+    const made = await Promise.all([
+      db.payMatrix.create({ data: { boardId, name: "Test matrix", effectiveFrom: new Date("2025-01-01"), levels: { "6": [60000, 61800, 63700, 65600, 67600], "19": [300000] } } }),
+      db.payMatrix.create({ data: { boardId, name: "Future matrix", effectiveFrom: new Date("2099-01-01"), levels: { "6": [1, 2, 3, 4, 5] } } }),
+    ]);
+    try {
+      expect((await getEmployee(hr, e.id)).basicPay).toBe(67600);
+      await expect(createEmployee(hr, input({ job: { type: "PERMANENT_NPS", sectionId, postId, dateOfJoining: "2015-04-01", payLevel: "19", payCell: 1 } }))).resolves.toMatchObject({ payLevel: "19" });
+      await expect(createEmployee(hr, input({ job: { type: "PERMANENT_NPS", sectionId, postId, dateOfJoining: "2015-04-01", payLevel: "6", payCell: 6 } }))).rejects.toMatchObject({
+        fields: { "job.payCell": "employees.errors.noSuchCell" },
+      });
+    } finally {
+      // The test Board is shared with the other test files, whose payrolls read the matrix.
+      await db.payMatrix.deleteMany({ where: { id: { in: made.map((m) => m.id) } } });
+      expect(await db.payMatrix.count({ where: { boardId } })).toBe(before.length);
+    }
+  });
 });

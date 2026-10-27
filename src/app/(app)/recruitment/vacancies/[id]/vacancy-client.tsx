@@ -350,7 +350,7 @@ export function ApplicantsPanel({
           </>
         }
       >
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input label={t("recruitment.applicationNo")} value={form.applicationNo} onChange={(e) => setForm({ ...form, applicationNo: e.target.value })} hint={t("recruitment.applicationNoHint")} error={msg(t, errors.applicationNo)} />
           <Input label={t("common.name")} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} error={msg(t, errors.name)} required />
           <Input label={t("recruitment.fatherName")} value={form.fatherName} onChange={(e) => setForm({ ...form, fatherName: e.target.value })} />

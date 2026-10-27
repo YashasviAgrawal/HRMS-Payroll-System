@@ -85,7 +85,7 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
           <StatTile label={t("attendance.today.onLeave")} value={board.total.onLeave} tone="blue" icon={<Plane className="size-4.5" aria-hidden="true" />} />
           <StatTile label={t("attendance.today.off")} value={board.total.off} tone="gray" icon={<CalendarOff className="size-4.5" aria-hidden="true" />} />
         </div>
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
           <Card>
             <CardHeader title={t("attendance.today.bySection")} icon={<Fingerprint className="size-4.5" aria-hidden="true" />} />
             <Table stack>
@@ -241,7 +241,7 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
                       )}
                     </Td>
                     <Td align="right" actions>
-                      <div className="flex justify-end gap-2">
+                      <div className="flex flex-wrap justify-end gap-2">
                         <LinkButton href={`/attendance?tab=register&section=${r.section.id}&month=${month}`} size="sm" variant="ghost">
                           {t("attendance.tabs.register")}
                         </LinkButton>
@@ -324,7 +324,7 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
     return (
       <div className="space-y-6">
         <ImportPanel />
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
           <Card>
             <CardHeader title={t("attendance.import.recent")} />
             {imports.length === 0 ? (

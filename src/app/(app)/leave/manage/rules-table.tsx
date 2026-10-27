@@ -76,7 +76,7 @@ export function RulesTable({ rows, pending, canPropose }: { rows: RuleRow[]; pen
         </THead>
         <tbody>
           {rows.map((r) => (
-            <Tr key={r.code} className={r.isActive ? undefined : "opacity-60"}>
+            <Tr key={r.code} className={r.isActive ? undefined : "bg-ink-50/70"}>
               <Td>
                 <p className="font-medium text-ink-900">
                   {locale === "hi" ? r.nameHi : r.name} <span className="text-xs font-semibold text-ink-400">{r.code}</span>
@@ -135,7 +135,7 @@ export function RulesTable({ rows, pending, canPropose }: { rows: RuleRow[]; pen
         }
       >
         {edit && (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input label={t("leave.rules.code")} value={edit.row.code} disabled={!edit.isNew} onChange={(e) => set({ code: e.target.value.toUpperCase() })} error={errors.code} required />
             <Select label={t("leave.rules.pay")} value={edit.row.pay} onChange={(e) => set({ pay: e.target.value as RuleRow["pay"] })}>
               {(["FULL", "HALF", "NONE"] as const).map((p) => (

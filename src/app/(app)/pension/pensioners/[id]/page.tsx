@@ -64,9 +64,13 @@ export default async function PensionerPage({ params }: { params: Promise<{ id: 
           <ul className="mt-1 list-disc pl-5">
             {d.pending.map((task) => (
               <li key={task.id}>
-                <Link href={`/approvals/${task.id}`} className="underline-offset-2 hover:underline">
-                  {hi && task.titleHi ? task.titleHi : task.title}
-                </Link>{" "}
+                {task.canOpen ? (
+                  <Link href={`/approvals/${task.id}`} className="underline-offset-2 hover:underline">
+                    {hi && task.titleHi ? task.titleHi : task.title}
+                  </Link>
+                ) : (
+                  <span>{hi && task.titleHi ? task.titleHi : task.title}</span>
+                )}{" "}
                 — {task.makerName}
               </li>
             ))}
@@ -74,7 +78,7 @@ export default async function PensionerPage({ params }: { params: Promise<{ id: 
         </div>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         <Card className="lg:col-span-2" data-testid="pension-now">
           <CardHeader title={t("pension.profile.pensionNow")} icon={<Landmark className="size-4.5" aria-hidden="true" />} />
           <CardBody>
@@ -114,7 +118,7 @@ export default async function PensionerPage({ params }: { params: Promise<{ id: 
         </Card>
       </div>
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-3">
+      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
         <Card className="lg:col-span-2" data-testid="life-certificates">
           <CardHeader
             title={t("pension.lc.title")}
@@ -247,7 +251,7 @@ export default async function PensionerPage({ params }: { params: Promise<{ id: 
         )}
       </Card>
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-2">
+      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Card>
           <CardHeader title={t("pension.profile.family")} description={t("pension.profile.familyHelp")} icon={<Users className="size-4.5" aria-hidden="true" />} />
           {d.family.length === 0 ? (

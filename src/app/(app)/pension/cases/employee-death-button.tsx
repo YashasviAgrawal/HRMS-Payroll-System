@@ -65,7 +65,7 @@ export function EmployeeDeathButton({ people }: { people: Person[] }) {
           </>
         }
       >
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Select label={t("pension.cases.employee")} value={form.employeeId} onChange={(e) => setForm({ ...form, employeeId: e.target.value, familyMemberId: "" })} error={errors.employeeId} required containerClassName="sm:col-span-2">
             <option value="">{t("pension.choose")}</option>
             {people.map((p) => (

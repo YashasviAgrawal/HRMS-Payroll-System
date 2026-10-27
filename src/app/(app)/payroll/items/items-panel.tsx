@@ -77,7 +77,7 @@ export function ItemsPanel({ employeeId, items, heads, canEdit, isSelf, thisMont
             {items.map((i) => {
               const running = !i.toMonth || i.toMonth >= thisMonth;
               return (
-                <Tr key={i.id} className={running ? undefined : "opacity-60"}>
+                <Tr key={i.id} className={running ? undefined : "bg-ink-50/70"}>
                   <Td>
                     <span className="font-medium text-ink-900">{headName(i)}</span>
                     {i.head && <span className="block text-xs text-ink-500">{tDynamic(t, `rates.heads.kinds.${i.head.kind}`)}</span>}
@@ -130,7 +130,7 @@ export function ItemsPanel({ employeeId, items, heads, canEdit, isSelf, thisMont
           </>
         }
       >
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Select label={t("payroll.items.head")} value={form.headCode} onChange={(e) => setForm({ ...form, headCode: e.target.value })} error={errors.headCode} containerClassName="sm:col-span-2">
             {heads.map((h) => (
               <option key={h.code} value={h.code}>

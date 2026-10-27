@@ -65,7 +65,7 @@ export function BulkUpload() {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Card>
           <CardBody className="flex items-start gap-4">
             <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 font-semibold text-brand-700">1</span>

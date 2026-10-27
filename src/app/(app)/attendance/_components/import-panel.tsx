@@ -100,7 +100,7 @@ export function ImportPanel() {
           </a>
         }
       />
-      <CardBody className="grid gap-5 lg:grid-cols-2">
+      <CardBody className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Select
           label={t("attendance.import.format")}
           value={format}
@@ -138,7 +138,7 @@ export function ImportPanel() {
       {check && (
         <CardBody className="border-t border-ink-100">
           <h3 className="text-sm font-semibold text-ink-900">{t("attendance.import.checkTitle")}</h3>
-          <div className="mt-4 grid gap-3 sm:grid-cols-4">
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-4">
             <div className="rounded-xl bg-brand-50 p-4 ring-1 ring-brand-600/10">
               <p className="text-xs font-medium text-brand-800">{t("attendance.import.ready")}</p>
               <p className="tabular mt-1 text-2xl font-semibold text-brand-900" data-testid="ready-count">
@@ -160,7 +160,7 @@ export function ImportPanel() {
           </div>
           {problems.length > 0 ? (
             <div className="mt-4 space-y-3">
-              <ul className="grid gap-2 sm:grid-cols-2">
+              <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {problems.map((p) => (
                   <li key={p.label} className={cn("flex items-center justify-between rounded-lg px-3 py-2 text-sm", p.tone === "red" ? "bg-red-50 text-red-800" : p.tone === "amber" ? "bg-amber-50 text-amber-900" : "bg-ink-50 text-ink-700")}>
                     <span className="flex items-center gap-2">

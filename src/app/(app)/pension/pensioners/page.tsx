@@ -55,7 +55,7 @@ export default async function PensionersPage({ searchParams }: { searchParams: P
             <div className="flex flex-wrap gap-1 rounded-xl bg-ink-100 p-1" role="group">
               {STATUSES.map((s) => (
                 <Link key={s} href={qs(s)} aria-current={status === s ? "page" : undefined} className={cn("rounded-lg px-3 py-1.5 text-xs font-semibold", status === s ? "bg-white text-brand-800 shadow-card" : "text-ink-600 hover:text-ink-900")}>
-                  {tDynamic(t, `pension.pensioners.status.${s}`)} <span className="tabular text-ink-400">{s === "ACTIVE" ? data.counts.active : s === "STOPPED" ? data.counts.stopped : data.counts.active + data.counts.stopped}</span>
+                  {tDynamic(t, `pension.pensioners.status.${s}`)} <span className="tabular text-ink-500">{s === "ACTIVE" ? data.counts.active : s === "STOPPED" ? data.counts.stopped : data.counts.active + data.counts.stopped}</span>
                 </Link>
               ))}
             </div>

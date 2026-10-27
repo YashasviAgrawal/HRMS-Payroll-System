@@ -87,13 +87,12 @@ export function MyCalendar({ days, today, canRequestFrom, locked, manual }: { da
             className={cn(
               "flex min-h-16 flex-col items-start rounded-xl border p-1.5 text-left transition-shadow hover:shadow-raised sm:min-h-20 sm:p-2",
               d.date === today ? "border-brand-500 ring-2 ring-brand-500/20" : "border-ink-100",
-              !d.onRoll && "opacity-40",
-              d.status ? CELL[d.status] : "bg-white text-ink-700",
+              !d.onRoll ? "border-dashed bg-ink-50 text-ink-500" : d.status ? CELL[d.status] : "bg-white text-ink-700",
             )}
           >
             <span className="tabular text-xs font-semibold sm:text-sm">{Number(d.date.slice(8))}</span>
             {d.status && <span className="mt-auto line-clamp-2 text-[0.6rem] font-medium leading-tight sm:text-[0.7rem]">{tDynamic(t, `attendance.status.${d.status}`)}</span>}
-            {d.firstIn && <span className="tabular hidden text-[0.65rem] opacity-80 sm:block">{istTime(new Date(d.firstIn))}{d.lastOut ? `–${istTime(new Date(d.lastOut))}` : ""}</span>}
+            {d.firstIn && <span className="tabular hidden text-[0.65rem] sm:block">{istTime(new Date(d.firstIn))}{d.lastOut ? `–${istTime(new Date(d.lastOut))}` : ""}</span>}
           </button>
         ))}
       </div>

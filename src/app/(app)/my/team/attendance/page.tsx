@@ -55,7 +55,7 @@ export default async function TeamAttendancePage({ searchParams }: { searchParam
       )}
 
       {mine && (
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <div className="grid grid-cols-2 gap-4">
             <StatTile label={t("attendance.today.present")} value={mine.counts.present} hint={t("home.presentOf", { count: mine.counts.staff })} icon={<LogIn className="size-4.5" aria-hidden="true" />} />
             <StatTile label={t("attendance.today.late")} value={mine.counts.late} tone="amber" icon={<Clock4 className="size-4.5" aria-hidden="true" />} />

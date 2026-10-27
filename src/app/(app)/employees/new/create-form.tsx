@@ -13,14 +13,14 @@ import { tDynamic } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/client";
 import { formatINR } from "@/lib/money";
 import { cn } from "@/lib/utils";
-import { basicPay } from "@/modules/payroll/matrix-7cpc";
+import { basicIn, type MatrixLevels } from "@/modules/payroll/matrix-7cpc";
 import { crossCheck, idsSchema, isMatrixType, jobSchema, personalSchema } from "@/modules/employees/schema";
 import { IdsFields, issuesToErrors, JobFields, PersonalFields, type Errors, type Option, type PostOption, type Values } from "../_components/fields";
 
 const STEPS = ["personal", "job", "ids", "review"] as const;
 type Step = (typeof STEPS)[number];
 
-export function CreateEmployeeForm({ sections, posts }: { sections: Option[]; posts: PostOption[] }) {
+export function CreateEmployeeForm({ sections, posts, payMatrix }: { sections: Option[]; posts: PostOption[]; payMatrix: MatrixLevels }) {
   const { t, locale } = useI18n();
   const toast = useToast();
   const router = useRouter();
@@ -43,7 +43,7 @@ export function CreateEmployeeForm({ sections, posts }: { sections: Option[]; po
       if (!r.success) errs = issuesToErrors(r.error.issues, "job.");
       else {
         const p = personalSchema.safeParse(personal);
-        if (p.success) errs = crossCheck(p.data, r.data);
+        if (p.success) errs = crossCheck(p.data, r.data, undefined, payMatrix);
       }
     } else if (s === "ids") {
       const r = idsSchema.safeParse(ids);
@@ -121,7 +121,7 @@ export function CreateEmployeeForm({ sections, posts }: { sections: Option[]; po
         <CardHeader title={stepMeta[step].label} description={step === "review" ? t("employees.create.reviewHint") : t("employees.create.step", { n: index + 1, total: STEPS.length })} />
         <CardBody>
           {step === "personal" && <PersonalFields values={personal} onChange={setPersonal} errors={errors} prefix="personal." />}
-          {step === "job" && <JobFields values={job} onChange={setJob} errors={errors} prefix="job." sections={sections} posts={posts} />}
+          {step === "job" && <JobFields values={job} onChange={setJob} errors={errors} prefix="job." sections={sections} posts={posts} payMatrix={payMatrix} />}
           {step === "ids" && <IdsFields values={ids} onChange={setIds} errors={errors} prefix="ids." />}
           {step === "review" && (
             <div className="space-y-6">
@@ -137,7 +137,7 @@ export function CreateEmployeeForm({ sections, posts }: { sections: Option[]; po
                   { label: t("employees.fields.dateOfJoining"), value: formatDate(job.dateOfJoining as string, locale) },
                   {
                     label: t("employees.fields.basicPay"),
-                    value: isMatrixType(String(job.type)) ? `${t("employees.level", { level: String(job.payLevel) })} · ${job.payCell} · ${formatINR(basicPay(String(job.payLevel), Number(job.payCell)))}` : job.wageRate ? `${formatINR(Number(job.wageRate))} ${job.wageBasis === "DAILY" ? t("employees.wageBasis.DAILY") : t("employees.wageBasis.MONTHLY")}` : "—",
+                    value: isMatrixType(String(job.type)) ? `${t("employees.level", { level: String(job.payLevel) })} · ${job.payCell} · ${formatINR(basicIn(payMatrix, String(job.payLevel), Number(job.payCell)))}` : job.wageRate ? `${formatINR(Number(job.wageRate))} ${job.wageBasis === "DAILY" ? t("employees.wageBasis.DAILY") : t("employees.wageBasis.MONTHLY")}` : "—",
                   },
                   { label: t("employees.fields.mobile"), value: (personal.mobile as string) || "—" },
                   { label: t("employees.fields.pan"), value: ids.pan ? `XXXXXX${String(ids.pan).slice(-4)}` : "—" },

@@ -44,7 +44,7 @@ export function ChangePasswordForm({ needsCurrent }: { needsCurrent: boolean }) 
 
   return (
     <form onSubmit={submit} noValidate>
-      <CardBody className="grid gap-5 sm:grid-cols-2">
+      <CardBody className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         {needsCurrent && (
           <Input
             containerClassName="sm:col-span-2 sm:max-w-sm"

@@ -99,7 +99,7 @@ export async function renderPpo(caseId: string): Promise<Buffer> {
     .box { border: 1px dashed #9aa8a1; height: 92px; padding: 6px; font-size: 8pt; color: #4f5d56; }
     .signs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 26px; font-size: 8.5pt; }
     .signs div { border-top: 1px solid #9aa8a1; padding-top: 4px; }
-    footer { margin-top: 16px; font-size: 7.5pt; color: #6b7a72; display: flex; justify-content: space-between; }
+    footer { margin-top: 16px; font-size: 7.5pt; color: #56645d; display: flex; justify-content: space-between; }
   </style></head><body>
     <header>${logo ? `<img src="${logo}" alt="">` : ""}<div><h1>${esc(board.name)} · <span lang="hi">${esc(board.nameHi)}</span></h1><p>Pension Payment Order · <span lang="hi">पेंशन भुगतान आदेश</span></p></div></header>
     <div class="ppo"><span>PPO No. / पीपीओ सं.: <b>${esc(c.ppoNumber ?? "—")}</b></span><span>Issued / जारी: <b>${c.approvedAt ? esc(formatDate(toISODate(c.approvedAt))) : "—"}</b></span></div>

@@ -34,7 +34,7 @@ export function CarryInForm({ employeeId, fy, initial }: { employeeId: string; f
     }
   }
   return (
-    <div className="grid gap-4 sm:grid-cols-3">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
       <Input label={t("statutory.tax.carryInSalary")} inputMode="decimal" value={form.salary} onChange={(e) => setForm({ ...form, salary: e.target.value })} error={errors.salary} required />
       <Input label={t("statutory.tax.carryInTds")} inputMode="decimal" value={form.tds} onChange={(e) => setForm({ ...form, tds: e.target.value })} error={errors.tds} required />
       <Input label={t("statutory.tax.carryInNote")} value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} error={errors.note} maxLength={200} required />

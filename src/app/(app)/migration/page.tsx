@@ -108,7 +108,7 @@ async function Overview({ actor, t }: Props) {
     cutover: { state: o.cutOver ? "done" : "todo", line: o.cutOver ? t("migration.steps.cutoverDone", { date: formatDate(o.cutOver.date) }) : t("migration.steps.cutoverLine", { signed: s.checks.signed.length }), tab: "cutover" },
   };
   return (
-    <div className="grid gap-6 xl:grid-cols-[1.1fr_1fr]">
+    <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.1fr_1fr]">
       <Card>
         <CardHeader title={t("migration.steps.title")} description={t("migration.steps.subtitle")} icon={<Database className="size-4.5" aria-hidden="true" />} />
         <ol className="divide-y divide-ink-100">
@@ -207,7 +207,7 @@ async function Files({ actor, t, locale, sp }: Props & { locale: Locale; sp: SP 
                 const table = ["DBF", "CSV", "XLSX"].includes(f.kind);
                 const ok = (f.sourceCount ?? 0) === f.liveCount + f.deletedCount;
                 return (
-                  <Tr key={f.id} className={f.replaced ? "opacity-60" : ""}>
+                  <Tr key={f.id} className={f.replaced ? "bg-ink-50/70" : ""}>
                     <Td label={t("migration.files.file")} className="font-medium text-ink-900">
                       {f.fileName}
                       {f.replaced && <span className="block text-xs font-normal text-ink-500">{t("migration.files.replaced")}</span>}
@@ -236,7 +236,7 @@ async function Files({ actor, t, locale, sp }: Props & { locale: Locale; sp: SP 
                         {f.sha256.slice(0, 12)}…
                       </code>
                     </Td>
-                    <Td label={t("migration.files.uploaded")} className="whitespace-nowrap text-sm text-ink-600">
+                    <Td label={t("migration.files.uploaded")} className="text-sm text-ink-600 sm:whitespace-nowrap">
                       {f.uploadedByName}
                       <span className="block text-xs text-ink-400">{formatDateTime(f.createdAt, locale)}</span>
                     </Td>

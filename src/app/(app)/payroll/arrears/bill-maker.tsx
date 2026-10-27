@@ -131,7 +131,7 @@ export function BillMaker({ defaultFrom, defaultTo, lastMonth }: { defaultFrom: 
           }}
           options={(["ARREARS", "WITHHELD", "JOINER"] as const).map((v) => ({ value: v, label: t(`payroll.supplementary.types.${v}`) }))}
         />
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Select label={t("payroll.payGroup")} value={group} onChange={(e) => { setGroup(e.target.value as Group); reset(); }}>
             {(["OPS", "NPS", "CONTRACT"] as const).map((g) => (
               <option key={g} value={g}>
@@ -273,7 +273,7 @@ function ArrearsRows({ a, open, onToggle, name }: { a: ArrearsRow; open: boolean
           <Tr key={m.month} className="bg-ink-50/50">
             <Td colSpan={5} className="text-sm">
               <p className="font-semibold text-ink-800">{formatMonth(m.month, locale)}</p>
-              <ul className="mt-1 grid gap-0.5 sm:grid-cols-2">
+              <ul className="mt-1 grid grid-cols-1 gap-0.5 sm:grid-cols-2">
                 {m.lines.map((l) => (
                   <li key={l.code} className="flex justify-between gap-3 text-ink-700">
                     <span>{locale === "hi" ? l.nameHi : l.name}</span>

@@ -109,7 +109,7 @@ export function LockForm({
           </div>
           <ul className="divide-y divide-ink-100">
             {exceptions.map((x) => (
-              <li key={key(x)} className="grid gap-3 px-5 py-3.5 sm:px-6 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)] md:items-center">
+              <li key={key(x)} className="grid grid-cols-1 gap-3 px-5 py-3.5 sm:px-6 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)] md:items-center">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-ink-900">{(locale === "hi" && x.nameHi) || x.name}</p>
                   <p className="text-xs text-ink-500">{x.code}</p>

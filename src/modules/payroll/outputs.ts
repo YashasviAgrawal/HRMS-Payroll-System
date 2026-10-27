@@ -103,14 +103,14 @@ function page(d: Loaded, doc: PrintDoc, body: string, actor: Actor, landscape = 
     tr { page-break-inside: avoid; }
     .n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
     .b { font-weight: 700; } .sub td { background: #f6faf8; font-weight: 600; } .tot td { background: #e3f5ea; font-weight: 700; }
-    .muted { color: #6b7a72; } .small { font-size: 8pt; }
+    .muted { color: #56645d; } .small { font-size: 8pt; }
     .words { margin: 8px 0; font-weight: 600; }
     .certs { margin-top: 12px; font-size: 8.5pt; } .certs li { margin: 3px 0; }
     .signs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 28px; font-size: 8.5pt; }
     .signs div { border-top: 1px solid #9aa8a1; padding-top: 4px; }
     .break { page-break-before: always; }
     .keep { break-inside: avoid; page-break-inside: avoid; }
-    footer { margin-top: 18px; display: flex; justify-content: space-between; font-size: 7.5pt; color: #6b7a72; }
+    footer { margin-top: 18px; display: flex; justify-content: space-between; font-size: 7.5pt; color: #56645d; }
   </style></head><body>
     <header>${logo ? `<img src="${logo}" alt="">` : ""}<div><h1>${esc(board.name)} · <span lang="hi">${esc(board.nameHi)}</span></h1><p>${DOC_TITLE[doc][0]} · <span lang="hi">${DOC_TITLE[doc][1]}</span> — ${esc(titleOf(run))}</p></div></header>
     <div class="meta">

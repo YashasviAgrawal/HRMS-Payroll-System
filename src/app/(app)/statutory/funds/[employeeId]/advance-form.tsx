@@ -47,7 +47,7 @@ export function GpfAdvanceForm({ employeeId, limits, today }: { employeeId: stri
         description={t("statutory.gpf.sanctionHelp", { advance: formatINR(limits.advance), ap: limits.advancePercent, withdrawal: formatINR(limits.withdrawal), wp: limits.withdrawalPercent })}
         icon={<HandCoins className="size-4.5" aria-hidden="true" />}
       />
-      <CardBody className="grid gap-4 sm:grid-cols-3">
+      <CardBody className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Select label={t("statutory.gpf.kind")} value={form.kind} onChange={(e) => set({ kind: e.target.value as "ADVANCE" | "WITHDRAWAL" })}>
           <option value="ADVANCE">{t("statutory.gpf.advanceKinds.ADVANCE")}</option>
           <option value="WITHDRAWAL">{t("statutory.gpf.advanceKinds.WITHDRAWAL")}</option>

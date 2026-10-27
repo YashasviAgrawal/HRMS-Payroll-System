@@ -6,6 +6,7 @@
 #
 # The passphrase file is held by the named officer, never in the repository or the database.
 set -euo pipefail
+umask 077 # backups and their checksums are readable by the backup user only
 : "${DATABASE_URL:?DATABASE_URL must be set}"
 : "${BACKUP_PASSPHRASE_FILE:?BACKUP_PASSPHRASE_FILE must point to the passphrase file}"
 BACKUP_DIR="${BACKUP_DIR:-./backups}"
@@ -19,6 +20,6 @@ trap 'rm -rf "$tmp"' EXIT
 pg_dump --format=custom --no-owner --dbname="$DATABASE_URL" --file="$tmp/database.dump"
 [ -d "$STORAGE_DIR" ] && tar -C "$STORAGE_DIR" -czf "$tmp/storage.tar.gz" .
 tar -C "$tmp" -czf - . | openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass "file:$BACKUP_PASSPHRASE_FILE" -out "$out"
-sha256sum "$out" > "$out.sha256"
+(cd "$BACKUP_DIR" && sha256sum "$(basename "$out")" > "$(basename "$out").sha256")
 find "$BACKUP_DIR" -name 'dcb-hrms-*.enc*' -mtime "+$KEEP_DAYS" -delete
 echo "Backup written: $out"

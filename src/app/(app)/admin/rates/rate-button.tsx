@@ -59,7 +59,7 @@ export function RateButton({ rateKey, name, unit, current }: { rateKey: string; 
           </>
         }
       >
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input label={unit === "COUNT" ? t("rates.newValue") : `${t("rates.newValue")} (${unit === "PERCENT" ? "%" : "₹"})`} inputMode="decimal" value={form.value} onChange={(e) => setForm({ ...form, value: e.target.value })} error={errors.value} required />
           <Input label={t("rates.effectiveFrom")} type="date" hint={t("rates.effectiveHelp")} value={form.effectiveFrom} onChange={(e) => setForm({ ...form, effectiveFrom: e.target.value })} error={errors.effectiveFrom} required />
           <Input label={t("rates.order")} hint={t("rates.orderHelp")} value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} error={errors.note} containerClassName="sm:col-span-2" maxLength={300} required />

@@ -8,7 +8,8 @@ import { todayIST, toISODate } from "@/lib/dates";
 import { badRequest, forbidden } from "@/lib/errors";
 import { createOutgoingFile } from "@/lib/files";
 import { mimeOf } from "@/lib/storage";
-import { basicPay } from "@/modules/payroll/matrix-7cpc";
+import { matrixToday } from "@/modules/payroll/compute";
+import { basicIn } from "@/modules/payroll/matrix-7cpc";
 
 /**
  * RO-07: registration data for new joiners — NPS (PRAN) for permanent-NPS staff, EPF (UAN) and ESIC for
@@ -28,6 +29,7 @@ export async function generatePranFile(actor: Actor) {
     orderBy: { employeeCode: "asc" },
   });
   if (!rows.length) throw badRequest("recruitment.errors.nobodyToRegister");
+  const matrix = await matrixToday(actor.boardId, db);
   const columns = ["Employee ID", "Title", "First name", "Middle name", "Last name", "Father's name", "Date of birth", "Gender", "PAN", "Mobile", "Email", "Date of joining", "Basic pay", "Bank account", "IFSC", "Designation"];
   const data = rows.map((e) => [
     e.employeeCode,
@@ -42,7 +44,7 @@ export async function generatePranFile(actor: Actor) {
     e.mobile,
     e.email,
     portalDate(toISODate(e.dateOfJoining)),
-    basicPay(e.payLevel, e.payCell) ?? "",
+    basicIn(matrix, e.payLevel, e.payCell) ?? "",
     e.bankAccountEnc ? decrypt(e.bankAccountEnc) : "",
     e.ifsc,
     e.post.name,
@@ -62,7 +64,7 @@ export async function generatePranFile(actor: Actor) {
     // The preview never shows PAN or bank numbers in full.
     preview: {
       columns: ["Employee ID", "Name", "Date of birth", "Date of joining", "PAN", "Basic pay"],
-      rows: rows.slice(0, 20).map((e) => [e.employeeCode ?? "", [e.firstName, e.lastName].filter(Boolean).join(" "), portalDate(toISODate(e.dateOfBirth)), portalDate(toISODate(e.dateOfJoining)), e.panLast4 ? `XXXXXX${e.panLast4}` : "—", basicPay(e.payLevel, e.payCell) ?? ""]),
+      rows: rows.slice(0, 20).map((e) => [e.employeeCode ?? "", [e.firstName, e.lastName].filter(Boolean).join(" "), portalDate(toISODate(e.dateOfBirth)), portalDate(toISODate(e.dateOfJoining)), e.panLast4 ? `XXXXXX${e.panLast4}` : "—", basicIn(matrix, e.payLevel, e.payCell) ?? ""]),
       totalRows: rows.length,
     },
   });

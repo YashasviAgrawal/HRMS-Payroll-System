@@ -7,6 +7,7 @@ import type { DayStatus } from "@/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/field";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/components/ui/toast";
 import { formatDate, istTime, weekday } from "@/lib/dates";
 import { ApiError, api } from "@/lib/http";
@@ -133,7 +134,7 @@ export function RegisterGrid({
       )}
 
       {/* relative: keeps the screen-reader labels inside the scroll box instead of widening the page */}
-      <div className="scrollbar-thin relative overflow-x-auto">
+      <ScrollArea label={t("attendance.tabs.register")}>
         <table className="border-separate border-spacing-0 text-xs" aria-label={t("attendance.tabs.register")}>
           <thead>
             <tr>
@@ -150,12 +151,12 @@ export function RegisterGrid({
                     title={holidayOn.get(d)}
                     className={cn(
                       "w-8 min-w-8 border-b border-ink-200 px-0 py-1.5 text-center font-medium",
-                      hol ? "bg-gold-50 text-gold-600" : off ? "bg-ink-100 text-ink-400" : "bg-ink-50 text-ink-500",
+                      hol ? "bg-gold-50 text-gold-600" : off ? "bg-ink-100 text-ink-500" : "bg-ink-50 text-ink-500",
                       d === today && "text-brand-700 shadow-[inset_0_-2px_0_var(--color-brand-600)]",
                     )}
                   >
                     <span className="block text-[0.7rem] leading-none">{Number(d.slice(8))}</span>
-                    <span className="block text-[0.6rem] uppercase leading-tight opacity-70">{tDynamic(t, `attendance.weekday.${weekday(d)}`).slice(0, 2)}</span>
+                    <span className="block text-[0.6rem] uppercase leading-tight">{tDynamic(t, `attendance.weekday.${weekday(d)}`).slice(0, 2)}</span>
                   </th>
                 );
               })}
@@ -186,7 +187,7 @@ export function RegisterGrid({
                   const content = !d.onRoll ? "" : shown ? STATUS_CODE[shown] : d.unmarked ? "·" : "";
                   const cls = cn(
                     "flex h-8 w-full items-center justify-center rounded-md text-[0.7rem] tabular",
-                    !d.onRoll ? "bg-[repeating-linear-gradient(45deg,transparent,transparent_3px,var(--color-ink-100)_3px,var(--color-ink-100)_5px)]" : shown ? CELL[shown] : d.unmarked ? "bg-amber-50/60 text-amber-500 ring-1 ring-inset ring-amber-300" : "text-ink-300",
+                    !d.onRoll ? "bg-[repeating-linear-gradient(45deg,transparent,transparent_3px,var(--color-ink-100)_3px,var(--color-ink-100)_5px)]" : shown ? CELL[shown] : d.unmarked ? "bg-amber-50/60 text-amber-700 ring-1 ring-inset ring-amber-300" : "text-ink-300",
                     d.pending !== undefined && !changed && "outline-1 outline-dashed -outline-offset-2 outline-amber-500",
                     changed && "ring-2 ring-inset ring-brand-600",
                     editable && "cursor-pointer hover:ring-2 hover:ring-brand-400",
@@ -217,7 +218,7 @@ export function RegisterGrid({
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollArea>
 
       {editing && count > 0 && (
         <div className="sticky bottom-0 z-[3] flex flex-wrap items-end gap-3 border-t border-ink-200 bg-white/95 px-5 py-3 backdrop-blur sm:px-6">

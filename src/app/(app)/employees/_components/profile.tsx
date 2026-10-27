@@ -74,7 +74,7 @@ export async function EmployeeProfile({ e, actor, tab, t, locale, mode, basePath
               )}
             </div>
           </div>
-          <dl className="mt-5 grid gap-4 border-t border-ink-100 pt-5 sm:grid-cols-2 lg:grid-cols-5">
+          <dl className="mt-5 grid grid-cols-1 gap-4 border-t border-ink-100 pt-5 sm:grid-cols-2 lg:grid-cols-5">
             {[
               { icon: Users, label: t("employees.fields.postId"), value: `${locale === "hi" ? e.post.nameHi : e.post.name}` },
               { icon: CalendarDays, label: t("employees.fields.sectionId"), value: locale === "hi" ? e.section.nameHi : e.section.name },
@@ -82,14 +82,14 @@ export async function EmployeeProfile({ e, actor, tab, t, locale, mode, basePath
               { icon: CalendarClock, label: t("employees.fields.dateOfRetirement"), value: e.dateOfRetirement ? formatDate(e.dateOfRetirement, locale) : t("employees.profile.noRetirement") },
               { icon: Phone, label: t("employees.fields.mobile"), value: dash(e.mobile) },
             ].map((f) => (
-              <div key={f.label} className="flex min-w-0 items-start gap-3">
-                <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-ink-50 text-ink-500">
-                  <f.icon className="size-4" aria-hidden="true" />
-                </span>
-                <div className="min-w-0">
-                  <dt className="text-xs text-ink-500">{f.label}</dt>
-                  <dd className="truncate text-sm font-medium text-ink-900">{f.value}</dd>
-                </div>
+              <div key={f.label} className="relative min-h-9 min-w-0 pl-11">
+                <dt className="text-xs text-ink-500">
+                  <span className="absolute left-0 top-0.5 flex size-8 items-center justify-center rounded-lg bg-ink-50 text-ink-500" aria-hidden="true">
+                    <f.icon className="size-4" />
+                  </span>
+                  {f.label}
+                </dt>
+                <dd className="truncate text-sm font-medium text-ink-900">{f.value}</dd>
               </div>
             ))}
           </dl>
@@ -124,7 +124,7 @@ export async function EmployeeProfile({ e, actor, tab, t, locale, mode, basePath
             </div>
           </div>
           {p.rows.length > 0 && (
-            <ul className="mt-3 grid gap-1.5 text-sm sm:grid-cols-2">
+            <ul className="mt-3 grid grid-cols-1 gap-1.5 text-sm sm:grid-cols-2">
               {p.rows.slice(0, 6).map((r, i) => (
                 <li key={i} className="flex flex-wrap gap-x-2">
                   <span className="text-ink-500">{locale === "hi" && r.labelHi ? r.labelHi : r.label}:</span>
@@ -266,7 +266,7 @@ async function FamilyTab({ e, actor, t, locale }: { e: EmployeeView; actor: Acto
   for (const n of nominees) byScheme.set(n.scheme, [...(byScheme.get(n.scheme) ?? []), n]);
   const memberName = (id: string) => members.find((m) => m.id === id)?.name ?? "—";
   return (
-    <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.4fr_1fr]">
       <Card>
         <CardHeader title={t("employees.family.members")} />
         {members.length === 0 ? (

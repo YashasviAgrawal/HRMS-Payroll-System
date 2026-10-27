@@ -49,7 +49,7 @@ export default async function LoanPage({ params }: { params: Promise<{ id: strin
           />
         </CardBody>
       </Card>
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Card>
           <CardHeader title={t("payroll.loans.recoveries")} />
           {recoveries.length === 0 ? (

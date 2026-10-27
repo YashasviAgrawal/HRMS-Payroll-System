@@ -1,7 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import type { ApprovalTask, Prisma } from "@/generated/prisma/client";
-import { chainTask, submitForApproval } from "@/lib/approvals/engine";
+import { canOpenTask, chainTask, submitForApproval } from "@/lib/approvals/engine";
 import type { ApprovalDetails } from "@/lib/approvals/details";
 import { audit } from "@/lib/audit";
 import type { Actor } from "@/lib/auth/session";
@@ -455,7 +455,7 @@ export async function getCase(actor: Actor, id: string) {
     noDues: c.noDues
       .map((n) => ({ sectionId: n.sectionId, name: sectionBy.get(n.sectionId)?.name ?? "", nameHi: sectionBy.get(n.sectionId)?.nameHi ?? "", status: n.status, amount: num(n.amount), note: n.note, byName: n.byName, at: n.at?.toISOString() ?? null }))
       .sort((a, b) => a.name.localeCompare(b.name)),
-    task: pending ? { id: pending.id, step: (pending.payload as { step?: string }).step === "approver" ? "approver" : "checker", makerName: pending.makerName } : null,
+    task: pending ? { id: pending.id, step: (pending.payload as { step?: string }).step === "approver" ? "approver" : "checker", makerName: pending.makerName, canOpen: canOpenTask(actor, pending) } : null,
     lastReturn: lastReturn ? { status: lastReturn.status, by: lastReturn.deciderName, note: lastReturn.decisionNote } : null,
     benefits: benefits ? { id: benefits.id, status: benefits.status, net: num(benefits.net), month: benefits.month } : null,
     can: {

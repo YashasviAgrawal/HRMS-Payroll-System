@@ -1,8 +1,9 @@
 /**
  * Seed data.
  *  - Always: the Board, its sections and posts, and a first User & settings manager (so someone can log in).
- *  - Outside production (or with SEED_DEMO=1): demo employees and one login for every role, for training
- *    and testing. Demo password for every login: Dcb@2026
+ *  - In the development, test and training copies (APP_ENV), unless SEED_DEMO=0: demo employees and one
+ *    login for every role, for training and testing. Demo password for every login: Dcb@2026.
+ *    Never in production, whatever NODE_ENV or SEED_DEMO say.
  *
  * Safe to run more than once (upserts by natural keys).
  */
@@ -21,7 +22,7 @@ import { seedPensionDemo, seedPensionRules } from "./seed-pension";
 import { seedStatutoryRules } from "./seed-statutory";
 
 const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) });
-const DEMO = process.env.NODE_ENV !== "production" || process.env.SEED_DEMO === "1";
+const DEMO = (process.env.APP_ENV ?? "development") !== "production" && process.env.SEED_DEMO !== "0";
 const DEMO_PASSWORD = "Dcb@2026";
 const ENC_KEY = Buffer.from(process.env.DATA_ENCRYPTION_KEY ?? "", "base64");
 const IDX_KEY = Buffer.from(process.env.BLIND_INDEX_KEY ?? "", "base64");

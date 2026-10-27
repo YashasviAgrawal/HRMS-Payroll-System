@@ -1,4 +1,5 @@
 import { currentBoard } from "@/lib/board";
+import { getRequestMeta } from "@/lib/request-meta";
 import { devicePush } from "@/modules/attendance/imports";
 
 /**
@@ -37,7 +38,7 @@ export async function POST(req: Request) {
     const result = await devicePush(board.id, sn, "", null);
     return result.accepted ? text("OK") : text("Unknown device", 403);
   }
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+  const { ip } = await getRequestMeta();
   const result = await devicePush(board.id, sn, body, ip);
   if (!result.accepted) return text("Unknown device", 403);
   return text(`OK: ${result.received}`);

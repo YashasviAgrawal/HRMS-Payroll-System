@@ -11,6 +11,7 @@ import { ApiError, api } from "@/lib/http";
 import { tDynamic } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
+import type { MatrixLevels } from "@/modules/payroll/matrix-7cpc";
 import { familySchema, GENDERS, idsSchema, jobSchema, NOMINEE_SCHEMES, personalSchema, RELATIONS } from "@/modules/employees/schema";
 import type { EmployeeView } from "@/modules/employees/service";
 import { IdsFields, issuesToErrors, JobFields, msg, PersonalFields, type Errors, type Option, type PostOption, type Values } from "../../_components/fields";
@@ -61,12 +62,14 @@ export function EditEmployeeForm({
   family,
   sections,
   posts,
+  payMatrix,
 }: {
   tab: EditTabKey;
   employee: EmployeeView;
   family: { members: Member[]; nominees: Nom[] };
   sections: Option[];
   posts: PostOption[];
+  payMatrix: MatrixLevels;
 }) {
   const { t } = useI18n();
   const toast = useToast();
@@ -115,7 +118,7 @@ export function EditEmployeeForm({
       <CardHeader title={t(`employees.tabs.${tab}`)} description={employee.employeeCode ? `${employee.name} · ${employee.employeeCode}` : employee.name} />
       <CardBody className="space-y-6">
         {tab === "personal" && <PersonalFields values={values} onChange={setValues} errors={errors} />}
-        {tab === "job" && <JobFields values={values} onChange={setValues} errors={errors} sections={sections} posts={posts} />}
+        {tab === "job" && <JobFields values={values} onChange={setValues} errors={errors} sections={sections} posts={posts} payMatrix={payMatrix} />}
         {tab === "ids" && <IdsFields values={values} onChange={setValues} errors={errors} current={employee.ids ? { pan: employee.ids.pan, aadhaar: employee.ids.aadhaar, bankAccount: employee.ids.bankAccount } : undefined} />}
         {tab === "family" && <FamilyEditor members={members} setMembers={setMembers} nominees={nominees} setNominees={setNominees} errors={errors} />}
         {!draft && (
@@ -165,7 +168,7 @@ function FamilyEditor({
         {members.length === 0 && <p className="text-sm text-ink-500">{t("employees.family.empty")}</p>}
         {members.map((m, i) => (
           <div key={i} className="space-y-3 rounded-xl border border-ink-200 p-4">
-            <div className="grid gap-3 sm:grid-cols-[1.4fr_1fr_1fr_1fr_auto]">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1.4fr_1fr_1fr_1fr_auto]">
               <Input label={t("common.name")} value={m.name} onChange={(e) => updateMember(i, { name: e.target.value })} error={msg(t, errors[`members.${i}.name`])} required />
               <Select label={t("employees.family.relation")} value={m.relation} onChange={(e) => updateMember(i, { relation: e.target.value })}>
                 {RELATIONS.map((r) => (
@@ -212,7 +215,7 @@ function FamilyEditor({
           <p className="text-xs text-ink-500">{t("employees.family.nomineesHint")}</p>
         </div>
         {nominees.map((n, i) => (
-          <div key={i} className="grid items-end gap-3 sm:grid-cols-[1fr_1.4fr_8rem_auto]">
+          <div key={i} className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[1fr_1.4fr_8rem_auto]">
             <Select label={t("common.type")} value={n.scheme} onChange={(e) => setNominees(nominees.map((x, j) => (j === i ? { ...x, scheme: e.target.value } : x)))}>
               {NOMINEE_SCHEMES.map((s) => (
                 <option key={s} value={s}>

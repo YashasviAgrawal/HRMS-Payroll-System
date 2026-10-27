@@ -28,7 +28,7 @@ export async function PensionRecord({ actor }: { actor: Actor }) {
           <ConfirmMyRecord confirmedAt={confirm.confirmedAt} changeHref={null} />
         </div>
       )}
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Card>
           <CardHeader title={t("pension.profile.pensionNow")} icon={<Landmark className="size-4.5" aria-hidden="true" />} />
           <CardBody>

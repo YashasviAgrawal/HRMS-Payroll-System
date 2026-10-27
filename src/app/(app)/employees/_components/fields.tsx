@@ -6,7 +6,7 @@ import { useI18n } from "@/lib/i18n/client";
 import { lookup } from "@/lib/i18n/types";
 import { en } from "@/lib/i18n/en";
 import { formatINR } from "@/lib/money";
-import { basicPay, cellCount, PAY_LEVELS } from "@/modules/payroll/matrix-7cpc";
+import { basicIn, levelsOf, type MatrixLevels } from "@/modules/payroll/matrix-7cpc";
 import {
   BLOOD_GROUPS,
   CATEGORIES,
@@ -77,7 +77,7 @@ export function AddressFields({
   return (
     <fieldset className="space-y-4 rounded-xl border border-ink-200 p-4">
       <legend className="px-1 text-sm font-semibold text-ink-800">{label}</legend>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Input label={t("employees.address.line1")} value={v.line1 ?? ""} onChange={(e) => set("line1", e.target.value)} />
         <Input label={t("employees.address.line2")} value={v.line2 ?? ""} onChange={(e) => set("line2", e.target.value)} />
         <Input label={t("employees.address.city")} value={v.city ?? ""} onChange={(e) => set("city", e.target.value)} />
@@ -108,12 +108,12 @@ export function PersonalFields({ values, onChange, errors, prefix = "" }: { valu
   const sameAddress = Boolean(values.__sameAddress);
   return (
     <div className="space-y-5">
-      <div className="grid gap-5 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
         <Input label={t("employees.fields.firstName")} value={val("firstName")} onChange={(e) => set("firstName", e.target.value)} error={err("firstName")} required />
         <Input label={t("employees.fields.middleName")} value={val("middleName")} onChange={(e) => set("middleName", e.target.value)} optionalLabel={t("common.optional")} />
         <Input label={t("employees.fields.lastName")} value={val("lastName")} onChange={(e) => set("lastName", e.target.value)} optionalLabel={t("common.optional")} />
       </div>
-      <div className="grid gap-5 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
         <Input label={t("employees.fields.nameHi")} value={val("nameHi")} lang="hi" onChange={(e) => set("nameHi", e.target.value)} optionalLabel={t("common.optional")} containerClassName="sm:col-span-2" />
         <Select label={t("employees.fields.gender")} value={val("gender")} onChange={(e) => set("gender", e.target.value)} error={err("gender")} required>
           <option value="">—</option>
@@ -124,11 +124,11 @@ export function PersonalFields({ values, onChange, errors, prefix = "" }: { valu
           ))}
         </Select>
       </div>
-      <div className="grid gap-5 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
         <Input label={t("employees.fields.dateOfBirth")} type="date" value={val("dateOfBirth")} onChange={(e) => set("dateOfBirth", e.target.value)} error={err("dateOfBirth")} required />
         <Input label={t("employees.fields.fatherOrSpouseName")} value={val("fatherOrSpouseName")} onChange={(e) => set("fatherOrSpouseName", e.target.value)} containerClassName="sm:col-span-2" optionalLabel={t("common.optional")} />
       </div>
-      <div className="grid gap-5 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
         <Select label={t("employees.fields.category")} value={val("category")} onChange={(e) => set("category", e.target.value)} optionalLabel={t("common.optional")}>
           <option value="">—</option>
           {CATEGORIES.map((c) => (
@@ -154,7 +154,7 @@ export function PersonalFields({ values, onChange, errors, prefix = "" }: { valu
           ))}
         </Select>
       </div>
-      <div className="grid gap-5 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
         <Input label={t("employees.fields.mobile")} value={val("mobile")} inputMode="numeric" onChange={(e) => set("mobile", e.target.value)} error={err("mobile")} optionalLabel={t("common.optional")} />
         <Input label={t("employees.fields.email")} type="email" value={val("email")} onChange={(e) => set("email", e.target.value)} error={err("email")} optionalLabel={t("common.optional")} containerClassName="sm:col-span-2" />
       </div>
@@ -192,6 +192,7 @@ export function JobFields({
   prefix = "",
   sections,
   posts,
+  payMatrix,
 }: {
   values: Values;
   onChange: (v: Values) => void;
@@ -199,6 +200,8 @@ export function JobFields({
   prefix?: string;
   sections: Option[];
   posts: PostOption[];
+  /** The pay matrix in force (Rates & rules). */
+  payMatrix: MatrixLevels;
 }) {
   const { t, val, set, err } = useField(values, onChange, errors, prefix);
   const { locale } = useI18n();
@@ -206,11 +209,11 @@ export function JobFields({
   const level = val("payLevel");
   const matrix = isMatrixType(type);
   const wage = isWageType(type);
-  const cells = level ? cellCount(level) : 0;
+  const cells = level ? (payMatrix[level]?.length ?? 0) : 0;
   const name = (o: Option) => (locale === "hi" ? o.nameHi : o.name);
   return (
     <div className="space-y-5">
-      <div className="grid gap-5 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <Select label={t("employees.fields.type")} value={type} onChange={(e) => set("type", e.target.value)} error={err("type")} required>
           <option value="">—</option>
           {EMPLOYEE_TYPES.map((x) => (
@@ -249,10 +252,10 @@ export function JobFields({
       </div>
 
       {matrix && (
-        <div className="grid gap-5 rounded-xl bg-brand-50/50 p-4 ring-1 ring-brand-600/10 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-5 rounded-xl bg-brand-50/50 p-4 ring-1 ring-brand-600/10 sm:grid-cols-3">
           <Select label={t("employees.fields.payLevel")} value={level} onChange={(e) => onChange({ ...values, payLevel: e.target.value, payCell: "" })} error={err("payLevel")} required>
             <option value="">—</option>
-            {PAY_LEVELS.map((l) => (
+            {levelsOf(payMatrix).map((l) => (
               <option key={l} value={l}>
                 {t("employees.level", { level: l })}
               </option>
@@ -262,20 +265,20 @@ export function JobFields({
             <option value="">—</option>
             {Array.from({ length: cells }, (_, i) => i + 1).map((c) => (
               <option key={c} value={c}>
-                {c} · {formatINR(basicPay(level, c))}
+                {c} · {formatINR(basicIn(payMatrix, level, c))}
               </option>
             ))}
           </Select>
           <div className="flex flex-col justify-end">
             <p className="text-xs font-medium uppercase tracking-wide text-ink-500">{t("employees.fields.basicPay")}</p>
-            <p className="tabular mt-1 text-xl font-semibold text-brand-800">{formatINR(basicPay(level, Number(values.payCell) || null))}</p>
+            <p className="tabular mt-1 text-xl font-semibold text-brand-800">{formatINR(basicIn(payMatrix, level, Number(values.payCell) || null))}</p>
             <p className="text-xs text-ink-500">{t("employees.profile.basicPayHint")}</p>
           </div>
         </div>
       )}
 
       {wage && (
-        <div className="grid gap-5 rounded-xl bg-sky-50/50 p-4 ring-1 ring-sky-600/10 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 rounded-xl bg-sky-50/50 p-4 ring-1 ring-sky-600/10 sm:grid-cols-2">
           <Input label={t("employees.fields.agencyName")} value={val("agencyName")} onChange={(e) => set("agencyName", e.target.value)} optionalLabel={t("common.optional")} />
           <div className="grid grid-cols-2 gap-3">
             <Input label={t("employees.fields.wageRate")} type="number" min={0} step="0.01" value={val("wageRate")} onChange={(e) => set("wageRate", e.target.value)} error={err("wageRate")} required />
@@ -290,7 +293,7 @@ export function JobFields({
         </div>
       )}
 
-      <div className="grid gap-5 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <Input label={t("employees.fields.probationEndDate")} type="date" value={val("probationEndDate")} onChange={(e) => set("probationEndDate", e.target.value)} error={err("probationEndDate")} optionalLabel={t("common.optional")} />
         <Input label={t("employees.fields.confirmationDate")} type="date" value={val("confirmationDate")} onChange={(e) => set("confirmationDate", e.target.value)} error={err("confirmationDate")} optionalLabel={t("common.optional")} />
         <Input label={t("employees.fields.biometricId")} value={val("biometricId")} onChange={(e) => set("biometricId", e.target.value)} error={err("biometricId")} optionalLabel={t("common.optional")} hint={t("employees.biometricHint")} inputMode="numeric" />
@@ -317,7 +320,7 @@ export function IdsFields({
   const keep = (masked: string | null | undefined) => (current && masked ? t("employees.edit.keepBlank", { value: masked }) : undefined);
   return (
     <div className="space-y-5">
-      <div className="grid gap-5 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <Input label={t("employees.fields.pan")} value={val("pan")} maxLength={10} autoCapitalize="characters" spellCheck={false} onChange={(e) => set("pan", e.target.value.toUpperCase())} error={err("pan")} placeholder={current?.pan ?? "ABCPE1234F"} hint={keep(current?.pan)} autoComplete="off" />
         <Input label={t("employees.fields.aadhaar")} value={val("aadhaar")} inputMode="numeric" maxLength={14} onChange={(e) => set("aadhaar", e.target.value)} error={err("aadhaar")} placeholder={current?.aadhaar ?? "XXXX XXXX XXXX"} hint={keep(current?.aadhaar) ?? t("employees.profile.aadhaarNote")} autoComplete="off" />
         <Input label={t("employees.fields.pran")} value={val("pran")} inputMode="numeric" maxLength={12} onChange={(e) => set("pran", e.target.value)} error={err("pran")} optionalLabel={t("common.optional")} />
@@ -325,7 +328,7 @@ export function IdsFields({
         <Input label={t("employees.fields.esicNumber")} value={val("esicNumber")} inputMode="numeric" maxLength={10} onChange={(e) => set("esicNumber", e.target.value)} error={err("esicNumber")} optionalLabel={t("common.optional")} />
         <Input label={t("employees.fields.gpfNumber")} value={val("gpfNumber")} onChange={(e) => set("gpfNumber", e.target.value)} error={err("gpfNumber")} optionalLabel={t("common.optional")} />
       </div>
-      <div className="grid gap-5 rounded-xl bg-ink-50 p-4 ring-1 ring-ink-200/70 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 rounded-xl bg-ink-50 p-4 ring-1 ring-ink-200/70 sm:grid-cols-2">
         <Input label={t("employees.fields.bankAccount")} value={val("bankAccount")} inputMode="numeric" maxLength={18} onChange={(e) => set("bankAccount", e.target.value.replace(/\s/g, ""))} error={err("bankAccount")} placeholder={current?.bankAccount ?? ""} hint={keep(current?.bankAccount)} autoComplete="off" />
         <Input label={t("employees.fields.ifsc")} value={val("ifsc")} maxLength={11} autoCapitalize="characters" onChange={(e) => set("ifsc", e.target.value.toUpperCase())} error={err("ifsc")} placeholder="SBIN0001234" />
         <Input label={t("employees.fields.bankName")} value={val("bankName")} onChange={(e) => set("bankName", e.target.value)} optionalLabel={t("common.optional")} />

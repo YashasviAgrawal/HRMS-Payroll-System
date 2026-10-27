@@ -23,7 +23,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   ];
 
   return (
-    <main className="grid min-h-dvh lg:grid-cols-[1.05fr_1fr]">
+    <main className="grid grid-cols-1 min-h-dvh lg:grid-cols-[1.05fr_1fr]">
       {/* Brand panel */}
       <section className="brand-gradient relative hidden overflow-hidden text-white lg:flex lg:flex-col lg:justify-between lg:p-12">
         <div className="grid-pattern absolute inset-0 opacity-60" aria-hidden="true" />

@@ -12,7 +12,7 @@ export function TaxComparison({ workings, chosen, monthsLeft, deducted }: { work
   const { t } = useI18n();
   const lower: Regime = workings.OLD.total < workings.NEW.total ? "OLD" : "NEW";
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       {(["NEW", "OLD"] as Regime[]).map((r) => {
         const w = workings[r];
         const via = w.chapterVIA.sec80C + w.chapterVIA.sec80D + w.chapterVIA.sec80CCD1B + w.chapterVIA.homeLoanInterest;

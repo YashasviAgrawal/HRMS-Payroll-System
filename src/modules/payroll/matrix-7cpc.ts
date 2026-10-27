@@ -44,20 +44,32 @@ export function levelCells(def: LevelDef): number[] {
   return cells;
 }
 
+/** A pay matrix as Rates & rules stores it (a dated table, PR-01): level → [cell 1, cell 2, …]. */
+export type MatrixLevels = Record<string, number[]>;
+
 /** The full matrix as { level → [cell1, cell2, …] }. */
-export function seventhCpcMatrix(): Record<string, number[]> {
+export function seventhCpcMatrix(): MatrixLevels {
   return Object.fromEntries(SEVENTH_CPC_LEVELS.map((l) => [l.level, levelCells(l)]));
 }
 
-let cache: Record<string, number[]> | undefined;
-
-/** Basic pay for a level and cell, or null when the cell does not exist. */
-export function basicPay(level: string | null | undefined, cell: number | null | undefined): number | null {
-  if (!level || !cell) return null;
-  cache ??= seventhCpcMatrix();
-  return cache[level]?.[cell - 1] ?? null;
+/** Pay levels in matrix order: 1, 2 … 13, 13A, 14 … (JSON objects come back in key order, not matrix order). */
+export function levelOrder(a: string, b: string): number {
+  return parseInt(a, 10) - parseInt(b, 10) || a.localeCompare(b);
 }
 
-export function cellCount(level: string): number {
-  return SEVENTH_CPC_LEVELS.find((l) => l.level === level)?.cells ?? 0;
+/** The levels of a matrix, in matrix order. */
+export const levelsOf = (m: MatrixLevels) => Object.keys(m).sort(levelOrder);
+
+/** Basic pay for a level and cell in a given matrix, or null when the cell does not exist. */
+export function basicIn(m: MatrixLevels | null | undefined, level: string | null | undefined, cell: number | null | undefined): number | null {
+  if (!m || !level || !cell) return null;
+  return m[level]?.[cell - 1] ?? null;
+}
+
+let cache: MatrixLevels | undefined;
+
+/** Basic pay in the built-in 7th CPC table (seed data and tests; screens read the dated matrix). */
+export function basicPay(level: string | null | undefined, cell: number | null | undefined): number | null {
+  cache ??= seventhCpcMatrix();
+  return basicIn(cache, level, cell);
 }

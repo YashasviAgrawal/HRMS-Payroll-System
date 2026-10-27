@@ -40,7 +40,7 @@ export default async function MyLifeCertificatePage() {
         </CardBody>
       </Card>
 
-      <div className="mb-5 grid gap-4 sm:grid-cols-2">
+      <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Card>
           <CardHeader title={t("pension.my.howJp")} icon={<Fingerprint className="size-4.5" aria-hidden="true" />} />
           <CardBody>

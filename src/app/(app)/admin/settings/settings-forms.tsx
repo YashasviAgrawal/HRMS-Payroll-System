@@ -62,7 +62,7 @@ export function SettingsForms({ initial, readOnly, smsForcedConsole }: { initial
     <div className="grid gap-6">
       <Card>
         <CardHeader title={t("settings.sms")} description={t("settings.smsHint")} icon={<MessageSquareText className="size-4.5" aria-hidden="true" />} />
-        <CardBody className="grid gap-5 sm:grid-cols-2">
+        <CardBody className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <Select
             label={t("settings.provider")}
             value={sms.value.provider}
@@ -103,7 +103,7 @@ export function SettingsForms({ initial, readOnly, smsForcedConsole }: { initial
         {footer(sms.save, sms.busy)}
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader title={t("settings.email")} description={t("settings.emailHint")} icon={<Mail className="size-4.5" aria-hidden="true" />} />
           <CardBody className="grid gap-5">
@@ -155,7 +155,7 @@ export function SettingsForms({ initial, readOnly, smsForcedConsole }: { initial
 
         <Card className="lg:col-span-2">
           <CardHeader title={t("settings.attendance")} description={t("settings.attendanceHint")} icon={<Fingerprint className="size-4.5" aria-hidden="true" />} />
-          <CardBody className="grid gap-5 sm:grid-cols-3">
+          <CardBody className="grid grid-cols-1 gap-5 sm:grid-cols-3">
             <Input
               label={t("settings.officeStart")}
               type="time"
@@ -247,7 +247,7 @@ export function SettingsForms({ initial, readOnly, smsForcedConsole }: { initial
 
         <Card className="lg:col-span-2">
           <CardHeader title={t("settings.statutory")} description={t("settings.statutoryHint")} icon={<Landmark className="size-4.5" aria-hidden="true" />} />
-          <CardBody className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <CardBody className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             <Input label={t("settings.deductorName")} value={st.deductorName} disabled={readOnly} onChange={(e) => setSt({ deductorName: e.target.value })} error={statutory.errors.deductorName} maxLength={75} />
             <Input label={t("settings.tan")} value={st.tan} disabled={readOnly} onChange={(e) => setSt({ tan: e.target.value.toUpperCase() })} error={statutory.errors.tan} maxLength={10} />
             <Input label={t("settings.boardPan")} value={st.pan} disabled={readOnly} onChange={(e) => setSt({ pan: e.target.value.toUpperCase() })} error={statutory.errors.pan} maxLength={10} />

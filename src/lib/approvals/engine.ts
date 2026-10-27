@@ -241,16 +241,16 @@ export async function listDecidedBy(actor: Actor, take = 50) {
   });
 }
 
+/** The maker, the decider and anyone who could have decided it may open a task; nobody else. */
+export function canOpenTask(actor: Actor, task: Pick<ApprovalTask, "requiredPermission" | "makerId" | "deciderId">) {
+  return task.makerId === actor.userId || task.deciderId === actor.userId || actor.permissions.includes(task.requiredPermission);
+}
+
 export async function getTask(actor: Actor, id: string) {
   const task = await db.approvalTask.findFirst({ where: { id, boardId: actor.boardId } });
   if (!task) throw notFound();
-  const mayDecide = decisionBlocker(actor, task) === null;
-  const isMaker = task.makerId === actor.userId;
-  if (!mayDecide && !isMaker && task.deciderId !== actor.userId) {
-    // Others may only see it if they could have decided it.
-    if (!actor.permissions.includes(task.requiredPermission)) throw forbidden();
-  }
-  return { task, mayDecide };
+  if (!canOpenTask(actor, task)) throw forbidden();
+  return { task, mayDecide: decisionBlocker(actor, task) === null };
 }
 
 export { AppError };

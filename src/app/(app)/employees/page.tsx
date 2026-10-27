@@ -16,7 +16,7 @@ import { requireActor } from "@/lib/auth/session";
 import { formatDate } from "@/lib/dates";
 import { tDynamic } from "@/lib/i18n";
 import { getT } from "@/lib/i18n/server";
-import { PAY_LEVELS } from "@/modules/payroll/matrix-7cpc";
+import { levelsOf } from "@/modules/payroll/matrix-7cpc";
 import { EMPLOYEE_TYPES } from "@/modules/employees/schema";
 import { listEmployees } from "@/modules/employees/service";
 import { formOptions } from "./_components/options";
@@ -71,7 +71,7 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
         }
       />
       <Card>
-        <form method="get" className="grid gap-3 border-b border-ink-100 px-5 py-4 sm:px-6 md:grid-cols-[minmax(14rem,1fr)_auto_auto_auto_auto_auto]">
+        <form method="get" className="grid grid-cols-1 gap-3 border-b border-ink-100 px-5 py-4 sm:px-6 md:grid-cols-[minmax(14rem,1fr)_auto_auto_auto_auto_auto]">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-400" aria-hidden="true" />
             <input name="q" defaultValue={sp.q} placeholder={t("employees.searchPlaceholder")} aria-label={t("common.search")} className={controlClass(false, "h-10 pl-9")} />
@@ -96,7 +96,7 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
           </select>
           <select name="payLevel" defaultValue={sp.payLevel ?? ""} aria-label={t("employees.fields.payLevel")} className={controlClass(false, "h-10")}>
             <option value="">{t("employees.allLevels")}</option>
-            {PAY_LEVELS.map((l) => (
+            {levelsOf(options.payMatrix).map((l) => (
               <option key={l} value={l}>
                 {t("employees.level", { level: l })}
               </option>

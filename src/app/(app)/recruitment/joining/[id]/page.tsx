@@ -11,7 +11,9 @@ import { formatDate, toISODate } from "@/lib/dates";
 import { tDynamic } from "@/lib/i18n";
 import { getT } from "@/lib/i18n/server";
 import { formatINR } from "@/lib/money";
-import { basicPay } from "@/modules/payroll/matrix-7cpc";
+import { db } from "@/lib/db";
+import { matrixToday } from "@/modules/payroll/compute";
+import { basicIn } from "@/modules/payroll/matrix-7cpc";
 import { maskedIds } from "@/modules/employees/present";
 import { CHECKLIST_ITEMS } from "@/modules/recruitment/schema";
 import { getJoining } from "@/modules/recruitment/service";
@@ -24,7 +26,7 @@ export default async function JoiningPage({ params }: { params: Promise<{ id: st
   if (!scopeFor(actor, "recruitment", "view")) return <NoAccess />;
   const { t, locale } = await getT();
   const { id } = await params;
-  const j = await getJoining(actor, id);
+  const [j, matrix] = await Promise.all([getJoining(actor, id), matrixToday(actor.boardId, db)]);
   const e = j.employee;
   const masked = maskedIds(e);
   const editable = j.status === "IN_PROGRESS" && canAll(actor, "employee_master", "create");
@@ -47,7 +49,7 @@ export default async function JoiningPage({ params }: { params: Promise<{ id: st
           </div>
         }
       />
-      <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.3fr_1fr]">
         <Card>
           <CardHeader
             title={t("recruitment.joining.checklist")}
@@ -81,7 +83,7 @@ export default async function JoiningPage({ params }: { params: Promise<{ id: st
                 { label: t("employees.fields.dateOfJoining"), value: formatDate(toISODate(e.dateOfJoining), locale) },
                 {
                   label: t("recruitment.joining.initialPay"),
-                  value: e.payLevel ? `${t("employees.level", { level: e.payLevel })} · ${t("employees.fields.payCell")} ${e.payCell} · ${formatINR(basicPay(e.payLevel, e.payCell))}` : `${formatINR(Number(e.wageRate ?? 0))} ${e.wageBasis === "DAILY" ? t("employees.wageBasis.DAILY") : t("employees.wageBasis.MONTHLY")}`,
+                  value: e.payLevel ? `${t("employees.level", { level: e.payLevel })} · ${t("employees.fields.payCell")} ${e.payCell} · ${formatINR(basicIn(matrix, e.payLevel, e.payCell))}` : `${formatINR(Number(e.wageRate ?? 0))} ${e.wageBasis === "DAILY" ? t("employees.wageBasis.DAILY") : t("employees.wageBasis.MONTHLY")}`,
                 },
                 { label: t("employees.fields.pan"), value: masked.pan ?? <span className="text-red-600">{t("employees.profile.noValue")}</span> },
                 { label: t("employees.fields.aadhaar"), value: masked.aadhaar ?? <span className="text-red-600">{t("employees.profile.noValue")}</span> },

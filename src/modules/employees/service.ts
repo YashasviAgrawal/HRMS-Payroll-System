@@ -9,7 +9,8 @@ import { decrypt, seal } from "@/lib/crypto";
 import { db, type Tx } from "@/lib/db";
 import { completedYears, fromISODate, retirementDate, todayIST, toISODate } from "@/lib/dates";
 import { badRequest, conflict, forbidden, notFound } from "@/lib/errors";
-import { basicPay } from "@/modules/payroll/matrix-7cpc";
+import { matrixToday } from "@/modules/payroll/compute";
+import { basicIn, type MatrixLevels } from "@/modules/payroll/matrix-7cpc";
 import { addressLine, displayValue, fieldLabel, fullName, maskedIds } from "./present";
 import {
   createEmployeeSchema,
@@ -61,7 +62,8 @@ type EmployeeWithRefs = Prisma.EmployeeGetPayload<{ include: typeof viewInclude 
 
 const iso = (d: Date | null | undefined) => (d ? toISODate(d) : null);
 
-export function toView(e: EmployeeWithRefs, actor: Actor) {
+/** `matrix` (the dated one in force) is needed only where Basic is shown; lists leave it out. */
+export function toView(e: EmployeeWithRefs, actor: Actor, matrix?: MatrixLevels) {
   const showSensitive = canSeeSensitive(actor);
   const masked = maskedIds(e);
   return {
@@ -84,7 +86,7 @@ export function toView(e: EmployeeWithRefs, actor: Actor) {
     post: e.post,
     payLevel: e.payLevel,
     payCell: e.payCell,
-    basicPay: showSensitive ? basicPay(e.payLevel, e.payCell) : null,
+    basicPay: showSensitive ? basicIn(matrix, e.payLevel, e.payCell) : null,
     mobile: e.mobile,
     email: e.email,
     fatherOrSpouseName: e.fatherOrSpouseName,
@@ -126,7 +128,7 @@ export type EmployeeView = ReturnType<typeof toView>;
 export async function getEmployee(actor: Actor, id: string) {
   const e = await db.employee.findFirst({ where: { id, boardId: actor.boardId }, include: viewInclude });
   if (!e || !canViewEmployee(actor, e)) throw notFound();
-  return toView(e, actor);
+  return toView(e, actor, canSeeSensitive(actor) ? await matrixToday(actor.boardId, db) : undefined);
 }
 
 export interface EmployeeFilter {
@@ -326,7 +328,8 @@ function fieldErrors(errors: Record<string, string>) {
 export async function createEmployee(actor: Actor, raw: unknown, opts: { tx?: Tx; skipApproval?: boolean; employeeCode?: string | null } = {}) {
   assertHr(actor);
   const input: CreateEmployeeInput = createEmployeeSchema.parse(raw);
-  fieldErrors(crossCheck(input.personal, input.job, input.ids));
+  const matrix = await matrixToday(actor.boardId, db);
+  fieldErrors(crossCheck(input.personal, input.job, input.ids, matrix));
   await assertBiometricFree(actor.boardId, input.job.biometricId, undefined, "job.");
 
   const work = async (tx: Tx) => {
@@ -372,7 +375,7 @@ export async function createEmployee(actor: Actor, raw: unknown, opts: { tx?: Tx
           { ...fieldLabel("sectionId"), new: section!.name },
           { ...fieldLabel("dateOfBirth"), new: displayValue("dateOfBirth", employee.dateOfBirth) },
           { ...fieldLabel("dateOfJoining"), new: displayValue("dateOfJoining", employee.dateOfJoining) },
-          ...(employee.payLevel ? [{ ...fieldLabel("payLevel"), new: `Level ${employee.payLevel}, Cell ${employee.payCell} (₹${basicPay(employee.payLevel, employee.payCell)?.toLocaleString("en-IN")})` }] : []),
+          ...(employee.payLevel ? [{ ...fieldLabel("payLevel"), new: `Level ${employee.payLevel}, Cell ${employee.payCell} (₹${basicIn(matrix, employee.payLevel, employee.payCell)?.toLocaleString("en-IN")})` }] : []),
           ...(employee.wageRate ? [{ ...fieldLabel("wageRate"), new: `₹${Number(employee.wageRate).toLocaleString("en-IN")} ${employee.wageBasis === "DAILY" ? "per day" : "per month"}` }] : []),
           { ...fieldLabel("pan"), new: maskedIds(employee).pan, reveal: employee.panEnc ? ("pan" as const) : undefined },
           { ...fieldLabel("aadhaar"), new: maskedIds(employee).aadhaar },
@@ -491,7 +494,7 @@ export async function proposeEdit(actor: Actor, employeeId: string, tab: EditTab
     }
   } else if (tab === "job") {
     const j = jobSchema.parse(raw);
-    fieldErrors(tabErrors(crossCheck(currentPersonal, j), "job"));
+    fieldErrors(tabErrors(crossCheck(currentPersonal, j, undefined, await matrixToday(actor.boardId, db)), "job"));
     const post = await db.post.findFirst({ where: { id: j.postId, boardId: actor.boardId } });
     if (!post) fieldErrors({ postId: "validation.invalid" });
     if (!(await db.section.findFirst({ where: { id: j.sectionId, boardId: actor.boardId } }))) fieldErrors({ sectionId: "validation.invalid" });

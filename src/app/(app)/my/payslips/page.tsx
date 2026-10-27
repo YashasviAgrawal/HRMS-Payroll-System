@@ -6,6 +6,7 @@ import { buttonClass } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
+import { can } from "@/lib/auth/access";
 import { requireActor } from "@/lib/auth/session";
 import { formatMonth } from "@/lib/dates";
 import { getT } from "@/lib/i18n/server";
@@ -26,7 +27,7 @@ export default async function MyPayslipsPage() {
   return (
     <div className="mx-auto max-w-3xl">
       <PageHeader title={t("payroll.payslips.myTitle")} description={t("payroll.payslips.mySubtitle")} />
-      <MyMoneyTabs active="payslips" t={t} />
+      <MyMoneyTabs active="payslips" t={t} tax={can(actor, "statutory", "view")} />
       {forms.length > 0 && (
         <Card className="mb-5">
           <CardHeader title={t("statutory.my.form16")} description={t("statutory.my.form16Help")} icon={<FileBadge className="size-4.5" aria-hidden="true" />} />

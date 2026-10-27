@@ -5,13 +5,13 @@ import { NoAccess } from "@/components/no-access";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { LinkTabs } from "@/components/ui/tabs";
 import { Table, Td, Th, THead, Tr } from "@/components/ui/table";
 import { can } from "@/lib/auth/access";
 import { requireActor } from "@/lib/auth/session";
 import { formatDate, todayIST } from "@/lib/dates";
 import { getT } from "@/lib/i18n/server";
-import { cn } from "@/lib/utils";
 import { levelOrder } from "@/modules/payroll/compute";
 import { rulesOverview } from "@/modules/payroll/rates";
 import { dueRulesScreen, taxRulesScreen } from "@/modules/statutory/rules";
@@ -108,7 +108,7 @@ export default async function RatesPage({ searchParams }: { searchParams: Promis
         taxRules.years.map((y) => (
           <Card key={y.fy} className="mb-5">
             <CardHeader title={t("statutory.rules.taxTitle", { fy: y.fy })} description={t("statutory.rules.taxHelp")} icon={<Landmark className="size-4.5" aria-hidden="true" />} />
-            <CardBody className="grid gap-5 lg:grid-cols-2">
+            <CardBody className="grid grid-cols-1 gap-5 lg:grid-cols-2">
               {y.regimes.map((r) => (
                 <div key={r.regime} className="rounded-2xl border border-ink-200 p-4" data-testid={`tax-${y.fy}-${r.regime}`}>
                   <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -199,7 +199,7 @@ export default async function RatesPage({ searchParams }: { searchParams: Promis
             const width = Math.max(...levels.map((l) => m.levels[l].length));
             const show = sp.all === "1" ? width : Math.min(width, 10);
             return (
-              <Card key={m.id} className={cn("mb-5", i > 0 && "opacity-90")}>
+              <Card key={m.id} className="mb-5">
                 <CardHeader
                   title={m.name}
                   description={`${t("rates.matrix.inForce", { date: formatDate(m.effectiveFrom, locale) })} · ${t("rates.matrix.levels", { count: levels.length })}`}
@@ -214,7 +214,7 @@ export default async function RatesPage({ searchParams }: { searchParams: Promis
                   }
                 />
                 {i === 0 && (
-                  <div className="scrollbar-thin relative overflow-x-auto">
+                  <ScrollArea label={m.name}>
                     <table className="w-full min-w-max text-sm">
                       <thead>
                         <tr className="bg-ink-50 text-left text-xs font-semibold uppercase tracking-wide text-ink-500">
@@ -241,7 +241,7 @@ export default async function RatesPage({ searchParams }: { searchParams: Promis
                         ))}
                       </tbody>
                     </table>
-                  </div>
+                  </ScrollArea>
                 )}
               </Card>
             );

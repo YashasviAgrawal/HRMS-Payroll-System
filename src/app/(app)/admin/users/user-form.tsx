@@ -249,7 +249,7 @@ export function UserForm({ mode, initial, readOnly, isSelf }: { mode: "create" |
             {errors.employeeId && <p className="text-xs font-medium text-red-600">{errors.employeeId}</p>}
           </div>
 
-          <div className="grid gap-5 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <Input label={t("users.loginId")} value={loginId} onChange={(e) => setLoginId(e.target.value.toUpperCase())} hint={t("users.loginIdHint")} error={errors.loginId} disabled={mode === "edit" || readOnly} required />
             <Input label={t("common.mobile")} value={mobile} onChange={(e) => setMobile(e.target.value)} inputMode="numeric" error={errors.mobile} disabled={readOnly} required />
             <Input label={t("common.name")} value={displayName} onChange={(e) => setDisplayName(e.target.value)} error={errors.displayName} disabled={readOnly} required />
@@ -265,7 +265,7 @@ export function UserForm({ mode, initial, readOnly, isSelf }: { mode: "create" |
           {allowed.length === 0 ? (
             <p className="text-sm text-ink-500">{t("users.noPermissionsForLogin")}</p>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {allowed.map((p) => (
                 <Checkbox
                   key={p}

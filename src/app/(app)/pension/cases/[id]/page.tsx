@@ -93,7 +93,7 @@ export default async function CasePage({ params, searchParams }: { params: Promi
         </Card>
       )}
 
-      <div className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4" data-testid="case-tiles">
+      <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" data-testid="case-tiles">
         {w.pension.amount > 0 ? (
           <StatTile label={t("pension.case.pension")} value={formatINR(w.pension.amount)} icon={<Landmark className="size-5" aria-hidden="true" />} hint={t("pension.case.from", { date: formatDate(w.pensionFrom, locale) })} />
         ) : (
@@ -104,7 +104,7 @@ export default async function CasePage({ params, searchParams }: { params: Promi
         <StatTile label={t("pension.case.lumpSum")} value={formatINR(w.lumpSum - w.dues.total)} tone="green" icon={<Calculator className="size-5" aria-hidden="true" />} hint={w.dues.total ? t("pension.case.lessDues", { amount: formatINR(w.dues.total) }) : t("pension.case.lumpHint")} />
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Card data-testid="case-working">
           <CardHeader title={t("pension.case.working")} description={t("pension.case.workingHelp")} icon={<Calculator className="size-4.5" aria-hidden="true" />} />
           <CardBody>
@@ -216,9 +216,11 @@ export default async function CasePage({ params, searchParams }: { params: Promi
           {d.task && (
             <p className="text-ink-700">
               {t(d.task.step === "approver" ? "pension.case.withApprover" : "pension.case.withChecker")}{" "}
-              <Link href={`/approvals/${d.task.id}`} className="font-medium text-brand-700 hover:underline">
-                {t("pension.case.openTask")}
-              </Link>
+              {d.task.canOpen && (
+                <Link href={`/approvals/${d.task.id}`} className="font-medium text-brand-700 hover:underline">
+                  {t("pension.case.openTask")}
+                </Link>
+              )}
             </p>
           )}
           {c.status === "APPROVED" && (

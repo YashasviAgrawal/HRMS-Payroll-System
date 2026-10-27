@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatTile } from "@/components/ui/stat-tile";
 import { Table, Td, Th, THead, Tr } from "@/components/ui/table";
+import { can } from "@/lib/auth/access";
 import { requireActor } from "@/lib/auth/session";
 import { formatMonth } from "@/lib/dates";
 import { getT } from "@/lib/i18n/server";
@@ -26,11 +27,11 @@ export default async function MyFundsPage({ searchParams }: { searchParams: Prom
   return (
     <div className="mx-auto max-w-4xl">
       <PageHeader title={gpf ? t("statutory.gpf.own") : t("statutory.nps.own")} description={nps ? t("statutory.nps.ownHelp") : undefined} />
-      <MyMoneyTabs active="funds" t={t} />
+      <MyMoneyTabs active="funds" t={t} tax={can(actor, "statutory", "view")} />
       {gpf && <GpfAccountView a={gpf} t={t} locale={locale} href={(fy) => `/my/funds?fy=${fy}`} />}
       {nps && (
         <div className="space-y-5">
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <StatTile label={t("statutory.nps.yearOwn")} value={formatINR(nps.yearOwn)} hint={`${t("statutory.fy")} ${nps.fy}`} />
             <StatTile label={t("statutory.nps.yearBoard")} value={formatINR(nps.yearBoard)} tone="blue" />
             <StatTile label={t("statutory.nps.total")} value={formatINR(nps.totalOwn + nps.totalBoard)} hint={nps.pran ? `PRAN ${nps.pran}` : undefined} tone="gray" />

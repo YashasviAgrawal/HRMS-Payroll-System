@@ -77,7 +77,7 @@ export async function RunScreen({ actor, id, tab: tabParam, base }: { actor: Act
         </div>
       )}
 
-      <div className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatTile label={pension ? t("pension.bills.paid") : t("payroll.peoplePaid")} value={run.employees} icon={<Users className="size-5" aria-hidden="true" />} tone="blue" hint={data.people.length > run.employees ? `${data.people.length - run.employees} ${t("payroll.withheld").toLowerCase()}` : undefined} />
         <StatTile label={t("payroll.gross")} value={formatINR(run.gross)} icon={<Layers className="size-5" aria-hidden="true" />} tone="gray" />
         <StatTile label={t("payroll.deductions")} value={formatINR(run.deductions)} icon={<ListChecks className="size-5" aria-hidden="true" />} tone="gray" hint={pension ? undefined : `${t("payroll.employer")}: ${formatINR(run.employer)}`} />
@@ -238,7 +238,7 @@ export async function RunScreen({ actor, id, tab: tabParam, base }: { actor: Act
       )}
 
       {tab === "heads" && (
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           {(["EARNING", "DEDUCTION", "EMPLOYER"] as const).map((kind) => {
             const rows = data.heads.filter((h) => h.kind === kind);
             if (!rows.length) return null;
@@ -278,7 +278,7 @@ export async function RunScreen({ actor, id, tab: tabParam, base }: { actor: Act
         <Card>
           <CardHeader title={t("payroll.prints.title")} description={t("payroll.prints.help")} icon={<Printer className="size-4.5" aria-hidden="true" />} />
           <CardBody>
-            <ul className="grid gap-3 sm:grid-cols-2">
+            <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {(["paybill", "register", "schedules", "acquittance"] as const).map((doc) => (
                 <li key={doc}>
                   <a

@@ -45,7 +45,7 @@ export function DirectJoiningForm({ sections, posts }: { sections: Option[]; pos
   return (
     <Card>
       <CardBody className="space-y-5">
-        <div className="grid gap-5 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <Input label={t("employees.fields.firstName")} value={v.firstName} onChange={(e) => set("firstName", e.target.value)} error={msg(t, errors.firstName)} required />
           <Input label={t("employees.fields.lastName")} value={v.lastName} onChange={(e) => set("lastName", e.target.value)} optionalLabel={t("common.optional")} />
           <Input label={t("employees.fields.nameHi")} value={v.nameHi} lang="hi" onChange={(e) => set("nameHi", e.target.value)} optionalLabel={t("common.optional")} />
@@ -59,7 +59,7 @@ export function DirectJoiningForm({ sections, posts }: { sections: Option[]; pos
           <Input label={t("employees.fields.dateOfBirth")} type="date" value={v.dateOfBirth} onChange={(e) => set("dateOfBirth", e.target.value)} error={msg(t, errors.dateOfBirth)} required />
           <Input label={t("common.mobile")} value={v.mobile} inputMode="numeric" onChange={(e) => set("mobile", e.target.value)} error={msg(t, errors.mobile)} optionalLabel={t("common.optional")} />
         </div>
-        <div className="grid gap-5 rounded-xl bg-sky-50/50 p-4 ring-1 ring-sky-600/10 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 rounded-xl bg-sky-50/50 p-4 ring-1 ring-sky-600/10 sm:grid-cols-2">
           <Select label={t("employees.fields.type")} value={v.type} onChange={(e) => setV({ ...v, type: e.target.value, wageBasis: e.target.value === "DAILY_WAGE" ? "DAILY" : "MONTHLY" })}>
             <option value="CONTRACT">{t("employees.type.CONTRACT")}</option>
             <option value="DAILY_WAGE">{t("employees.type.DAILY_WAGE")}</option>

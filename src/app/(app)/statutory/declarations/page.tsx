@@ -47,7 +47,7 @@ export default async function DeclarationsPage({ searchParams }: { searchParams:
             <div className="flex flex-wrap gap-1 rounded-xl bg-ink-100 p-1" role="group">
               {FILTERS.map((f) => (
                 <Link key={f} href={`/statutory/declarations?fy=${data.fy}&status=${f}`} aria-current={status === f ? "page" : undefined} className={cn("rounded-lg px-3 py-1.5 text-xs font-semibold", status === f ? "bg-white text-brand-800 shadow-card" : "text-ink-600 hover:text-ink-900")}>
-                  {tDynamic(t, `statutory.tax.filter.${f}`)} <span className="tabular text-ink-400">{counts[f]}</span>
+                  {tDynamic(t, `statutory.tax.filter.${f}`)} <span className="tabular text-ink-500">{counts[f]}</span>
                 </Link>
               ))}
             </div>

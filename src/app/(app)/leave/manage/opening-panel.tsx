@@ -78,7 +78,7 @@ export function OpeningPanel({ defaultAsOn }: { defaultAsOn: string }) {
           </a>
         }
       />
-      <CardBody className="grid gap-5 sm:grid-cols-2">
+      <CardBody className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <Input label={t("leave.opening.asOn")} type="date" value={asOn} onChange={(e) => setAsOn(e.target.value)} required />
         <div className="space-y-1.5">
           <label htmlFor="opening-file" className="text-sm font-medium text-ink-800">

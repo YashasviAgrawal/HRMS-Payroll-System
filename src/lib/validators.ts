@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { isISODate } from "./dates";
 
+// These rules also run in the browser, where the Content Security Policy forbids eval: without this,
+// zod tries `new Function` once to test for it and the browser reports a policy violation.
+z.config({ jitless: true });
+
 /** Shared field rules (messages are i18n keys, translated by the API wrapper). */
 export const MOBILE_RE = /^[6-9]\d{9}$/;
 

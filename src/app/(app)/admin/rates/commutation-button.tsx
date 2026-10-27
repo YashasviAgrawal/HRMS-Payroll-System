@@ -63,7 +63,7 @@ export function CommutationButton({ factors }: { factors: Record<string, number>
           </>
         }
       >
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input label={t("rates.from")} type="date" value={form.effectiveFrom} onChange={(e) => setForm({ ...form, effectiveFrom: e.target.value })} error={errors.effectiveFrom} required />
           <Input label={t("rates.order")} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} error={errors.reason} required maxLength={200} />
         </div>

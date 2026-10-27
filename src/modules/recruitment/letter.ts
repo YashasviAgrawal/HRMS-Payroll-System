@@ -7,7 +7,8 @@ import { canAll } from "@/lib/auth/access";
 import type { Actor } from "@/lib/auth/session";
 import { amountInWords, formatINR } from "@/lib/money";
 import { embeddedFonts, logoDataUrl, renderPdf } from "@/lib/pdf";
-import { basicPay } from "@/modules/payroll/matrix-7cpc";
+import { matrixLevelsOn } from "@/modules/payroll/compute";
+import { basicIn } from "@/modules/payroll/matrix-7cpc";
 
 const esc = (s: string | null | undefined) => (s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 
@@ -24,8 +25,9 @@ export async function appointmentLetterPdf(actor: Actor, applicantId: string) {
     db.post.findUniqueOrThrow({ where: { id: a.vacancy.postId } }),
     db.section.findUniqueOrThrow({ where: { id: a.vacancy.sectionId } }),
   ]);
-  const pay = basicPay(a.vacancy.payLevel, 1) ?? 0;
   const date = toISODate(a.appointmentLetterDate!);
+  // The entry pay of the level in the matrix in force on the letter's date.
+  const pay = basicIn(await matrixLevelsOn(actor.boardId, date, db), a.vacancy.payLevel, 1) ?? 0;
   const advert = a.vacancy.advertNumber ? `${a.vacancy.advertNumber}${a.vacancy.advertDate ? ` dated ${formatDate(toISODate(a.vacancy.advertDate))}` : ""}` : a.vacancy.referenceNo;
   const advertHi = a.vacancy.advertNumber ? `${a.vacancy.advertNumber}${a.vacancy.advertDate ? ` दिनांक ${formatDate(toISODate(a.vacancy.advertDate), "hi")}` : ""}` : a.vacancy.referenceNo;
   const logo = logoDataUrl();
@@ -93,7 +95,7 @@ export async function appointmentLetterPdf(actor: Actor, applicantId: string) {
     .subject { margin: 0 0 12px; }
     ol { padding-left: 20px; } li { margin-bottom: 6px; }
     .sign { margin-top: 56px; text-align: right; } .sign p { margin: 0; font-weight: 600; }
-    .copy { margin-top: 40px; font-size: 9pt; color: #6b7a72; border-top: 1px solid #dfe6e2; padding-top: 8px; }
+    .copy { margin-top: 40px; font-size: 9pt; color: #56645d; border-top: 1px solid #dfe6e2; padding-top: 8px; }
   </style></head><body>${hi}${en}</body></html>`;
 
   const pdf = await renderPdf(html);

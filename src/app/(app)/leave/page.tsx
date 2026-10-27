@@ -51,7 +51,7 @@ export default async function LeavePage() {
       <section aria-label={t("leave.balances")}>
         <BalanceCards balances={data.balances} t={t} locale={locale} />
       </section>
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <Card>
           <CardHeader title={t("leave.myApplications")} icon={<History className="size-4.5" aria-hidden="true" />} />
           {data.applications.length === 0 ? (

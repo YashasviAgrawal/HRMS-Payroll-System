@@ -120,7 +120,7 @@ export function HolidayEditor({ year, holidays, lastYear, canEdit, pending }: { 
       <p className="border-b border-ink-100 px-5 py-3 text-sm text-amber-900 sm:px-6">{t("attendance.holidays.copyHint")}</p>
       <ul className="divide-y divide-ink-100">
         {rows.map((h, i) => (
-          <li key={i} className="grid gap-2 px-5 py-3 sm:px-6 md:grid-cols-[10rem_minmax(0,1fr)_minmax(0,1fr)_9rem_auto] md:items-start">
+          <li key={i} className="grid grid-cols-1 gap-2 px-5 py-3 sm:px-6 md:grid-cols-[10rem_minmax(0,1fr)_minmax(0,1fr)_9rem_auto] md:items-start">
             <div>
               <input type="date" aria-label={t("attendance.holidays.date")} value={h.date} min={`${year}-01-01`} max={`${year}-12-31`} onChange={(e) => set(i, { date: e.target.value })} className={controlClass(!!errors[`holidays.${i}.date`], "h-9 text-sm")} />
               {errors[`holidays.${i}.date`] && <p className="mt-1 text-xs text-red-600">{errors[`holidays.${i}.date`]}</p>}

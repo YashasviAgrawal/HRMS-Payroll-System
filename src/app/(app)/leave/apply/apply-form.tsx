@@ -122,7 +122,7 @@ export function ApplyForm({
 
   return (
     <Card>
-      <CardBody className="grid gap-5 sm:grid-cols-2">
+      <CardBody className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <Select
           label={t("leave.type")}
           value={v.leaveCode}

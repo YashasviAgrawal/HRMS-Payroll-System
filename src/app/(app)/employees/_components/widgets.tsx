@@ -232,7 +232,7 @@ export function ServiceEntryDialog({ employeeId }: { employeeId: string }) {
           </>
         }
       >
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Select label={t("common.type")} value={v.event} onChange={(e) => set("event", e.target.value)}>
             {SERVICE_EVENTS.map((ev) => (
               <option key={ev} value={ev}>

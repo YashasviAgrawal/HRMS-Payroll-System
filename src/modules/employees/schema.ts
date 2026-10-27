@@ -17,7 +17,7 @@ import {
   normaliseMobile,
   optionalNumber,
 } from "@/lib/validators";
-import { cellCount, PAY_LEVELS } from "@/modules/payroll/matrix-7cpc";
+import { seventhCpcMatrix, type MatrixLevels } from "@/modules/payroll/matrix-7cpc";
 
 export const EMPLOYEE_TYPES = ["PERMANENT_OPS", "PERMANENT_NPS", "CONTRACT", "DAILY_WAGE", "REEMPLOYED", "DEPUTATION"] as const;
 export const EMPLOYEE_STATUSES = ["DRAFT", "ACTIVE", "SUSPENDED", "RETIRED", "RESIGNED", "TRANSFERRED", "TERMINATED", "DECEASED"] as const;
@@ -120,8 +120,9 @@ export const jobSchema = z.object({
   sectionId: z.string().min(1, "validation.required"),
   postId: z.string().min(1, "validation.required"),
   dateOfJoining: z.string().refine(isISODate, "validation.date"),
-  payLevel: optEnum(PAY_LEVELS as unknown as [string, ...string[]]),
-  payCell: optionalNumber(z.number().int().min(1).max(40)),
+  // Checked against the matrix in force by crossCheck — a new pay commission may add levels and cells.
+  payLevel: optFormatted((v) => /^\d{1,2}[A-Z]?$/.test(v), "validation.invalid", (v) => v.trim().toUpperCase()),
+  payCell: optionalNumber(z.number().int().min(1).max(99)),
   probationEndDate: optDate,
   confirmationDate: optDate,
   agencyName: optText(120),
@@ -161,7 +162,7 @@ export type CreateEmployeeInput = z.infer<typeof createEmployeeSchema>;
  * Rules that look at more than one field. Returns { field: messageKey } for every problem found.
  * Used on create and again on every edit against the merged record.
  */
-export function crossCheck(p: Pick<PersonalInput, "dateOfBirth">, j: JobInput, ids?: Partial<IdsInput>): Record<string, string> {
+export function crossCheck(p: Pick<PersonalInput, "dateOfBirth">, j: JobInput, ids?: Partial<IdsInput>, matrix: MatrixLevels = seventhCpcMatrix()): Record<string, string> {
   const errors: Record<string, string> = {};
   if (isISODate(p.dateOfBirth) && isISODate(j.dateOfJoining)) {
     if (completedYears(p.dateOfBirth, j.dateOfJoining) < 18) errors["job.dateOfJoining"] = "employees.errors.under18";
@@ -169,7 +170,8 @@ export function crossCheck(p: Pick<PersonalInput, "dateOfBirth">, j: JobInput, i
   if (isMatrixType(j.type)) {
     if (!j.payLevel) errors["job.payLevel"] = "validation.required";
     if (!j.payCell) errors["job.payCell"] = "validation.required";
-    if (j.payLevel && j.payCell && j.payCell > cellCount(j.payLevel)) errors["job.payCell"] = "employees.errors.noSuchCell";
+    if (j.payLevel && !matrix[j.payLevel]) errors["job.payLevel"] = "validation.invalid";
+    else if (j.payLevel && j.payCell && j.payCell > matrix[j.payLevel].length) errors["job.payCell"] = "employees.errors.noSuchCell";
   }
   if (isWageType(j.type)) {
     if (j.wageRate === null || j.wageRate === undefined) errors["job.wageRate"] = "validation.required";

@@ -68,7 +68,7 @@ export function ChallanDialog({ months, initialMonth }: { months: { month: strin
           </>
         }
       >
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Select label={t("statutory.tds.forMonth")} value={form.month} onChange={(e) => setForm({ ...form, month: e.target.value, ...split(months.find((m) => m.month === e.target.value)?.due ?? 0) })} error={errors.month} containerClassName="sm:col-span-2">
             {months.map((m) => (
               <option key={m.month} value={m.month}>

@@ -196,7 +196,7 @@ function doc(body: string) {
     .net b { font-size: 16pt; } .words { margin: 6px 0 10px; font-weight: 600; }
     h3 { font-size: 10pt; color: #0f432e; margin: 14px 0 4px; }
     .extra { margin-top: 12px; display: grid; gap: 4px; } .extra b { color: #0f432e; } .warn { color: #b91c1c; font-weight: 600; }
-    footer { margin-top: 18px; font-size: 8pt; color: #6b7a72; }
+    footer { margin-top: 18px; font-size: 8pt; color: #56645d; }
   </style></head><body>${body}</body></html>`;
 }
 

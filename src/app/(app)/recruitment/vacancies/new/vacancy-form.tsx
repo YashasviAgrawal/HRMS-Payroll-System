@@ -11,11 +11,11 @@ import { ApiError, api } from "@/lib/http";
 import { useI18n } from "@/lib/i18n/client";
 import { formatINR } from "@/lib/money";
 import { cn } from "@/lib/utils";
-import { basicPay } from "@/modules/payroll/matrix-7cpc";
+import { basicIn, type MatrixLevels } from "@/modules/payroll/matrix-7cpc";
 import { RESERVATION_CATEGORIES } from "@/modules/recruitment/schema";
 import { msg, type Option, type PostOption } from "../../../employees/_components/fields";
 
-export function VacancyForm({ sections, posts }: { sections: Option[]; posts: PostOption[] }) {
+export function VacancyForm({ sections, posts, payMatrix }: { sections: Option[]; posts: PostOption[]; payMatrix: MatrixLevels }) {
   const { t, locale } = useI18n();
   const toast = useToast();
   const router = useRouter();
@@ -58,7 +58,7 @@ export function VacancyForm({ sections, posts }: { sections: Option[]; posts: Po
   return (
     <Card>
       <CardBody className="space-y-5">
-        <div className="grid gap-5 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <Select label={t("common.section")} value={v.sectionId} onChange={(e) => { setAvailable(null); setV({ ...v, sectionId: e.target.value }); }} error={msg(t, errors.sectionId)} required>
             <option value="">—</option>
             {sections.map((s) => (
@@ -79,7 +79,7 @@ export function VacancyForm({ sections, posts }: { sections: Option[]; posts: Po
         {v.sectionId && v.postId && available !== null && (
           <p className={cn("flex items-center gap-2 rounded-lg px-3 py-2 text-sm", available > 0 ? "bg-brand-50 text-brand-800" : "bg-red-50 text-red-700")}>
             <Info className="size-4" aria-hidden="true" /> {t("recruitment.available", { count: available })}
-            {post && ` · ${t("employees.level", { level: post.payLevel })} · ${formatINR(basicPay(post.payLevel, 1))}`}
+            {post && ` · ${t("employees.level", { level: post.payLevel })} · ${formatINR(basicIn(payMatrix, post.payLevel, 1))}`}
           </p>
         )}
         <Input label={t("recruitment.seats")} type="number" min={1} value={v.seats} onChange={(e) => setV({ ...v, seats: Number(e.target.value) })} error={msg(t, errors.seats)} containerClassName="sm:max-w-[10rem]" required />
@@ -94,7 +94,7 @@ export function VacancyForm({ sections, posts }: { sections: Option[]; posts: Po
             {msg(t, errors.reservation) ?? t("recruitment.reservationHint")} ({total}/{v.seats})
           </p>
         </fieldset>
-        <div className="grid gap-5 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
           <Input label={t("recruitment.advertNumber")} value={v.advertNumber} onChange={(e) => setV({ ...v, advertNumber: e.target.value })} optionalLabel={t("common.optional")} />
           <Input label={t("recruitment.advertDate")} type="date" value={v.advertDate} onChange={(e) => setV({ ...v, advertDate: e.target.value })} optionalLabel={t("common.optional")} />
           <Input label={t("recruitment.lastDate")} type="date" value={v.lastDate} onChange={(e) => setV({ ...v, lastDate: e.target.value })} error={msg(t, errors.lastDate)} optionalLabel={t("common.optional")} />

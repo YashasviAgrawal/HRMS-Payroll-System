@@ -39,7 +39,7 @@ export default async function StatutoryFilesPage({ searchParams }: { searchParam
       ) : (
         <>
           <PeriodPicker options={data.months.slice(0, 12)} active={data.month} href={(m) => `/statutory/files?month=${m}`} label={t("statutory.files.pickMonth")} format={(m) => formatMonth(m, locale)} />
-          <div className="grid gap-5 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
             {data.cards.map((c) => (
               <Card key={c.kind} className="flex flex-col" data-testid={`card-${c.kind}`}>
                 <CardHeader

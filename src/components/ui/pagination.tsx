@@ -35,7 +35,7 @@ export function Pagination({
             <ChevronLeft className="size-4" /> {labels.previous}
           </Link>
         ) : (
-          <span className={cn(linkCls, "pointer-events-none opacity-50")}>
+          <span className={cn(linkCls, "pointer-events-none opacity-50")} aria-disabled="true">
             <ChevronLeft className="size-4" /> {labels.previous}
           </span>
         )}
@@ -44,7 +44,7 @@ export function Pagination({
             {labels.next} <ChevronRight className="size-4" />
           </Link>
         ) : (
-          <span className={cn(linkCls, "pointer-events-none opacity-50")}>
+          <span className={cn(linkCls, "pointer-events-none opacity-50")} aria-disabled="true">
             {labels.next} <ChevronRight className="size-4" />
           </span>
         )}

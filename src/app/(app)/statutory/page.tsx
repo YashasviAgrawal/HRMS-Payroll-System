@@ -32,7 +32,7 @@ export default async function StatutoryPage() {
     <div>
       <PageHeader title={t("statutory.title")} description={t("statutory.subtitle")} />
       <StatutoryTabs active="calendar" t={t} />
-      <div className="mb-5 grid gap-4 sm:grid-cols-3">
+      <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatTile label={t("statutory.calendar.overdue")} value={overdue.length} tone={overdue.length ? "red" : "gray"} icon={<AlarmClock className="size-4.5" aria-hidden="true" />} />
         <StatTile label={t("statutory.calendar.dueWeek")} value={week.length} tone={week.length ? "amber" : "gray"} icon={<CalendarClock className="size-4.5" aria-hidden="true" />} />
         <StatTile label={t("statutory.calendar.done")} value={done.length} tone="green" icon={<CircleCheck className="size-4.5" aria-hidden="true" />} />

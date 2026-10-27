@@ -95,7 +95,7 @@ export function NewRequest({ employeeId, startOpen }: { employeeId: string; star
         )}
         {kind === "mobile" && <Input label={t("profile.newMobile")} value={mobile} inputMode="numeric" onChange={(e) => setMobile(e.target.value)} error={msg(t, errors.mobile)} containerClassName="sm:max-w-sm" />}
         {kind === "bank" && (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input label={t("employees.fields.bankAccount")} value={bank.bankAccount} inputMode="numeric" onChange={(e) => setBank({ ...bank, bankAccount: e.target.value })} error={msg(t, errors.bankAccount)} required />
             <Input label={t("employees.fields.ifsc")} value={bank.ifsc} onChange={(e) => setBank({ ...bank, ifsc: e.target.value.toUpperCase() })} error={msg(t, errors.ifsc)} required />
             <Input label={t("employees.fields.bankName")} value={bank.bankName} onChange={(e) => setBank({ ...bank, bankName: e.target.value })} />

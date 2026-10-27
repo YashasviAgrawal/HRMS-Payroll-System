@@ -46,7 +46,7 @@ export function ArrearsForm({ from, to, max }: { from: string; to: string; max: 
 
   return (
     <div className="space-y-5">
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Input label={t("pension.arrears.from")} type="month" max={max} value={form.fromMonth} onChange={(e) => setForm({ ...form, fromMonth: e.target.value })} error={errors.fromMonth} required />
         <Input label={t("pension.arrears.to")} type="month" max={max} value={form.toMonth} onChange={(e) => setForm({ ...form, toMonth: e.target.value })} error={errors.toMonth} required />
         <Input label={t("pension.arrears.reason")} hint={t("pension.arrears.reasonHelp")} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} error={errors.reason} maxLength={200} />

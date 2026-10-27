@@ -26,10 +26,10 @@ export function statPage(opts: { title: string; subtitle?: string; meta: [string
     tr { page-break-inside: avoid; }
     .n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
     .tot td { background: #e3f5ea; font-weight: 700; } .sub td { background: #f6faf8; }
-    .muted { color: #6b7a72; } .small { font-size: 8pt; }
+    .muted { color: #56645d; } .small { font-size: 8pt; }
     .keep { break-inside: avoid; page-break-inside: avoid; }
     .sign { margin-top: 26px; display: flex; justify-content: flex-end; } .sign div { min-width: 220px; border-top: 1px solid #9aa8a1; padding-top: 4px; font-size: 8.5pt; }
-    footer { margin-top: 18px; display: flex; justify-content: space-between; font-size: 7.5pt; color: #6b7a72; }
+    footer { margin-top: 18px; display: flex; justify-content: space-between; font-size: 7.5pt; color: #56645d; }
   </style></head><body>
     <header>${logo ? `<img src="${logo}" alt="">` : ""}<div><h1>${esc(opts.title)}</h1>${opts.subtitle ? `<p>${esc(opts.subtitle)}</p>` : ""}</div></header>
     <div class="meta">${opts.meta.map(([k, v]) => `<span>${esc(k)}: <b>${esc(v)}</b></span>`).join("")}</div>

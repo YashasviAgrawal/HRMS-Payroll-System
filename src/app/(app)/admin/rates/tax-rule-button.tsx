@@ -93,7 +93,7 @@ export function TaxRuleButton({ fy, regime, rules }: { fy: string; regime: Regim
             {t("statutory.rules.addSlab")}
           </Button>
         </fieldset>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input label={t("statutory.rules.standardDeduction")} inputMode="numeric" value={form.standardDeduction} onChange={(e) => setForm({ ...form, standardDeduction: e.target.value })} error={errors.standardDeduction} />
           <Input label={t("statutory.rules.cessPct")} inputMode="decimal" value={form.cessPercent} onChange={(e) => setForm({ ...form, cessPercent: e.target.value })} error={errors.cessPercent} />
           <Input label={t("statutory.rules.rebateLimit")} inputMode="numeric" value={form.rebateIncomeLimit} onChange={(e) => setForm({ ...form, rebateIncomeLimit: e.target.value })} error={errors.rebateIncomeLimit} />

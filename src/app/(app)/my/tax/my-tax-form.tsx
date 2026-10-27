@@ -120,7 +120,7 @@ export function MyTaxForm(p: MyTaxProps) {
       <Card>
         <CardHeader title={t("statutory.my.regimeTitle")} description={t("statutory.my.regimeHelp")} icon={<Scale className="size-4.5" aria-hidden="true" />} />
         <CardBody>
-          <div role="radiogroup" aria-label={t("statutory.my.regimeTitle")} className="grid gap-3 sm:grid-cols-2">
+          <div role="radiogroup" aria-label={t("statutory.my.regimeTitle")} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {(["NEW", "OLD"] as Regime[]).map((r) => (
               <button
                 key={r}
@@ -147,7 +147,7 @@ export function MyTaxForm(p: MyTaxProps) {
       {regime === "OLD" && (
         <Card>
           <CardHeader title={t("statutory.my.itemsTitle")} description={t("statutory.my.itemsHelp")} icon={<FileText className="size-4.5" aria-hidden="true" />} />
-          <CardBody className="grid gap-4 sm:grid-cols-2">
+          <CardBody className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {OLD_ITEMS.map((k) => (
               <Input
                 key={k}
@@ -166,7 +166,7 @@ export function MyTaxForm(p: MyTaxProps) {
 
       <Card>
         <CardHeader title={t("statutory.my.otherTitle")} icon={<FileText className="size-4.5" aria-hidden="true" />} />
-        <CardBody className="grid gap-4 sm:grid-cols-2">
+        <CardBody className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input label={t("statutory.tax.items.otherIncome")} inputMode="decimal" value={items.otherIncome} onChange={(e) => setItems({ ...items, otherIncome: e.target.value.replace(/[^\d.]/g, "") })} error={errors.otherIncome} leading="₹" />
         </CardBody>
       </Card>

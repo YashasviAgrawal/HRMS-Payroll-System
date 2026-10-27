@@ -25,3 +25,10 @@ export const conflict = (key: TKey, vars?: Record<string, string | number>, fiel
   new AppError(409, "conflict", key, vars, fields);
 export const tooMany = (key: TKey = "errors.rateLimited", vars?: Record<string, string | number>) =>
   new AppError(429, "too_many", key, vars);
+
+/** Too many requests from one address or session; the reply carries Retry-After. */
+export class RateLimitError extends AppError {
+  constructor(public readonly retryAfterS: number) {
+    super(429, "rate_limited", "errors.rateLimited");
+  }
+}

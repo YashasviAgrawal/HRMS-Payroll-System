@@ -7,7 +7,7 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 
 | # | Module | Status |
 |---|--------|--------|
-| 1 | Foundation & platform | 🟢 Done & verified (2 items carried to later modules, see PLAN.md) |
+| 1 | Foundation & platform | 🟢 Done & verified (document storage built in Module 2, email in Module 7) |
 | 2 | Employee master | 🟢 Done & verified |
 | 3 | Recruitment & onboarding | 🟢 Done & verified |
 | 4 | Attendance & holidays | 🟢 Done & verified |
@@ -16,13 +16,68 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 | 7 | Pay changes, arrears, loans & salary slips | 🟢 Done & verified |
 | 8 | Statutory & tax | 🟢 Done & verified (24Q / CRA / ECR / ESIC layouts to check with one real upload — PRD §18) |
 | 9 | Pension | 🟢 Done & verified (rules and the PPO layout to confirm for DCB — PRD §10, §18) |
-| 10 | Reports, dashboards, migration & go-live | 🟡 In progress — reports, dashboards and the migration console done; hardening and go-live next |
+| 10 | Reports, dashboards, migration & go-live | 🟢 Done & verified (go-live steps for the Board's IT cell in [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)) |
 
 🟢 Done & verified · 🟡 In progress · ⚪ Pending
 
 ---
 
 ## Change log (newest first)
+
+### 2026-10-27 — Module 10 (part 3): hardening, accessibility, performance and the deployment guide ✅
+**Built**
+- Security (PRD §16): a Content Security Policy on every screen with a fresh nonce per request (scripts run only from
+  the site and only with the nonce — no `unsafe-inline` or `unsafe-eval` for scripts; `frame-ancestors 'none'`,
+  `object-src 'none'`, `upgrade-insecure-requests` on HTTPS) and HSTS on HTTPS; COOP, CORP and
+  `X-Permitted-Cross-Domain-Policies` added to the existing headers; every API reply is `no-store` (personal data does
+  not stay in a shared office PC's cache). Zod no longer tests for `eval` in the browser, so the policy is never broken.
+- Rate limits: 600 sign-in requests per address in 10 minutes (the whole office reaches the server from one address)
+  and 300 requests per session per minute, answered with `429` and `Retry-After` — on top of the per-login limits
+  (5 wrong passwords, 5 OTPs in 10 minutes, 5 tries per OTP).
+- The client address in the audit trail and the limits is the one the Board's reverse proxy added to
+  `X-Forwarded-For` (`TRUSTED_PROXY_HOPS`), never a value the browser typed; the biometric device route uses it too.
+- Dependencies: Prisma 7.10.1 (fixes the CLI's advisories); exceljs' old `uuid` pinned to 11.1.1; `npm audit` clean.
+- Backups: `backup.sh` writes files readable by the backup user only and a checksum that works from any folder;
+  `restore.sh` refuses a backup without its checksum.
+- `GET /api/v1/health` for the load balancer and monitoring (200 / 503, no sign-in, nothing given away).
+- `scripts/load-test.mjs`: the 200-user check the Board can repeat on its test copy (refuses production).
+- The seed decides demo data by `APP_ENV` (never in production, whatever `NODE_ENV` says; `SEED_DEMO=0` leaves it out
+  of a test copy).
+- Accessibility (GIGW 3.0 / WCAG 2.1 AA): text colours darkened so all secondary text passes 4.5:1 on every light
+  surface (grey and gold tokens, no faded "opacity" text — inactive rows get a tint instead); wide tables that really
+  overflow join the Tab order so the keyboard can scroll them; clickable rows now carry a real link in their first
+  cell (announced by screen readers, reached by Tab, opened by Enter or a middle-click); the profile header is a valid
+  description list; disabled paging is marked `aria-disabled`; every responsive grid starts from one shrinkable column
+  and the migration console's fixed widths apply from tablet width up, so nothing scrolls sideways at 320 px.
+- Bugs found by sweeping every screen with every login: a retired employee now drawing a pension, and HR logins
+  without the tax right, got a server error on `/my/tax` (now the friendly "no access" page, and the tab is hidden);
+  a pending life-certificate task linked from a pensioner's page crashed for logins that cannot open it (the link is
+  shown only to those who can; the task page answers "no access" instead of an error).
+- Employee and recruitment screens read the dated pay matrix in force (Rates & rules) instead of the built-in 7th CPC
+  table: Basic on the record, the level and cell pickers, the employee list's level filter, the Checker's summary,
+  the vacancy entry pay, the appointment letter (matrix in force on the letter's date) and the PRAN registration file.
+  A new commission's levels are accepted; a cell the matrix does not have is refused.
+- Deployment guide (`docs/DEPLOYMENT.md`): NIC MeghRaj / MeitY cloud sizing, the production, test and training copies,
+  server preparation, NIC / NPL time, PostgreSQL with WAL archiving for the one-hour point, configuration and key
+  custody, systemd (two processes, rolling restarts), nginx, nightly encrypted backups and restore, 180-day logs,
+  CERT-In reporting, the go-live checklist and the security controls for the auditor.
+
+**Verified**
+- axe (WCAG 2.1 A + AA rules): 128 screens across all logins and their detail pages — 0 violations; no Content Security
+  Policy violation on any of them.
+- Reflow: 88 screens at 320 px and at 640 px (1280 px at 200% zoom) — none scrolls sideways.
+- Every link each login can see, followed (2,036 pages, 15 logins) — 0 server errors after the two fixes above.
+- 200 people at once for 90 s on one Node process (demo data): 8,531 pages, 0 errors, median 82 ms, 95% under 328 ms,
+  99% under 497 ms. With no pauses at all (a stress test): 105 pages a second, 0 errors, 95% under 3.2 s.
+- Page loads in Chromium throttled to "slow 4G" (150 ms, 1.6 Mbit/s) with the CPU 4× slower: first page 2.4–2.8 s,
+  later pages 0.3–0.9 s; on ordinary 4G every page under 0.7 s.
+- Full payroll for 1,675 staff and 1,255 pensioners (a scaled copy): worked out and saved in 1.7 s for all four pay
+  groups; the 938-person NPS pay register PDF in 1.1 s.
+- Backup → restore drill: the demo database (3,673 rows) and 905 stored files restored with identical counts and
+  checksums.
+- Browser checks: WCAG scans of the main screens per login (with a keyboard-only row opening), the 320-px check, the
+  security headers and nonce, the health check (55 browser checks in all); typecheck, lint, 376 unit + integration
+  tests, production build.
 
 ### 2026-10-27 — Module 10 (part 2): FoxPro migration console (S-90) ✅
 **Built**
@@ -487,12 +542,14 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 ---
 
 ## Pending / next up
-- Module 10: hardening (security headers, rate limits, backup and restore, a 200-user performance check), the
-  accessibility pass (GIGW 3.0 / WCAG 2.1 AA) and the deployment guide.
-- Carried items: employee screens still show Basic from the built-in 7th CPC table (payroll and fixation read the dated
-  matrix) — one switch in Module 10 hardening; dev-tool audit items (Module 10); a mid-year cut-over also needs the
-  old system's GPF subscriptions for 80C (the carry-in holds salary and TDS) and its 24Q deductee rows for the cut-over
-  quarter.
+Release 1 is built. What remains is the Board's, before go-live (details in [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)):
+- The PRD §18 open questions (headcount, salary bank and its file format, e-Chhawani layout, DCB-specific allowances,
+  biometric devices, Hindi typing method, audit retention) and the real logo at `public/brand/logo.png`.
+- One real upload of each statutory file (24Q through the FVU, CRA, ECR, ESIC) and the bank file with the Board's bank.
+- The security audit by a CERT-In-empanelled auditor on the test copy; the migration rehearsal and three parallel-run
+  months (§15) on the test copy; then the cut-over.
+- A mid-year cut-over also needs the old system's GPF subscriptions for 80C (the carry-in holds salary and TDS) and its
+  24Q deductee rows for the cut-over quarter.
 
 ## Decisions taken (and why)
 | # | Decision | Reason |
@@ -556,9 +613,23 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 | D-58 | HR & Accounts menus already hold 8 items (§13), so the console opens from a Home tile until the cut-over; Admin and the User & settings manager have room for a menu item | Keeps the 8-item rule |
 | D-59 | Kruti Dev 010 → Unicode is built in (pure, tested), offered automatically when a Hindi-name column looks like Kruti Dev; tables are read as Windows-1252 | §15 step 2 names Kruti Dev; no external converter to install on a government server |
 | D-60 | The full data export is the Admin's, logged, without sign-in secrets; encrypted identity numbers stay encrypted | §16 data ownership without opening a hole in §2 rule 3 |
+| D-61 | Content Security Policy with a per-request nonce set in the proxy (scripts: `'self' 'nonce-…' 'strict-dynamic'`); styles allow inline `style` attributes | Next.js nonce guidance; injected scripts never run. Inline style attributes (bar widths) cannot run code, and nonces do not cover attributes on older Android browsers |
+| D-62 | Rate limits kept in memory per process, generous per address (600 sign-in requests / 10 min) and per session (300 / min) | One app server per copy; the office shares one public address; the real sign-in guards stay per login |
+| D-63 | The client address is read `TRUSTED_PROXY_HOPS` entries from the right of `X-Forwarded-For` | The left part is whatever the browser sent; the audit trail must not be fooled |
+| D-64 | Secondary text colours darkened at the token level (ink-400/500, gold-600) instead of per screen; faded rows use a tint, not opacity | One change makes every screen pass 4.5:1; opacity lowers contrast below AA |
+| D-65 | A clickable row carries a real link in its first cell (or keeps the link it has); the row itself is no longer a Tab stop | Screen readers announce a link, not a "row"; no link inside a link; one Tab stop per row |
+| D-66 | Screens and letters read the dated pay matrix in force (letters: on the letter's date); the built-in 7th CPC table is only the fallback before any matrix is stored | One source of truth with payroll (D-24); a new pay commission needs no code change |
+| D-67 | The seed loads demo data by `APP_ENV` and never in production | `NODE_ENV` is often unset on a server shell; production must never get demo people |
+| D-68 | Performance measured on one Node process; the guide runs two per copy behind nginx | Headroom for the payroll window (25th–1st) and rolling restarts without downtime |
 | D-08 | Delhi Cantt logo could not be downloaded from inside the build environment (network policy). A placeholder emblem sits at `public/brand/logo.svg`; drop the real logo at the same path | — |
 
 ## Known gaps / risks
+- Rate limits live in each Node process's memory (two processes = the limit applies per process); a restart clears
+  them. Enough for one Board; a shared store would be needed for many servers.
+- Accessibility was checked with axe (WCAG 2.1 A/AA rules), keyboard runs and reflow at 320 / 640 px; a manual screen
+  reader pass (NVDA / TalkBack) in Hindi and English by the GIGW auditor is still advised before go-live.
+- Performance was measured with the demo data and a scaled copy (1,675 staff, 1,255 pensioners) on the build machine;
+  repeat `scripts/load-test.mjs` on the Board's test copy and hardware.
 - Migration: only Kruti Dev 010 is converted (other legacy Hindi fonts would need their own table); old binary .XLS
   files are kept but not read (save them as .xlsx or CSV); the parallel run compares regular bills; arrears pending at
   the cut-over are paid through a PR-08 supplementary bill after it, not loaded; for GPF interest a cut-over on 1 April

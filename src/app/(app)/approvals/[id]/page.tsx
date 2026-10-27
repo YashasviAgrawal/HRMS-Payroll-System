@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowUpRight, Clock, UserRound } from "lucide-react";
+import { notFound } from "next/navigation";
+import { NoAccess } from "@/components/no-access";
 import { Badge } from "@/components/ui/badge";
 import { LinkButton } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
@@ -9,6 +11,7 @@ import { Table, Td, Th, THead, Tr } from "@/components/ui/table";
 import { decisionBlocker, getTask } from "@/lib/approvals";
 import type { ApprovalDetails } from "@/lib/approvals/details";
 import { requireActor } from "@/lib/auth/session";
+import { AppError } from "@/lib/errors";
 import { formatDateTime } from "@/lib/dates";
 import { tDynamic } from "@/lib/i18n";
 import { getT } from "@/lib/i18n/server";
@@ -22,7 +25,13 @@ export default async function ApprovalDetailPage({ params }: { params: Promise<{
   const actor = await requireActor();
   const { t, locale } = await getT();
   const { id } = await params;
-  const { task, mayDecide } = await getTask(actor, id);
+  const found = await getTask(actor, id).catch((e: unknown) => {
+    if (e instanceof AppError && e.status === 404) notFound();
+    if (e instanceof AppError && e.status === 403) return null;
+    throw e;
+  });
+  if (!found) return <NoAccess />;
+  const { task, mayDecide } = found;
   const details = (task.details ?? {}) as ApprovalDetails;
   const blocker = task.status === "PENDING" ? decisionBlocker(actor, task) : null;
   const hasOld = details.rows?.some((r) => r.old !== undefined && r.old !== null);

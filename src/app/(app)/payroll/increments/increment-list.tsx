@@ -89,7 +89,7 @@ export function IncrementList({ due, rows, canSend, tooEarly, sendAheadDays }: {
         </THead>
         <tbody>
           {rows.map((r) => (
-            <Tr key={r.employeeId} className={r.status === "NOT_YET" || r.status === "DONE" ? "opacity-70" : undefined}>
+            <Tr key={r.employeeId} className={r.status === "NOT_YET" || r.status === "DONE" ? "bg-ink-50/70" : undefined}>
               {canSend && (
                 <Td actions>
                   {r.status === "ELIGIBLE" && !r.isSelf && <input type="checkbox" aria-label={`${r.code} ${r.name}`} className="accent-brand-700" checked={picked.has(r.employeeId)} onChange={() => toggle(r.employeeId)} />}

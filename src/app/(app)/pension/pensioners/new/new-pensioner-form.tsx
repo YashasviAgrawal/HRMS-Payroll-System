@@ -45,7 +45,7 @@ export function NewPensionerForm({ people }: { people: { id: string; label: stri
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <Select label={t("pension.newPensioner.employee")} hint={t("pension.newPensioner.employeeHelp")} value={form.employeeId} onChange={(e) => pick(e.target.value)} error={errors.employeeId} required containerClassName="sm:col-span-2">
         <option value="">{t("pension.choose")}</option>
         {people.map((p) => (

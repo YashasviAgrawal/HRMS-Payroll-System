@@ -202,7 +202,7 @@ export async function SlipScreen({ actor, runId, slipId, base }: { actor: Actor;
         </Card>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         {block(t("payroll.kinds.EARNING"), s.earnings, s.gross)}
         <div className="grid content-start gap-5">
           {block(t("payroll.kinds.DEDUCTION"), s.deductions, s.totalDeductions)}

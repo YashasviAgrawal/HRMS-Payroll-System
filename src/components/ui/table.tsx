@@ -1,14 +1,15 @@
 import { cn } from "@/lib/utils";
+import { ScrollArea } from "./scroll-area";
 
 /**
- * Data table. Keyboard-first (PRD §16): rows that open something are focusable and respond to Enter.
+ * Data table. Keyboard-first (PRD §16): a row that opens something carries a link in its first cell (Tab, Enter).
  * Wide tables scroll inside their card, never the whole page.
  */
 export function Table({ className, children, stack }: { className?: string; children: React.ReactNode; stack?: boolean }) {
   return (
-    <div className={cn("scrollbar-thin relative overflow-x-auto", stack && "stack-table", className)}>
+    <ScrollArea className={cn(stack && "stack-table", className)}>
       <table className="w-full border-separate border-spacing-0 text-left text-sm">{children}</table>
-    </div>
+    </ScrollArea>
   );
 }
 
@@ -64,10 +65,9 @@ export function Tr({ className, children, interactive, ...rest }: React.HTMLAttr
     <tr
       className={cn(
         "transition-colors last:[&>td]:border-b-0",
-        interactive && "cursor-pointer hover:bg-brand-50/40 focus-visible:bg-brand-50/60 focus-visible:outline-none",
+        interactive && "cursor-pointer hover:bg-brand-50/40 focus-within:bg-brand-50/60",
         className,
       )}
-      tabIndex={interactive ? 0 : undefined}
       {...rest}
     >
       {children}

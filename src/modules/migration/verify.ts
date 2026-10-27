@@ -181,7 +181,7 @@ export async function verificationSheetPdf(actor: Actor, employeeId: string) {
     th { background: #edfaf2; color: #115136; width: 34%; font-weight: 600; } .hi { color: #4f5d56; font-weight: 400; }
     h2 { font-size: 11pt; color: #0f432e; margin: 16px 0 4px; } .box { margin-top: 14px; padding: 10px; border: 1px solid #9aa8a1; border-radius: 6px; }
     .signs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 34px; font-size: 9pt; } .signs div { border-top: 1px solid #9aa8a1; padding-top: 4px; }
-    footer { margin-top: 18px; font-size: 8pt; color: #6b7a72; }
+    footer { margin-top: 18px; font-size: 8pt; color: #56645d; }
   </style></head><body>
     <header>${logo ? `<img src="${logo}" alt="">` : ""}<div><h1>${esc(board.name)} · ${esc(board.nameHi)}</h1><p>Record check before the new system starts · नई प्रणाली शुरू होने से पहले रिकॉर्ड की जाँच</p></div></header>
     <table>${rows.map(([en, hi, v]) => `<tr><th>${esc(en)} <span class="hi">/ ${esc(hi)}</span></th><td>${esc(v)}</td></tr>`).join("")}</table>

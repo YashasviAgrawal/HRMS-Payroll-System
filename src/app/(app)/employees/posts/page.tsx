@@ -19,7 +19,7 @@ export default async function PostsPage() {
   return (
     <div>
       <PageHeader breadcrumbs={[{ label: t("employees.title"), href: "/employees" }, { label: t("employees.postsPage.title") }]} title={t("employees.postsPage.title")} description={t("employees.postsPage.subtitle")} />
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile label={t("employees.postsPage.sanctioned")} value={total.s} tone="blue" />
         <StatTile label={t("employees.postsPage.filled")} value={total.f} tone="green" />
         <StatTile label={t("employees.postsPage.vacant")} value={total.v} tone="amber" />

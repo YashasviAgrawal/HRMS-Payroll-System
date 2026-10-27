@@ -51,7 +51,7 @@ export async function leaveLedgerPdf(actor: Actor, employeeId: string) {
     header p { margin: 0; color: #4f5d56; }
     .who { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 18px; margin: 12px 0 6px; font-size: 9.5pt; }
     .who b { color: #0f432e; }
-    h2 { font-size: 11pt; margin: 16px 0 6px; color: #0f432e; } h2 small { color: #6b7a72; font-weight: 500; }
+    h2 { font-size: 11pt; margin: 16px 0 6px; color: #0f432e; } h2 small { color: #56645d; font-weight: 500; }
     table { width: 100%; border-collapse: collapse; page-break-inside: auto; table-layout: fixed; }
     th:nth-child(1) { width: 14%; } th:nth-child(2) { width: 17%; } th:nth-child(3) { width: 36%; } th:nth-child(4), th:nth-child(5), th:nth-child(6) { width: 11%; }
     td:first-child { white-space: nowrap; }
@@ -59,7 +59,7 @@ export async function leaveLedgerPdf(actor: Actor, employeeId: string) {
     th { background: #edfaf2; font-size: 8.5pt; color: #115136; }
     tr { page-break-inside: avoid; }
     .n { text-align: right; font-variant-numeric: tabular-nums; } .b { font-weight: 600; }
-    footer { margin-top: 26px; display: flex; justify-content: space-between; font-size: 8.5pt; color: #6b7a72; }
+    footer { margin-top: 26px; display: flex; justify-content: space-between; font-size: 8.5pt; color: #56645d; }
     .sign { margin-top: 40px; text-align: right; font-weight: 600; }
   </style></head><body>
     <header>${logo ? `<img src="${logo}" alt="">` : ""}<div><h1>${esc(board.name)} · <span lang="hi">${esc(board.nameHi)}</span></h1><p>Leave account · <span lang="hi">अवकाश लेखा</span></p></div></header>

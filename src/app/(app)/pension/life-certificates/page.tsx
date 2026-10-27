@@ -46,7 +46,7 @@ export default async function LifeCertificatesPage({ searchParams }: { searchPar
             <div className="flex flex-wrap gap-1 rounded-xl bg-ink-100 p-1" role="group">
               {FILTERS.map((f) => (
                 <Link key={f} href={`/pension/life-certificates?lc=${f}`} aria-current={filter === f ? "page" : undefined} className={cn("rounded-lg px-3 py-1.5 text-xs font-semibold", filter === f ? "bg-white text-brand-800 shadow-card" : "text-ink-600 hover:text-ink-900")}>
-                  {tDynamic(t, `pension.lc.filter.${f}`)} <span className="tabular text-ink-400">{counts[f]}</span>
+                  {tDynamic(t, `pension.lc.filter.${f}`)} <span className="tabular text-ink-500">{counts[f]}</span>
                 </Link>
               ))}
             </div>

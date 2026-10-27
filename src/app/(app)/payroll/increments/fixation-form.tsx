@@ -67,7 +67,7 @@ export function FixationForm({ employees, posts, levels, canSend }: { employees:
   return (
     <Card>
       <CardHeader title={t("payroll.fixation.title")} description={t("payroll.fixation.help")} icon={<Scale className="size-4.5" aria-hidden="true" />} />
-      <CardBody className="grid gap-4 sm:grid-cols-2">
+      <CardBody className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Select label={t("payroll.items.employee")} value={form.employeeId} onChange={(e) => set({ employeeId: e.target.value })} error={errors.employeeId} containerClassName="sm:col-span-2" required>
           <option value="">{t("payroll.items.pick")}</option>
           {employees.map((e) => (
@@ -112,7 +112,7 @@ export function FixationForm({ employees, posts, levels, canSend }: { employees:
         <Input label={t("payroll.fixation.effectiveFrom")} type="date" value={form.effectiveFrom} onChange={(e) => set({ effectiveFrom: e.target.value })} error={errors.effectiveFrom} required />
         <fieldset className="sm:col-span-2">
           <legend className="mb-2 text-sm font-medium text-ink-800">{t("payroll.fixation.option")}</legend>
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {(["FROM_PROMOTION", "FROM_NEXT_INCREMENT"] as const).map((o) => (
               <label key={o} className={cn("flex cursor-pointer gap-3 rounded-xl border px-4 py-3", form.option === o ? "border-brand-500 bg-brand-50/50" : "border-ink-200 hover:border-ink-300")}>
                 <input type="radio" name="option" className="mt-1 accent-brand-700" checked={form.option === o} onChange={() => set({ option: o })} />

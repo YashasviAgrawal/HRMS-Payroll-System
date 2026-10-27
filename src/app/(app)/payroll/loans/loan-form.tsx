@@ -59,7 +59,7 @@ export function LoanForm({ employees, startMonth }: { employees: { id: string; l
   return (
     <Card>
       <CardHeader title={t("payroll.loans.sanction")} description={t("payroll.loans.sanctionHelp")} icon={<HandCoins className="size-4.5" aria-hidden="true" />} />
-      <CardBody className="grid gap-4 sm:grid-cols-3">
+      <CardBody className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Select label={t("payroll.items.employee")} value={form.employeeId} onChange={(e) => set({ employeeId: e.target.value })} error={errors.employeeId} containerClassName="sm:col-span-2" required>
           <option value="">{t("payroll.items.pick")}</option>
           {employees.map((e) => (

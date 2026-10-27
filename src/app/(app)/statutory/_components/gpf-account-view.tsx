@@ -19,7 +19,7 @@ export function GpfAccountView({ a, t, locale, href }: { a: Account; t: TFunctio
   const y = a.year;
   return (
     <div className="space-y-5">
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatTile label={t("statutory.gpf.balance")} value={formatINR(a.balance)} hint={a.employee.gpfNumber ?? undefined} icon={<Wallet className="size-4.5" aria-hidden="true" />} />
         <StatTile label={t("statutory.gpf.interestSoFar")} value={formatINR(y.interestCredited || y.interest)} hint={t("statutory.gpf.rateNow", { rate: a.rate })} tone="blue" />
         <StatTile label={t("statutory.gpf.creditedThisYear")} value={formatINR(y.credits)} hint={y.debits ? `${t("statutory.gpf.debits")}: ${formatINR(y.debits)}` : undefined} tone="gray" />

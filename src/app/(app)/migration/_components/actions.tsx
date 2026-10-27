@@ -177,12 +177,12 @@ export function MappingEditor(props: {
             const m = map[f.key] ?? { column: null };
             return (
               <Tr key={f.key}>
-                <Td label={t("migration.map.field")} className="whitespace-nowrap font-medium text-ink-900">
+                <Td label={t("migration.map.field")} className="font-medium text-ink-900 sm:whitespace-nowrap">
                   {props.labels[f.key] ?? f.key}
                   {f.required && <span className="ml-0.5 text-red-600" aria-hidden="true">*</span>}
                 </Td>
                 <Td label={t("migration.map.column")}>
-                  <select aria-label={`${props.labels[f.key] ?? f.key} — ${t("migration.map.column")}`} disabled={ro} value={m.column ?? ""} onChange={(e) => setField(f.key, { column: e.target.value || null })} className={controlClass(false, "h-9 min-w-[10rem]")}>
+                  <select aria-label={`${props.labels[f.key] ?? f.key} — ${t("migration.map.column")}`} disabled={ro} value={m.column ?? ""} onChange={(e) => setField(f.key, { column: e.target.value || null })} className={controlClass(false, "h-9 min-w-0 max-w-full sm:min-w-[10rem]")}>
                     <option value="">{t("migration.map.none")}</option>
                     {columns.map((c) => (
                       <option key={c} value={c}>
@@ -194,7 +194,7 @@ export function MappingEditor(props: {
                 <Td label={t("migration.map.howToRead")}>
                   {m.column ? (
                     f.hindi ? (
-                      <select aria-label={t("migration.map.howToRead")} disabled={ro} value={m.transform ?? "none"} onChange={(e) => setField(f.key, { transform: e.target.value as FieldMap["transform"] })} className={controlClass(false, "h-9 w-auto")}>
+                      <select aria-label={t("migration.map.howToRead")} disabled={ro} value={m.transform ?? "none"} onChange={(e) => setField(f.key, { transform: e.target.value as FieldMap["transform"] })} className={controlClass(false, "h-9 w-auto min-w-0 max-w-full")}>
                         <option value="none">{t("migration.map.asIs")}</option>
                         <option value="kruti">{t("migration.map.kruti")}</option>
                       </select>
@@ -206,7 +206,7 @@ export function MappingEditor(props: {
                       <span className="text-sm text-ink-500">{tDynamic(t, `migration.kinds.${f.kind}`)}</span>
                     )
                   ) : f.list ? (
-                    <select aria-label={t("migration.map.sameForAll")} disabled={ro} value={m.constant ?? ""} onChange={(e) => setField(f.key, { constant: e.target.value || null })} className={controlClass(false, "h-9 w-auto")}>
+                    <select aria-label={t("migration.map.sameForAll")} disabled={ro} value={m.constant ?? ""} onChange={(e) => setField(f.key, { constant: e.target.value || null })} className={controlClass(false, "h-9 w-auto min-w-0 max-w-full")}>
                       <option value="">{t("migration.map.sameForAll")}…</option>
                       {(props.lists[f.list] ?? []).map((v) => (
                         <option key={v} value={v}>
@@ -215,7 +215,7 @@ export function MappingEditor(props: {
                       ))}
                     </select>
                   ) : (
-                    <input aria-label={t("migration.map.sameForAll")} disabled={ro} value={m.constant ?? ""} onChange={(e) => setField(f.key, { constant: e.target.value || null })} placeholder={t("migration.map.sameForAll")} className={controlClass(false, "h-9 w-full min-w-[8rem]")} />
+                    <input aria-label={t("migration.map.sameForAll")} disabled={ro} value={m.constant ?? ""} onChange={(e) => setField(f.key, { constant: e.target.value || null })} placeholder={t("migration.map.sameForAll")} className={controlClass(false, "h-9 w-full min-w-0 sm:min-w-[8rem]")} />
                   )}
                   {f.list && values[f.key] && (
                     <div className="mt-3 space-y-2 rounded-lg bg-ink-50 p-3" data-testid={`codes-${f.key}`}>
@@ -225,7 +225,7 @@ export function MappingEditor(props: {
                           <span className="min-w-[6rem] font-mono text-ink-800">{v.value}</span>
                           <span className="text-xs text-ink-400">({v.rows})</span>
                           <span aria-hidden="true">→</span>
-                          <select disabled={ro} value={codes[f.list!]?.[v.value] ?? ""} onChange={(e) => setCodes((c) => ({ ...c, [f.list!]: { ...(c[f.list!] ?? {}), [v.value]: e.target.value } }))} className={controlClass(false, "h-8 w-auto")}>
+                          <select disabled={ro} value={codes[f.list!]?.[v.value] ?? ""} onChange={(e) => setCodes((c) => ({ ...c, [f.list!]: { ...(c[f.list!] ?? {}), [v.value]: e.target.value } }))} className={controlClass(false, "h-8 w-auto min-w-0 max-w-full")}>
                             <option value="">—</option>
                             {(props.lists[f.list!] ?? []).map((a) => (
                               <option key={a} value={a}>
@@ -247,14 +247,14 @@ export function MappingEditor(props: {
       {wide && (
         <div className="space-y-2">
           <p className="text-sm font-medium text-ink-800">{t("migration.map.wideColumns")}</p>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {columns
               .filter((c) => c !== map.employeeCode?.column)
               .map((c) => (
                 <label key={c} className="flex items-center gap-2 text-sm">
                   <span className="min-w-[6rem] font-mono">{c}</span>
                   <span aria-hidden="true">→</span>
-                  <select disabled={ro} value={codes.head?.[c] ?? ""} onChange={(e) => setCodes((x) => ({ ...x, head: { ...(x.head ?? {}), [c]: e.target.value } }))} className={controlClass(false, "h-8 w-auto")}>
+                  <select disabled={ro} value={codes.head?.[c] ?? ""} onChange={(e) => setCodes((x) => ({ ...x, head: { ...(x.head ?? {}), [c]: e.target.value } }))} className={controlClass(false, "h-8 w-auto min-w-0 max-w-full")}>
                     <option value="">{t("migration.map.notAHead")}</option>
                     {(props.lists.head ?? []).map((h) => (
                       <option key={h} value={h}>
@@ -268,7 +268,7 @@ export function MappingEditor(props: {
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {props.optionKeys.includes("asOn") && <Input type="date" label={t("migration.map.asOn")} hint={t("migration.map.asOnHint")} value={options.asOn ?? ""} disabled={ro} onChange={(e) => setOptions({ ...options, asOn: e.target.value })} required />}
         {props.optionKeys.includes("fy") && <Input label={t("migration.map.fy")} placeholder="2026-27" value={options.fy ?? ""} disabled={ro} onChange={(e) => setOptions({ ...options, fy: e.target.value })} />}
         {props.optionKeys.includes("layout") && (
@@ -376,7 +376,7 @@ export function IssueActions({ issueKey, rowId, column, value, note }: { issueKe
       </div>
     );
   return (
-    <div className="min-w-[16rem] space-y-2">
+    <div className="w-full space-y-2 sm:min-w-[16rem]">
       {mode === "fix" ? (
         <Input label={t("migration.issues.newValue", { column: column ?? "" })} value={text} onChange={(e) => setText(e.target.value)} autoFocus />
       ) : (
@@ -510,7 +510,7 @@ export function ParallelRunForm({ tables, defaultMonth }: { tables: { id: string
   return (
     <div className="flex flex-wrap items-end gap-3">
       <Input type="month" label={t("migration.parallel.month")} value={month} onChange={(e) => setMonth(e.target.value)} containerClassName="w-44" />
-      <Select label={t("migration.parallel.file")} value={fileId} onChange={(e) => setFileId(e.target.value)} containerClassName="min-w-[14rem]">
+      <Select label={t("migration.parallel.file")} value={fileId} onChange={(e) => setFileId(e.target.value)} containerClassName="w-full sm:w-auto sm:min-w-[14rem]">
         {tables.map((f) => (
           <option key={f.id} value={f.id}>
             {f.tableName} ({f.liveCount})
@@ -530,7 +530,7 @@ export function DiffExplain({ id, note }: { id: string; note: string | null }) {
   const [text, setText] = useState(note ?? "");
   if (!open) return note ? <p className="text-sm text-ink-700">{note}</p> : <Button size="sm" variant="subtle" onClick={() => setOpen(true)}>{t("migration.issues.explain")}</Button>;
   return (
-    <div className="min-w-[16rem] space-y-2">
+    <div className="w-full space-y-2 sm:min-w-[16rem]">
       <Textarea label={t("migration.issues.why")} value={text} onChange={(e) => setText(e.target.value)} rows={2} autoFocus />
       <div className="flex gap-2">
         <Button size="sm" variant="primary" loading={busy} onClick={async () => (await run(() => api(`/api/v1/migration/parallel/diffs/${id}`, { method: "PUT", body: { note: text } }), t("migration.issues.explained"))) && setOpen(false)}>

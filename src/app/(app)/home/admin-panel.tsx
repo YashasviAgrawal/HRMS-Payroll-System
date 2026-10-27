@@ -20,7 +20,7 @@ export function AdminPanel({ panel, t, locale }: { panel: Panel; t: TFunction; l
   const max = Math.max(1, ...panel.headcount.map((h) => h.count));
   const total = panel.headcount.reduce((a, h) => a + h.count, 0);
   return (
-    <section aria-label={t("home.boardAtAGlance")} className="grid items-start gap-5 lg:grid-cols-3">
+    <section aria-label={t("home.boardAtAGlance")} className="grid grid-cols-1 items-start gap-5 lg:grid-cols-3">
       <Card>
         <CardHeader title={t("home.headcountByType")} description={t("home.onRollsTotal", { n: total })} icon={<Users className="size-4.5" aria-hidden="true" />} actions={more("/reports/headcount", t("home.seeReport"))} />
         <ul className="space-y-3.5 px-5 py-5 sm:px-6">

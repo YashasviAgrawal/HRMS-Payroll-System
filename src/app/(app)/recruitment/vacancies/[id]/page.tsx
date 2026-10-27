@@ -11,7 +11,8 @@ import { formatDate, todayIST, toISODate } from "@/lib/dates";
 import { tDynamic } from "@/lib/i18n";
 import { getT } from "@/lib/i18n/server";
 import { formatINR } from "@/lib/money";
-import { basicPay } from "@/modules/payroll/matrix-7cpc";
+import { matrixToday } from "@/modules/payroll/compute";
+import { basicIn } from "@/modules/payroll/matrix-7cpc";
 import { RESERVATION_CATEGORIES } from "@/modules/recruitment/schema";
 import { getVacancy } from "@/modules/recruitment/service";
 import { ApplicantsPanel, VacancyActions } from "./vacancy-client";
@@ -24,7 +25,7 @@ export default async function VacancyPage({ params }: { params: Promise<{ id: st
   const { t, locale } = await getT();
   const { id } = await params;
   const v = await getVacancy(actor, id);
-  const [post, section] = await Promise.all([db.post.findUniqueOrThrow({ where: { id: v.postId } }), db.section.findUniqueOrThrow({ where: { id: v.sectionId } })]);
+  const [post, section, matrix] = await Promise.all([db.post.findUniqueOrThrow({ where: { id: v.postId } }), db.section.findUniqueOrThrow({ where: { id: v.sectionId } }), matrixToday(actor.boardId, db)]);
   const reservation = v.reservation as Record<string, number>;
   const canCreate = canAll(actor, "recruitment", "create");
   const canJoin = canAll(actor, "employee_master", "create");
@@ -47,7 +48,7 @@ export default async function VacancyPage({ params }: { params: Promise<{ id: st
         }
       />
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader title={t("common.details")} icon={<Megaphone className="size-4.5" aria-hidden="true" />} />
           <CardBody>
@@ -55,7 +56,7 @@ export default async function VacancyPage({ params }: { params: Promise<{ id: st
               columns={3}
               items={[
                 { label: t("common.post"), value: `${locale === "hi" ? post.nameHi : post.name} · ${t("employees.level", { level: v.payLevel })}` },
-                { label: t("employees.fields.basicPay"), value: formatINR(basicPay(v.payLevel, 1)) },
+                { label: t("employees.fields.basicPay"), value: formatINR(basicIn(matrix, v.payLevel, 1)) },
                 { label: t("recruitment.seats"), value: v.seats },
                 { label: t("recruitment.advertNumber"), value: v.advertNumber ?? "—" },
                 { label: t("recruitment.advertDate"), value: formatDate(v.advertDate, locale) },

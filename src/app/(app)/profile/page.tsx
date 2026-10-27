@@ -67,7 +67,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
           <ChangePasswordForm needsCurrent={Boolean(user.passwordHash) && !user.mustChangePassword} />
         </Card>
 
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <Card>
             <CardHeader title={t("profile.changeMobile")} description={t("profile.mobileOtpHint")} icon={<Smartphone className="size-4.5" aria-hidden="true" />} />
             <ChangeMobileForm />

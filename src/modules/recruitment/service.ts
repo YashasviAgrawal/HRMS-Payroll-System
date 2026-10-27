@@ -9,7 +9,8 @@ import type { Actor } from "@/lib/auth/session";
 import { db, type Tx } from "@/lib/db";
 import { addDays, addYears, formatDate, fromISODate, todayIST, toISODate } from "@/lib/dates";
 import { badRequest, conflict, forbidden, notFound } from "@/lib/errors";
-import { basicPay } from "@/modules/payroll/matrix-7cpc";
+import { matrixToday } from "@/modules/payroll/compute";
+import { basicIn } from "@/modules/payroll/matrix-7cpc";
 import { vacantCount } from "@/modules/employees/records";
 import { fieldLabel, fullName, maskedIds } from "@/modules/employees/present";
 import { createEmployee } from "@/modules/employees/service";
@@ -86,12 +87,12 @@ export async function getVacancy(actor: Actor, id: string) {
   return v;
 }
 
-function vacancyDetails(v: { seats: number; reservation: unknown; advertNumber: string | null; lastDate: Date | null; payLevel: string }, section: string, post: string): ApprovalDetails {
+function vacancyDetails(v: { seats: number; reservation: unknown; advertNumber: string | null; lastDate: Date | null; payLevel: string }, section: string, post: string, entryPay: number | null): ApprovalDetails {
   const r = v.reservation as Record<string, number>;
   return {
     link: undefined,
     rows: [
-      { label: "Post", labelHi: "पद", new: `${post} — Level ${v.payLevel} (₹${basicPay(v.payLevel, 1)?.toLocaleString("en-IN")})` },
+      { label: "Post", labelHi: "पद", new: `${post} — Level ${v.payLevel} (₹${entryPay?.toLocaleString("en-IN")})` },
       { label: "Section", labelHi: "अनुभाग", new: section },
       { label: "Seats", labelHi: "सीटें", new: String(v.seats) },
       { label: "Reservation", labelHi: "आरक्षण", new: RESERVATION_CATEGORIES.filter((c) => r[c]).map((c) => `${c} ${r[c]}`).join(" · ") },
@@ -138,7 +139,7 @@ export async function createVacancy(actor: Actor, raw: unknown) {
       kind: "vacancy.approve",
       title: `Vacancy ${vacancy.referenceNo}: ${input.seats} × ${post.name}`,
       titleHi: `रिक्ति ${vacancy.referenceNo}: ${input.seats} × ${post.nameHi}`,
-      details: { ...vacancyDetails(vacancy, section.name, post.name), link: `/recruitment/vacancies/${vacancy.id}`, summary: `Vacant sanctioned posts available: ${available}.` },
+      details: { ...vacancyDetails(vacancy, section.name, post.name, basicIn(await matrixToday(actor.boardId, tx), post.payLevel, 1)), link: `/recruitment/vacancies/${vacancy.id}`, summary: `Vacant sanctioned posts available: ${available}.` },
       payload: { vacancyId: vacancy.id },
       entityType: "Vacancy",
       entityId: vacancy.id,
@@ -508,7 +509,7 @@ export async function completeJoining(actor: Actor, joiningId: string) {
           { ...fieldLabel("postId"), new: `${e.post.name} — ${e.section.name}` },
           { ...fieldLabel("dateOfJoining"), new: formatDate(toISODate(e.dateOfJoining)) },
           e.payLevel
-            ? { label: "Initial pay", labelHi: "प्रारंभिक वेतन", new: `Level ${e.payLevel}, Cell ${e.payCell} — ₹${basicPay(e.payLevel, e.payCell)?.toLocaleString("en-IN")}` }
+            ? { label: "Initial pay", labelHi: "प्रारंभिक वेतन", new: `Level ${e.payLevel}, Cell ${e.payCell} — ₹${basicIn(await matrixToday(actor.boardId, db), e.payLevel, e.payCell)?.toLocaleString("en-IN")}` }
             : { label: "Wage", labelHi: "मज़दूरी", new: `₹${Number(e.wageRate).toLocaleString("en-IN")} ${e.wageBasis === "DAILY" ? "per day" : "per month"}` },
           ...(j.applicant?.appointmentLetterNo ? [{ label: "Appointment letter", labelHi: "नियुक्ति पत्र", new: j.applicant.appointmentLetterNo }] : []),
           { ...fieldLabel("pan"), new: masked.pan, reveal: "pan" as const },

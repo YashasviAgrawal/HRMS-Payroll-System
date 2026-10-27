@@ -56,12 +56,12 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
         <MonthNav month={data.month} hrefFor={(m) => `/payroll?month=${m}`} maxMonth={thisMonth} locale={locale} labels={{ prev: t("payroll.prevMonth"), next: t("payroll.nextMonth") }} />
       </div>
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-2">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <StatTile label={t("payroll.monthNet")} value={formatINR(monthNet)} icon={<Wallet className="size-5" aria-hidden="true" />} hint={formatMonth(data.month, locale)} />
         <StatTile label={t("payroll.peoplePaid")} value={monthPeople} icon={<Users className="size-5" aria-hidden="true" />} tone="blue" />
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         {data.groups.map(({ group, run }) => {
           const stage = stageIndex(run?.status ?? null);
           return (

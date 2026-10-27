@@ -21,6 +21,8 @@ const schema = z.object({
   SMS_PROVIDER: z.enum(["console", "http"]).default("console"),
   STORAGE_DIR: z.string().default("./storage"),
   CHROMIUM_PATH: z.string().optional(),
+  /** Reverse proxies in front of the app that add to X-Forwarded-For (nginx = 1). */
+  TRUSTED_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(1),
 });
 
 export type Env = z.infer<typeof schema>;

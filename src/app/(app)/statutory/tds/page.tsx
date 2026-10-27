@@ -99,7 +99,7 @@ export default async function TdsPage({ searchParams }: { searchParams: Promise<
       </Card>
 
       <h2 className="mb-3 mt-7 text-base font-semibold text-ink-900">{t("statutory.tds.quarters")}</h2>
-      <div className="grid gap-5 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         {data.quarters.map((q) => (
           <Card key={q.quarter} className="flex flex-col" data-testid={`quarter-${q.quarter}`}>
             <CardHeader

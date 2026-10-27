@@ -104,7 +104,7 @@ async function pdf(ran: RanReport, locale: Locale, actor: Actor) {
     .red td { background: #fdecec; } .amber td { background: #fef6e4; }
     .tot td { background: #e3f5ea; font-weight: 700; }
     .links { margin-top: 10px; font-size: 0.95em; color: #4f5d56; }
-    footer { margin-top: 14px; display: flex; justify-content: space-between; font-size: 7pt; color: #6b7a72; }
+    footer { margin-top: 14px; display: flex; justify-content: space-between; font-size: 7pt; color: #56645d; }
   </style></head><body>
     <header>${logo ? `<img src="${logo}" alt="">` : ""}<div><h1>${esc(locale === "hi" ? board.nameHi : board.name)}</h1><p>${esc(reportTitle(t, ran.def.no))}</p></div></header>
     <p class="meta">${esc(await filterLine(ran, t, locale))}</p>

@@ -116,7 +116,7 @@ export function EditPensionerButton({ p }: { p: EditablePensioner }) {
           </>
         }
       >
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input label={t("pension.fields.payee")} value={form.payeeName} onChange={set("payeeName")} error={errors.payeeName} required maxLength={120} />
           <Input label={t("pension.fields.payeeHi")} value={form.payeeNameHi} onChange={set("payeeNameHi")} error={errors.payeeNameHi} maxLength={120} lang="hi" />
           <Input label={t("pension.fields.mobile")} value={form.mobile} onChange={set("mobile")} error={errors.mobile} inputMode="numeric" maxLength={10} />
@@ -215,7 +215,7 @@ export function DeathButton({ pensionerId, family }: { pensionerId: string; fami
           </>
         }
       >
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input label={t("pension.death.date")} type="date" value={form.dateOfDeath} onChange={(e) => suggest(e.target.value)} error={errors.dateOfDeath} required />
           <Input label={t("pension.death.note")} hint={t("pension.death.noteHelp")} value={form.note} onChange={set("note")} error={errors.note} required maxLength={300} />
           <div className="sm:col-span-2">
