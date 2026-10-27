@@ -5,7 +5,7 @@ import { formatINR, fromPaise, toPaise } from "@/lib/money";
 import type { ArrearMonth } from "@/modules/payroll/arrears";
 import { titleOf } from "@/modules/payroll/compute";
 import type { PayLine } from "@/modules/payroll/engine";
-import { loanPosition } from "@/modules/payroll/loan-rules";
+import { loanPosition, loanTermsOf } from "@/modules/payroll/loan-rules";
 import { linesOf, nameOf, previous, salarySlips, sectionNames, sectionOf, type SalarySlip } from "./common";
 import { PAID, num, type Col, type ReportDef, type ReportFilters, type Row } from "./types";
 import { shiftMonth } from "@/lib/dates";
@@ -334,7 +334,7 @@ export const PAYROLL_REPORTS: ReportDef[] = [
       ]);
       const rows: Row[] = [];
       for (const l of loans) {
-        const terms = { principal: num(l.principal), interestRate: num(l.interestRate), instalmentAmount: num(l.instalmentAmount), startMonth: l.startMonth };
+        const terms = loanTermsOf(l);
         const rec = l.recoveries.filter((r) => r.month <= f.month).map((r) => ({ month: r.month, principal: num(r.principal), interest: num(r.interest) }));
         // The position after the chosen month's recovery: what the next month starts from.
         const pos = loanPosition(terms, rec, shiftMonth(f.month, 1));

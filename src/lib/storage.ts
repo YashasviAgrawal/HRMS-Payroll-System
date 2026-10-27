@@ -8,7 +8,7 @@ import { env } from "./env";
  * File storage for uploaded documents and generated files. Keys are always generated here
  * ("<area>/<yyyy>/<mm>/<random>.<ext>"), so a key can never point outside the storage folder.
  */
-export type FileKind = "pdf" | "png" | "jpg" | "xlsx" | "csv" | "txt" | "zip";
+export type FileKind = "pdf" | "png" | "jpg" | "xlsx" | "csv" | "txt" | "zip" | "bin";
 
 const MIME: Record<FileKind, string> = {
   pdf: "application/pdf",
@@ -18,6 +18,7 @@ const MIME: Record<FileKind, string> = {
   csv: "text/csv",
   txt: "text/plain",
   zip: "application/zip",
+  bin: "application/octet-stream",
 };
 
 export const mimeOf = (kind: FileKind) => MIME[kind];

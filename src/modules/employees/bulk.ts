@@ -17,7 +17,7 @@ import { ACTIVE_STATUSES, createEmployee } from "./service";
  * EM-10: bulk upload from an Excel template, for the FoxPro migration and for new batches.
  * Nothing is saved unless every row is correct; the batch then goes to a Checker as one approval.
  */
-const COLUMNS: { key: string; header: string; width: number; required?: boolean; note?: string }[] = [
+export const BULK_COLUMNS: { key: string; header: string; width: number; required?: boolean; note?: string }[] = [
   { key: "employeeCode", header: "Employee ID", width: 14, note: "Leave empty for new staff. Fill the old FoxPro ID when migrating." },
   { key: "firstName", header: "First name", width: 16, required: true },
   { key: "middleName", header: "Middle name", width: 14 },
@@ -59,12 +59,12 @@ export async function buildTemplate(actor: Actor): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
   wb.creator = "DCB HRMS";
   const sheet = wb.addWorksheet("Employees", { views: [{ state: "frozen", ySplit: 1 }] });
-  sheet.columns = COLUMNS.map((c) => ({ header: c.required ? `${c.header} *` : c.header, key: c.key, width: c.width }));
+  sheet.columns = BULK_COLUMNS.map((c) => ({ header: c.required ? `${c.header} *` : c.header, key: c.key, width: c.width }));
   sheet.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
   sheet.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF116541" } };
   sheet.getRow(1).alignment = { wrapText: true, vertical: "middle" };
   sheet.getRow(1).height = 34;
-  COLUMNS.forEach((c, i) => {
+  BULK_COLUMNS.forEach((c, i) => {
     if (c.note) sheet.getCell(1, i + 1).note = c.note;
     // Identity numbers and dates are typed as text so Excel does not turn them into numbers.
     sheet.getColumn(i + 1).numFmt = "@";
@@ -148,10 +148,33 @@ export async function checkBulkFile(actor: Actor, buffer: Buffer) {
   }
   const sheet = wb.getWorksheet("Employees") ?? wb.worksheets[0];
   if (!sheet) throw badRequest("employees.errors.notExcel");
+  const entries: { row: number; v: Record<string, string> }[] = [];
+  sheet.eachRow((row, rowNumber) => {
+    if (rowNumber === 1) return;
+    const v: Record<string, string> = {};
+    BULK_COLUMNS.forEach((c, i) => (v[c.key] = cellText(row.getCell(i + 1).value)));
+    if (!Object.values(v).some(Boolean)) return;
+    if (v.firstName === "Ramesh" && v.lastName === "Kumar" && v.mobile === "9876543210") return; // the example row
+    entries.push({ row: rowNumber, v });
+  });
+  return checkBulkValues(actor, entries);
+}
+
+/**
+ * The EM-10 checks on rows already read (from the template, or mapped from the old system by the migration console):
+ * codes, dates, the employee schema and cross-checks, duplicates within the batch and against people on the rolls.
+ */
+export async function checkBulkValues(actor: Actor, entries: { row: number; v: Record<string, string> }[]) {
+  if (!canAll(actor, "employee_master", "create")) throw forbidden();
+  return bulkChecks(actor.boardId, entries);
+}
+
+/** The checks alone, for callers that have checked access themselves (the migration console shows them to its Checker). */
+export async function bulkChecks(boardId: string, entries: { row: number; v: Record<string, string> }[]) {
   const [sections, posts, codes] = await Promise.all([
-    db.section.findMany({ where: { boardId: actor.boardId } }),
-    db.post.findMany({ where: { boardId: actor.boardId } }),
-    db.employee.findMany({ where: { boardId: actor.boardId, employeeCode: { not: null } }, select: { employeeCode: true } }),
+    db.section.findMany({ where: { boardId } }),
+    db.post.findMany({ where: { boardId } }),
+    db.employee.findMany({ where: { boardId, employeeCode: { not: null } }, select: { employeeCode: true } }),
   ]);
   const sectionByCode = new Map(sections.map((s) => [s.code.toUpperCase(), s]));
   const postByCode = new Map(posts.map((p) => [p.code.toUpperCase(), p]));
@@ -159,12 +182,8 @@ export async function checkBulkFile(actor: Actor, buffer: Buffer) {
   const seen = { pan: new Map<string, number>(), aadhaar: new Map<string, number>(), bank: new Map<string, number>(), code: new Map<string, number>() };
 
   const rows: BulkRow[] = [];
-  sheet.eachRow((row, rowNumber) => {
-    if (rowNumber === 1) return;
-    const v: Record<string, string> = {};
-    COLUMNS.forEach((c, i) => (v[c.key] = cellText(row.getCell(i + 1).value)));
-    if (!Object.values(v).some(Boolean)) return;
-    if (v.firstName === "Ramesh" && v.lastName === "Kumar" && v.mobile === "9876543210") return; // the example row
+  for (const { row: rowNumber, v: given } of entries) {
+    const v: Record<string, string> = Object.fromEntries(BULK_COLUMNS.map((c) => [c.key, (given[c.key] ?? "").trim()]));
     const errors: string[] = [];
     const section = sectionByCode.get(v.sectionCode.toUpperCase());
     const post = postByCode.get(v.postCode.toUpperCase());
@@ -173,7 +192,7 @@ export async function checkBulkFile(actor: Actor, buffer: Buffer) {
     const dates: Record<string, string | null> = {};
     for (const k of ["dateOfBirth", "dateOfJoining", "contractStart", "contractEnd"]) {
       dates[k] = parseSheetDate(v[k]);
-      if (dates[k] === "invalid") errors.push(`${COLUMNS.find((c) => c.key === k)!.header}: ${msg("validation.date")}`);
+      if (dates[k] === "invalid") errors.push(`${BULK_COLUMNS.find((c) => c.key === k)!.header}: ${msg("validation.date")}`);
     }
     const code = v.employeeCode ? v.employeeCode.toUpperCase() : null;
     if (code) {
@@ -213,14 +232,14 @@ export async function checkBulkFile(actor: Actor, buffer: Buffer) {
     if (!parsed.success) {
       for (const issue of parsed.error.issues) {
         const field = String(issue.path.at(-1) ?? "");
-        const label = COLUMNS.find((c) => c.key === field)?.header ?? field;
+        const label = BULK_COLUMNS.find((c) => c.key === field)?.header ?? field;
         const text = lookup(en, issue.message) ?? msg(issue.code === "invalid_type" || issue.code === "invalid_value" ? "validation.invalid" : "validation.invalid");
         errors.push(`${label}: ${text}`);
       }
     } else {
       for (const [k, m] of Object.entries(crossCheck(parsed.data.personal, parsed.data.job, parsed.data.ids))) {
         const field = k.split(".").pop()!;
-        errors.push(`${COLUMNS.find((c) => c.key === field)?.header ?? field}: ${msg(m)}`);
+        errors.push(`${BULK_COLUMNS.find((c) => c.key === field)?.header ?? field}: ${msg(m)}`);
       }
       const ids = parsed.data.ids;
       for (const [kind, value] of [["pan", ids.pan], ["aadhaar", ids.aadhaar], ["bank", ids.bankAccount]] as const) {
@@ -231,13 +250,13 @@ export async function checkBulkFile(actor: Actor, buffer: Buffer) {
       }
     }
     rows.push({ row: rowNumber, name: [v.firstName, v.lastName].filter(Boolean).join(" ") || "—", employeeCode: code, errors, input: parsed.success ? parsed.data : undefined });
-  });
+  }
 
   // Duplicates against people already on the rolls.
   const hashes = { pan: [...seen.pan.keys()].map((x) => blindIndex("pan", x)), aadhaar: [...seen.aadhaar.keys()].map((x) => blindIndex("aadhaar", x)), bank: [...seen.bank.keys()].map((x) => blindIndex("bank", x)) };
   const clashes = await db.employee.findMany({
     where: {
-      boardId: actor.boardId,
+      boardId,
       status: { in: [...ACTIVE_STATUSES] },
       OR: [{ panHash: { in: hashes.pan } }, { aadhaarHash: { in: hashes.aadhaar } }, { bankAccountHash: { in: hashes.bank } }],
     },
@@ -262,6 +281,12 @@ export async function submitBulk(actor: Actor, buffer: Buffer, fileName: string)
   const rows = await checkBulkFile(actor, buffer);
   if (!rows.length) throw badRequest("employees.errors.notExcel");
   if (rows.some((r) => r.errors.length)) throw badRequest("employees.bulk.fixAndRetry");
+  return submitBulkRows(actor, rows, fileName);
+}
+
+/** Checked rows saved as drafts, sent to a Checker as one batch; approval issues every Employee ID. */
+export async function submitBulkRows(actor: Actor, rows: BulkRow[], fileName: string, opts: { source?: "migration" } = {}) {
+  if (!rows.length || rows.some((r) => r.errors.length || !r.input)) throw badRequest("employees.bulk.fixAndRetry");
   return db.$transaction(
     async (tx) => {
       const ids: string[] = [];
@@ -277,6 +302,7 @@ export async function submitBulk(actor: Actor, buffer: Buffer, fileName: string)
           summary: "Open the employee list (status: waiting for check) to look at the records. Approving issues Employee IDs to all of them.",
           summaryHi: "रिकॉर्ड देखने के लिए कर्मचारी सूची (स्थिति: जाँच के लिए लंबित) खोलें। स्वीकृति पर सभी को कर्मचारी आईडी मिलेगी।",
           link: "/employees?status=DRAFT",
+          ...(opts.source ? { source: opts.source } : {}),
           rows: rows.slice(0, 50).map((r) => ({ label: `Row ${r.row}`, new: `${r.name}${r.employeeCode ? ` (${r.employeeCode})` : ""}` })),
         },
         payload: { employeeIds: ids },

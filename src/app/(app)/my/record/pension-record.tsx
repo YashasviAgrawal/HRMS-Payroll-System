@@ -6,12 +6,14 @@ import { formatDate } from "@/lib/dates";
 import { tDynamic } from "@/lib/i18n";
 import { getT } from "@/lib/i18n/server";
 import { formatINR } from "@/lib/money";
+import { ownRecordState } from "@/modules/migration/verify";
 import { pensionerProfile } from "@/modules/pension/pensioners";
+import { ConfirmMyRecord } from "../../migration/_components/actions";
 
 /** PN-12: a pensioner's own record — the pension, how it is paid, the service it comes from, and the family. */
 export async function PensionRecord({ actor }: { actor: Actor }) {
   const { t, locale } = await getT();
-  const d = await pensionerProfile(actor, actor.pensionerId!);
+  const [d, confirm] = await Promise.all([pensionerProfile(actor, actor.pensionerId!), ownRecordState(actor)]);
   const p = d.pensioner;
   const hi = locale === "hi";
   return (
@@ -21,6 +23,11 @@ export async function PensionRecord({ actor }: { actor: Actor }) {
         <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
         <p>{t("pension.my.changeHow")}</p>
       </div>
+      {confirm && (
+        <div className="mb-5">
+          <ConfirmMyRecord confirmedAt={confirm.confirmedAt} changeHref={null} />
+        </div>
+      )}
       <div className="grid gap-5 lg:grid-cols-2">
         <Card>
           <CardHeader title={t("pension.profile.pensionNow")} icon={<Landmark className="size-4.5" aria-hidden="true" />} />

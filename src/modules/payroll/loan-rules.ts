@@ -12,6 +12,15 @@ export interface LoanTerms {
   interestRate: number;
   instalmentAmount: number;
   startMonth: string;
+  /** Interest already owed when the loan was brought from the old system (§15 step 8). */
+  openingInterest?: number;
+}
+
+const amount = (v: unknown) => (v === null || v === undefined ? 0 : Number(v));
+
+/** The terms of a saved loan (Decimal fields as numbers). */
+export function loanTermsOf(l: { principal: unknown; interestRate: unknown; instalmentAmount: unknown; startMonth: string; openingInterest?: unknown }): LoanTerms {
+  return { principal: amount(l.principal), interestRate: amount(l.interestRate), instalmentAmount: amount(l.instalmentAmount), startMonth: l.startMonth, openingInterest: amount(l.openingInterest) };
 }
 
 export interface Recovered {
@@ -51,7 +60,7 @@ export function loanPosition(terms: LoanTerms, recovered: Recovered[], month: st
       outstanding -= byMonth.get(m) ?? 0;
     }
   }
-  const interestTotal = roundPaiseToRupee(accrued);
+  const interestTotal = roundPaiseToRupee(accrued) + toPaise(terms.openingInterest ?? 0);
   const interestLeft = Math.max(0, interestTotal - paidInterest);
   const instalment = toPaise(terms.instalmentAmount);
   const started = month >= terms.startMonth;

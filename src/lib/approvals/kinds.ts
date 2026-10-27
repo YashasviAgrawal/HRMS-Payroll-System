@@ -8,3 +8,4 @@ import "@/modules/leave/approvals";
 import "@/modules/payroll/approvals";
 import "@/modules/statutory/approvals";
 import "@/modules/pension/approvals";
+import "@/modules/migration/approvals";

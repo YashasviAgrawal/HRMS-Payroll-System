@@ -16,13 +16,68 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 | 7 | Pay changes, arrears, loans & salary slips | 🟢 Done & verified |
 | 8 | Statutory & tax | 🟢 Done & verified (24Q / CRA / ECR / ESIC layouts to check with one real upload — PRD §18) |
 | 9 | Pension | 🟢 Done & verified (rules and the PPO layout to confirm for DCB — PRD §10, §18) |
-| 10 | Reports, dashboards, migration & go-live | 🟡 In progress — reports and dashboards done; migration console, hardening and go-live next |
+| 10 | Reports, dashboards, migration & go-live | 🟡 In progress — reports, dashboards and the migration console done; hardening and go-live next |
 
 🟢 Done & verified · 🟡 In progress · ⚪ Pending
 
 ---
 
 ## Change log (newest first)
+
+### 2026-10-27 — Module 10 (part 2): FoxPro migration console (S-90) ✅
+**Built**
+- The ten steps of PRD §15 in one console (HR & Accounts open it from Home — their menus are full; Admin and the User &
+  settings manager have a menu item):
+  1–3 Files: every file from the old system is kept byte for byte with its SHA-256 (the frozen copy can be downloaded,
+  its checksum checked on the way out); FoxPro tables (.DBF with their .FPT memo files) are read without any outside
+  library — character, numeric, date, logical, memo, integer, currency and datetime fields — and CSV and Excel files
+  too; rows are staged one by one with deleted rows kept apart; the count must equal what FoxPro says the table holds;
+  index (.CDX) and program (.PRG) files are kept for the record; the same file twice is not kept twice.
+  4 Map: a mapping sheet per target (employees, leave balances, GPF balances, loans, tax paid this year, pensioners,
+  monthly pay totals, the parallel-run pay sheet), filled in first from common FoxPro column names, with code lists
+  (employee types, sections, posts, loan and pension kinds, pay codes), a value for every row where a column is missing,
+  a row filter, and Kruti Dev 010 → Unicode for Hindi names (spotted automatically); Accounts signs each sheet off and
+  any change clears it.
+  5–6 Clean: every problem is listed — dates written any FoxPro way (31/02/2016 caught), amounts with commas, codes not
+  matched, the EM-10 employee checks, duplicate identity numbers, people past the retirement age still on the payroll,
+  leave over its cap, GPF for non-OPS staff, TDS above salary, PPO twice, bank / IFSC / mobile — and is fixed (the
+  cleaned value is kept beside FoxPro's original) or explained in writing.
+  7 Verify: HR compares each record with the paper service book (a printed sheet to sign for people who do not use the
+  system); each person confirms their own record on My record (or "something is wrong" → a change request); a Checker
+  locks records that were compared and confirmed (never their own).
+  8 Load: employees as one EM-10 batch (FoxPro IDs kept), leave balances as one LV-06 opening batch, GPF balances,
+  loans (with interest already owed), tax paid outside the system and pensioners (with a former-employee record where
+  none exists, bank numbers sealed before they enter the approval) as one migration batch each — all through a
+  Checker; rows already loaded are never loaded again.
+  9 Parallel run: FoxPro's monthly pay sheet (one row per person and head, or one column per head) against this
+  system's bills; every difference over ₹1 per person and head is listed and explained; explanations survive a re-run
+  when the difference is unchanged; three explained months in a row count.
+  10 Cut-over: when all six checks pass and are signed, three parallel months are explained, every record is locked and
+  no load waits, HR & Accounts asks and the Admin approves; the console then becomes read-only.
+- §15 checks table, each worked out from the data and signed by the people the PRD names (only while it passes; the
+  figures are kept with the signature): record counts (Checker), money totals for the last 12 months against FoxPro's
+  own printed totals (Payroll + Admin), GPF closing balances against the ledger (Payroll), each pensioner's basic
+  pension and DR against the last pension paid (Pension), duplicates among active staff (Admin), exceptions fixed or
+  explained and loaded (Admin, final).
+- §16 data ownership: the Admin downloads everything the system holds as one CSV and one JSON file per table in a ZIP;
+  passwords, sessions and OTPs are never included; Aadhaar, PAN and bank numbers stay encrypted; logged.
+- Loans gained "interest already owed" (recovered after the principal like the rest); EM-10's checks and batch are
+  shared with the console; the last "coming soon" placeholder is gone (unknown pages are a 404 after sign-in).
+
+**Verified**
+- Unit tests: 20 Kruti Dev names (राकेश कुमार शर्मा, प्रिया, शर्मा, कर्मचारी, धर्मेन्द्र, विद्यालय …), the DBF reader
+  with memos and deleted rows, refusal of non-tables.
+- Integration tests (11): a DBF staged with its deleted row; the suggested sheet (EMPNO, NAME split into parts, HNAME
+  as Kruti Dev); a bad date cleaned and a past-retirement flag explained; employees loaded through the Checker and not
+  loaded twice; GPF ₹2,45,000 (from "2,45,000.00"), an HBA loan with ₹1,250 interest owed, tax paid, leave balances and a
+  pensioner with a Kruti Dev name loaded through Checkers; the six checks (and a ₹2 money-total mismatch failing); a
+  parallel month with a ₹50 DA difference and a person paid only by FoxPro explained (50 paise ignored); records
+  compared, confirmed and locked; the cut-over turning the console read-only; the export without secrets.
+- Browser checks: a FoxPro table uploaded, mapped (suggested columns, Kruti Dev, codes), a 31 February cleaned, Accounts
+  signing, two new people loaded through the Checker; an employee confirming their record; the cut-over waiting; the
+  Admin's export; every console tab on a phone (48 browser checks in all). A sample FoxPro set built from the demo staff
+  was run through the console by hand (27 rows: 25 already here, 2 new, 1 flagged).
+- typecheck, lint, 369 unit + integration tests, production build.
 
 ### 2026-10-27 — Module 10 (part 1): Reports and dashboards ✅
 **Built**
@@ -432,12 +487,12 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 ---
 
 ## Pending / next up
-- Module 10: the migration console with the §15 checks and the parallel run, data export, hardening, accessibility
-  pass and the deployment guide.
+- Module 10: hardening (security headers, rate limits, backup and restore, a 200-user performance check), the
+  accessibility pass (GIGW 3.0 / WCAG 2.1 AA) and the deployment guide.
 - Carried items: employee screens still show Basic from the built-in 7th CPC table (payroll and fixation read the dated
-  matrix) — one switch in Module 10 hardening; dev-tool audit items (Module 10); mid-year cut-over also needs the old
-  system's GPF subscriptions for 80C (the carry-in holds salary and TDS) and its 24Q deductee rows for the cut-over
-  quarter, and bulk loading of pensioners (migration console, Module 10).
+  matrix) — one switch in Module 10 hardening; dev-tool audit items (Module 10); a mid-year cut-over also needs the
+  old system's GPF subscriptions for 80C (the carry-in holds salary and TDS) and its 24Q deductee rows for the cut-over
+  quarter.
 
 ## Decisions taken (and why)
 | # | Decision | Reason |
@@ -493,9 +548,21 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 | D-50 | Payroll and statutory reports read approved bills only (approved, paid, closed), regular and supplementary together; pay withheld is left out until a supplementary bill pays it | Reports show what was paid, and they add up to the signed bills |
 | D-51 | A report download (Excel or PDF) is logged as a print in the audit trail with its filters and row count; viewing on screen is not | PRD §11: "every create, edit, approve and print"; viewing is already gated by the session |
 | D-52 | The ghost check also compares staff bank accounts with running pensions and pensions with each other, because the database already refuses the same Aadhaar, PAN or bank account for two current staff | The PRD control would otherwise always be empty; the real leaks are pensions paid into other people's accounts |
+| D-53 | Nothing from FoxPro is written straight into the records: employees go through EM-10's Checker batch, leave balances through LV-06's opening batch, and GPF balances, loans, tax paid and pensioners through one migration batch each, checked by a Checker | The same maker-checker as every other change; a load can be read and refused as a whole |
+| D-54 | Staged rows keep FoxPro's values untouched; cleaning stores a separate value per column; an issue is either fixed or explained in writing, and an explained error leaves its row out of the load | §15 "fixed or explained in writing" with a trail back to the original |
+| D-55 | A loan brought over starts the month after the as-on date with the principal still owed as its principal and the interest already owed carried as opening interest | The loan account here then matches FoxPro's balance on day one and follows PR-09 from there |
+| D-56 | A FoxPro pensioner with no service record here gets a minimal former-employee record (Retired, or Deceased for a family pension) to hang the pension on | D-41: every pension hangs on the service that earned it |
+| D-57 | §15 checks are worked out live; a signature is accepted only while its check passes and keeps the figures it was given on; the cut-over needs every check passing and fully signed | Signatures mean something and can be audited later |
+| D-58 | HR & Accounts menus already hold 8 items (§13), so the console opens from a Home tile until the cut-over; Admin and the User & settings manager have room for a menu item | Keeps the 8-item rule |
+| D-59 | Kruti Dev 010 → Unicode is built in (pure, tested), offered automatically when a Hindi-name column looks like Kruti Dev; tables are read as Windows-1252 | §15 step 2 names Kruti Dev; no external converter to install on a government server |
+| D-60 | The full data export is the Admin's, logged, without sign-in secrets; encrypted identity numbers stay encrypted | §16 data ownership without opening a hole in §2 rule 3 |
 | D-08 | Delhi Cantt logo could not be downloaded from inside the build environment (network policy). A placeholder emblem sits at `public/brand/logo.svg`; drop the real logo at the same path | — |
 
 ## Known gaps / risks
+- Migration: only Kruti Dev 010 is converted (other legacy Hindi fonts would need their own table); old binary .XLS
+  files are kept but not read (save them as .xlsx or CSV); the parallel run compares regular bills; arrears pending at
+  the cut-over are paid through a PR-08 supplementary bill after it, not loaded; for GPF interest a cut-over on 1 April
+  is simplest — a mid-year balance loaded as on the cut-over counts from 1 April of that year.
 - Exact bank bulk-file, CRA contribution, e-Chhawani and Form 24Q layouts, the pay bill / register / schedule formats (CBAR 2020) and the e-Chhawani account heads must be confirmed against real samples before go-live (PRD §18 open questions). They are built as switchable templates.
 - Leave, pension and tax defaults follow central rules and are marked "to confirm for DCB" in the rules tables; pension
   rules (CCS (Pension) Rules 2021, the 2008 commutation table) to confirm against the Cantonment Board Employees Service

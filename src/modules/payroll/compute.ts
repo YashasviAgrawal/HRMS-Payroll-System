@@ -15,7 +15,7 @@ import { professionalTaxFor } from "@/modules/statutory/tax-rules";
 import { headFlags, monthsStillToCome, partsOf, projectTds, taxContext } from "@/modules/statutory/tds-projection";
 import { computePensionRun } from "@/modules/pension/compute";
 import { computePay, TYPES_IN_GROUP, type HeadRule, type PayInput, type PayLine } from "./engine";
-import { loanPosition } from "./loan-rules";
+import { loanPosition, loanTermsOf } from "./loan-rules";
 
 // ─── Reading ──────────────────────────────────────────────────────────────────
 
@@ -176,7 +176,7 @@ export async function loansDue(tx: DbLike, employeeIds: string[], month: string)
   const out = new Map<string, LoanDue[]>();
   for (const l of loans) {
     const pos = loanPosition(
-      { principal: num(l.principal), interestRate: num(l.interestRate), instalmentAmount: num(l.instalmentAmount), startMonth: l.startMonth },
+      loanTermsOf(l),
       l.recoveries.map((r) => ({ month: r.month, principal: num(r.principal), interest: num(r.interest) })),
       month,
     );
@@ -456,7 +456,7 @@ async function settleLoans(tx: Tx, loanIds: string[], asOfMonth: string) {
     if (l.status !== "RUNNING" && l.status !== "CLOSED") continue;
     const recovered = l.recoveries.map((r) => ({ month: r.month, principal: num(r.principal), interest: num(r.interest) }));
     const lastMonth = recovered.reduce((m, r) => (r.month > m ? r.month : m), "");
-    const pos = loanPosition({ principal: num(l.principal), interestRate: num(l.interestRate), instalmentAmount: num(l.instalmentAmount), startMonth: l.startMonth }, recovered, lastMonth ? shiftMonth(lastMonth, 1) : asOfMonth);
+    const pos = loanPosition(loanTermsOf(l), recovered, lastMonth ? shiftMonth(lastMonth, 1) : asOfMonth);
     if (pos.closed && recovered.length) await tx.loan.update({ where: { id }, data: { status: "CLOSED", closedMonth: lastMonth } });
     else if (!pos.closed && l.status === "CLOSED") await tx.loan.update({ where: { id }, data: { status: "RUNNING", closedMonth: null } });
   }

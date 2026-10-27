@@ -153,7 +153,7 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
                       const text = cellText(c, r, t, locale);
                       const day = /^d\d\d$/.test(c.key);
                       return (
-                        <Td key={c.key} label={labels[i]} align={isNumeric(c) && !c.enumKey ? "right" : "left"} className={cn(day ? cn("px-1.5! text-center text-xs", DAY_TONE[text]) : "whitespace-nowrap", c.key === "detail" || c.key === "moved" || c.key === "heads" ? "whitespace-normal min-w-[12rem]" : "", i === 0 && pin && `${pin} sm:bg-white`)}>
+                        <Td key={c.key} label={labels[i]} align={isNumeric(c) && !c.enumKey ? "right" : "left"} className={cn(day ? cn("px-1.5! text-center text-xs", DAY_TONE[text]) : "sm:whitespace-nowrap", c.key === "detail" || c.key === "moved" || c.key === "heads" ? "sm:whitespace-normal sm:min-w-[12rem]" : "", i === 0 && pin && `${pin} sm:bg-white`)}>
                           {i === 0 && r._href ? (
                             <Link href={r._href} className="font-medium text-brand-700 hover:underline">
                               {text || "—"}
@@ -169,7 +169,7 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
                 {totals && rows.length <= SCREEN_ROWS && (
                   <tr className="bg-brand-50/70 font-semibold text-ink-900">
                     {columns.map((c, i) => (
-                      <Td key={c.key} label={labels[i]} align={isNumeric(c) && !c.enumKey ? "right" : "left"} className={cn("whitespace-nowrap", !c.total && i > 0 && "max-sm:hidden")}>
+                      <Td key={c.key} label={labels[i]} align={isNumeric(c) && !c.enumKey ? "right" : "left"} className={cn("sm:whitespace-nowrap", !c.total && i > 0 && "max-sm:hidden")}>
                         {c.total ? cellText(c, totals, t, locale) : i === 0 ? t("reports.total") : ""}
                       </Td>
                     ))}

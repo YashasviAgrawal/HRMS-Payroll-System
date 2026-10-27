@@ -13,7 +13,7 @@ import { formatINR, fromPaise, toPaise } from "@/lib/money";
 import { emit } from "@/lib/outbox";
 import { isoDateField } from "@/lib/validators";
 import { fullName } from "@/modules/employees/present";
-import { loanPosition, loanSchedule } from "./loan-rules";
+import { loanPosition, loanSchedule, loanTermsOf } from "./loan-rules";
 
 /**
  * PR-09, S-43: loans and advances. Payroll sanctions (with the order number), a Checker checks and an Admin approves
@@ -43,12 +43,7 @@ export function instalmentFor(principal: number, instalments: number) {
   return Math.ceil(principal / instalments);
 }
 
-const termsOf = (l: { principal: unknown; interestRate: unknown; instalmentAmount: unknown; startMonth: string }) => ({
-  principal: num(l.principal as never),
-  interestRate: num(l.interestRate as never),
-  instalmentAmount: num(l.instalmentAmount as never),
-  startMonth: l.startMonth,
-});
+const termsOf = loanTermsOf;
 
 export async function listLoans(actor: Actor, opts: { status?: string; employeeId?: string } = {}) {
   if (!canSee(actor)) throw forbidden();

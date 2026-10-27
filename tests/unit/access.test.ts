@@ -107,8 +107,8 @@ describe("menus (PRD §13)", () => {
     menuFor({ loginType: login, permissions: perms, isEmployee, isPensioner }).map((m) => m.key);
 
   it("Admin with every permission sees the 8 PRD items in order", () => {
-    expect(all("ADMIN", ["APPROVER", "PAY_BILL_SIGNER"])).toEqual(["home", "approvals", "payrollSign", "reports", "users", "rates", "audit"]);
-    expect(all("ADMIN", ["USER_SETTINGS_MANAGER"])).toEqual(["home", "users", "settings", "audit"]);
+    expect(all("ADMIN", ["APPROVER", "PAY_BILL_SIGNER"])).toEqual(["home", "approvals", "payrollSign", "reports", "users", "rates", "migration", "audit"]);
+    expect(all("ADMIN", ["USER_SETTINGS_MANAGER"])).toEqual(["home", "users", "settings", "migration", "audit"]);
   });
 
   it("HR & Accounts sees its 8 items when holding every permission", () => {

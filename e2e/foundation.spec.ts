@@ -69,10 +69,10 @@ test.describe("Module 1 — foundation", () => {
     await expect(page.getByRole("cell", { name: /EL 5 days: Pooja Bhatia/ })).toBeVisible();
   });
 
-  test("not-yet-built screens show a friendly placeholder, unknown ones a 404", async ({ page }) => {
+  test("every module is built; an unknown page is a friendly 404", async ({ page }) => {
     await signIn(page, { as: "HR & Accounts", id: "DCB10004" });
     await page.goto("/migration");
-    await expect(page.getByText("Coming up next")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Migration from FoxPro" })).toBeVisible();
     await page.goto("/no-such-page");
     await expect(page.getByText("This page does not exist.")).toBeVisible();
   });

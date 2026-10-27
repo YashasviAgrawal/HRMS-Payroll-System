@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeftRight, ArrowRight, BadgeCheck, CalendarClock, CalendarHeart, CheckCircle2, Clock, Fingerprint, HandCoins, History, Hourglass, IdCard, Inbox, IndianRupee, Landmark, LayoutGrid, Lock, Send, TriangleAlert, TrendingUp, UserPlus, Users, Wallet } from "lucide-react";
+import { ArrowLeftRight, ArrowRight, BadgeCheck, Database, CalendarClock, CalendarHeart, CheckCircle2, Clock, Fingerprint, HandCoins, History, Hourglass, IdCard, Inbox, IndianRupee, Landmark, LayoutGrid, Lock, Send, TriangleAlert, TrendingUp, UserPlus, Users, Wallet } from "lucide-react";
 import { Card, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatTile } from "@/components/ui/stat-tile";
@@ -13,7 +13,7 @@ import { AdminPanel } from "./admin-panel";
 
 export const metadata: Metadata = { title: "Home" };
 
-const TILE_ICONS = { users: Users, sections: LayoutGrid, employees: IdCard, history: History, inbox: Inbox, probation: Hourglass, joining: UserPlus, attendance: Fingerprint, lock: Lock, leave: CalendarHeart, payroll: Wallet, statutory: Landmark, pension: HandCoins, certificate: BadgeCheck, cost: IndianRupee, retire: CalendarClock, alert: TriangleAlert, request: Send, increment: TrendingUp, joiners: ArrowLeftRight };
+const TILE_ICONS = { users: Users, sections: LayoutGrid, employees: IdCard, history: History, inbox: Inbox, probation: Hourglass, joining: UserPlus, attendance: Fingerprint, lock: Lock, leave: CalendarHeart, payroll: Wallet, statutory: Landmark, pension: HandCoins, certificate: BadgeCheck, cost: IndianRupee, retire: CalendarClock, alert: TriangleAlert, request: Send, increment: TrendingUp, joiners: ArrowLeftRight, migration: Database };
 
 function greetingKey(now = new Date()) {
   const hour = Number(new Intl.DateTimeFormat("en-IN", { hour: "numeric", hour12: false, timeZone: "Asia/Kolkata" }).format(now));

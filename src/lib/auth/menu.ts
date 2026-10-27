@@ -23,7 +23,8 @@ export type MenuIcon =
   | "send"
   | "team"
   | "fingerprint"
-  | "leaf";
+  | "leaf"
+  | "database";
 
 export interface MenuItem {
   key: string;
@@ -51,6 +52,8 @@ const ADMIN_MENU: MenuDef[] = [
   { key: "users", href: "/admin/users", icon: "users", show: (p) => can(p, "users_settings", "view") },
   { key: "rates", href: "/admin/rates", icon: "scale", show: (p) => can(p, "rates_rules", "approve") },
   { key: "settings", href: "/admin/settings", icon: "settings", show: hasPerm("USER_SETTINGS_MANAGER") },
+  // S-90 set-up only: the Admin signs the cut-over; the User & settings manager uploads files.
+  { key: "migration", href: "/migration", icon: "database", show: (p) => can(p, "migration", "view") || can(p, "migration", "create") },
   { key: "audit", href: "/admin/audit", icon: "history", show: (p) => can(p, "audit_trail", "view") },
 ];
 

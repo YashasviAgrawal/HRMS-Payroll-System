@@ -6,6 +6,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { requireActor } from "@/lib/auth/session";
 import { getT } from "@/lib/i18n/server";
 import { getEmployee } from "@/modules/employees/service";
+import { ownRecordState } from "@/modules/migration/verify";
+import { ConfirmMyRecord } from "../../migration/_components/actions";
 import { EmployeeProfile, PROFILE_TABS, type ProfileTab } from "../../employees/_components/profile";
 import { PensionRecord } from "./pension-record";
 
@@ -18,7 +20,7 @@ export default async function MyRecordPage({ searchParams }: { searchParams: Pro
   if (!actor.employeeId) return <NoAccess />;
   const { t, locale } = await getT();
   const { tab } = await searchParams;
-  const e = await getEmployee(actor, actor.employeeId);
+  const [e, confirm] = await Promise.all([getEmployee(actor, actor.employeeId), ownRecordState(actor)]);
   const active = (PROFILE_TABS as readonly string[]).includes(tab ?? "") && tab !== "history" ? (tab as ProfileTab) : "personal";
   return (
     <div>
@@ -33,6 +35,12 @@ export default async function MyRecordPage({ searchParams }: { searchParams: Pro
           )
         }
       />
+      {/* §15 step 7: while the migration is open, each person confirms their own record. */}
+      {confirm && (
+        <div className="mb-5">
+          <ConfirmMyRecord confirmedAt={confirm.confirmedAt} changeHref="/my/requests?new=1" />
+        </div>
+      )}
       <EmployeeProfile e={e} actor={actor} tab={active} t={t} locale={locale} mode="self" basePath="/my/record" />
     </div>
   );

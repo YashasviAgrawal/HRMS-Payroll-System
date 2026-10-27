@@ -96,3 +96,11 @@ test("report screens and the Admin dashboard fit a phone screen", async ({ page 
     await expectNoSidewaysScroll(page, path);
   }
 });
+
+test("migration console fits a phone screen", async ({ page }) => {
+  await signIn(page, { as: "HR & Accounts", id: "DCB10007" });
+  for (const tab of ["overview", "files", "map", "issues", "records", "checks", "parallel", "cutover"]) {
+    await expectNoSidewaysScroll(page, `/migration?tab=${tab}`);
+  }
+  for (const target of ["leave", "pensioners", "payTotals", "parallel"]) await expectNoSidewaysScroll(page, `/migration?tab=map&target=${target}`);
+});

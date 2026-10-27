@@ -17,6 +17,7 @@ import {
   Inbox,
   Landmark,
   Leaf,
+  Database,
   LogOut,
   Menu,
   MoreHorizontal,
@@ -61,6 +62,7 @@ const ICONS: Record<MenuIcon, LucideIcon> = {
   team: UsersRound,
   fingerprint: Fingerprint,
   leaf: Leaf,
+  database: Database,
 };
 
 interface ShellUser {

@@ -53,18 +53,18 @@ model Board {
 }
 
 model Section {
-  id        String   @id @default(cuid())
-  boardId   String
-  code      String
-  name      String
-  nameHi    String
-  isActive  Boolean  @default(true)
+  id             String         @id @default(cuid())
+  boardId        String
+  code           String
+  name           String
+  nameHi         String
+  isActive       Boolean        @default(true)
   /// DEVICE = biometric punches (AT-01); MANUAL = muster entered by HR (AT-02).
   attendanceMode AttendanceMode @default(DEVICE)
   /// Weekly off days as "0,6" (0 = Sunday … 6 = Saturday). Null follows the Board setting.
   weeklyOff      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
   board     Board      @relation(fields: [boardId], references: [id])
   employees Employee[]
@@ -146,65 +146,66 @@ model Employee {
   category           String? // GEN, OBC, SC, ST, EWS
   maritalStatus      String? // SINGLE, MARRIED, WIDOWED, DIVORCED
   bloodGroup         String?
-  isDisabled         Boolean  @default(false)
+  isDisabled         Boolean @default(false)
   /// { line1, line2, city, district, state, pincode } — state and district follow government code lists (PRD §12 rule 6).
   presentAddress     Json?
   permanentAddress   Json?
 
   // Identity and bank (EM-03). Aadhaar, PAN and bank account are encrypted; *Hash finds duplicates; *Last4 is for display.
-  panEnc             String?
-  panHash            String?
-  panLast4           String?
-  aadhaarEnc         String?
-  aadhaarHash        String?
-  aadhaarLast4       String?
-  pran               String?
-  uan                String?
-  esicNumber         String?
-  gpfNumber          String?
-  bankAccountEnc     String?
-  bankAccountHash    String?
-  bankAccountLast4   String?
-  ifsc               String?
-  bankName           String?
-  bankBranch         String?
+  panEnc           String?
+  panHash          String?
+  panLast4         String?
+  aadhaarEnc       String?
+  aadhaarHash      String?
+  aadhaarLast4     String?
+  pran             String?
+  uan              String?
+  esicNumber       String?
+  gpfNumber        String?
+  bankAccountEnc   String?
+  bankAccountHash  String?
+  bankAccountLast4 String?
+  ifsc             String?
+  bankName         String?
+  bankBranch       String?
 
   // Probation and confirmation (RO-08)
-  probationEndDate   DateTime? @db.Date
-  confirmationDate   DateTime? @db.Date
+  probationEndDate DateTime? @db.Date
+  confirmationDate DateTime? @db.Date
 
   /// Enrolment number on the biometric devices / AEBAS attendance ID (AT-01).
-  biometricId        String?
+  biometricId String?
 
   // Contract and daily-wage workers (RO-09)
-  agencyName         String?
-  wageRate           Decimal?  @db.Decimal(12, 2)
-  wageBasis          String? // MONTHLY or DAILY
-  contractStart      DateTime? @db.Date
-  contractEnd        DateTime? @db.Date
+  agencyName    String?
+  wageRate      Decimal?  @db.Decimal(12, 2)
+  wageBasis     String? // MONTHLY or DAILY
+  contractStart DateTime? @db.Date
+  contractEnd   DateTime? @db.Date
 
-  createdById        String?
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  section     Section                @relation(fields: [sectionId], references: [id])
-  post        Post                   @relation(fields: [postId], references: [id])
-  users       User[]
-  family      FamilyMember[]
-  nominees    Nominee[]
-  documents   EmployeeDocument[]
-  serviceBook ServiceBookEntry[]
-  history     EmployeeFieldHistory[]
-  payslips    Payslip[]
-  payHistory  PayHistory[]
-  loans       Loan[]
-  gpfEntries  GpfEntry[]
-  gpfAdvances GpfAdvance[]
+  section         Section                @relation(fields: [sectionId], references: [id])
+  post            Post                   @relation(fields: [postId], references: [id])
+  users           User[]
+  family          FamilyMember[]
+  nominees        Nominee[]
+  documents       EmployeeDocument[]
+  serviceBook     ServiceBookEntry[]
+  history         EmployeeFieldHistory[]
+  payslips        Payslip[]
+  payHistory      PayHistory[]
+  loans           Loan[]
+  gpfEntries      GpfEntry[]
+  gpfAdvances     GpfAdvance[]
   taxDeclarations TaxDeclaration[]
-  taxCarryIns TaxCarryIn[]
-  pensions    Pensioner[]
-  pensionCases PensionCase[]
-  form16      Form16[]
+  taxCarryIns     TaxCarryIn[]
+  pensions        Pensioner[]
+  pensionCases    PensionCase[]
+  form16          Form16[]
+  verification    RecordVerification?
 
   @@unique([boardId, employeeCode])
   @@unique([boardId, biometricId])
@@ -242,11 +243,11 @@ model User {
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
 
-  board    Board          @relation(fields: [boardId], references: [id])
-  employee Employee?      @relation(fields: [employeeId], references: [id])
-  pensioner Pensioner?    @relation(fields: [pensionerId], references: [id])
-  sessions Session[]
-  otps     OtpChallenge[]
+  board     Board          @relation(fields: [boardId], references: [id])
+  employee  Employee?      @relation(fields: [employeeId], references: [id])
+  pensioner Pensioner?     @relation(fields: [pensionerId], references: [id])
+  sessions  Session[]
+  otps      OtpChallenge[]
 
   @@unique([boardId, loginType, loginId])
   @@unique([boardId, loginType, mobile])
@@ -418,25 +419,25 @@ enum FileStatus {
 /// Every file the system builds or receives. Outgoing files are previewed, approved by an Admin and
 /// logged with a checksum (PRD §12 rule 2, ST-09); incoming files are validated first (rule 3).
 model FileRecord {
-  id            String        @id @default(cuid())
-  boardId       String
-  direction     FileDirection
-  kind          String
-  period        String?
-  fileName      String
-  mimeType      String
-  size          Int
-  sha256        String
-  storageKey    String
-  status        FileStatus
-  meta          Json?
-  createdById   String
-  createdByName String
-  approvedById  String?
-  approvedAt    DateTime?
-  downloadCount Int           @default(0)
+  id             String        @id @default(cuid())
+  boardId        String
+  direction      FileDirection
+  kind           String
+  period         String?
+  fileName       String
+  mimeType       String
+  size           Int
+  sha256         String
+  storageKey     String
+  status         FileStatus
+  meta           Json?
+  createdById    String
+  createdByName  String
+  approvedById   String?
+  approvedAt     DateTime?
+  downloadCount  Int           @default(0)
   lastDownloadAt DateTime?
-  createdAt     DateTime      @default(now())
+  createdAt      DateTime      @default(now())
 
   @@index([boardId, kind, period])
 }
@@ -552,21 +553,21 @@ enum EntryStatus {
 
 /// Simple e-service book (EM-06): a dated list of events with order number, date and the attached order.
 model ServiceBookEntry {
-  id          String       @id @default(cuid())
-  employeeId  String
-  event       ServiceEvent
-  eventDate   DateTime     @db.Date
-  orderNumber String?
-  orderDate   DateTime?    @db.Date
-  details     String
-  detailsHi   String?
+  id           String       @id @default(cuid())
+  employeeId   String
+  event        ServiceEvent
+  eventDate    DateTime     @db.Date
+  orderNumber  String?
+  orderDate    DateTime?    @db.Date
+  details      String
+  detailsHi    String?
   /// Structured data some events carry, e.g. { fromLevel, fromCell, toLevel, toCell } for an increment.
-  data        Json?
-  documentId  String?
-  status      EntryStatus  @default(PENDING)
-  createdById String
+  data         Json?
+  documentId   String?
+  status       EntryStatus  @default(PENDING)
+  createdById  String
   approvedById String?
-  createdAt   DateTime     @default(now())
+  createdAt    DateTime     @default(now())
 
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
@@ -881,29 +882,29 @@ model AttendanceLock {
 
 /// Month totals per person, frozen at lock; what payroll reads (AT-05, AT-06).
 model AttendanceMonth {
-  id          String   @id @default(cuid())
-  boardId     String
-  employeeId  String
-  sectionId   String
-  month       String
-  daysInMonth Int
-  daysOnRoll  Int
-  present     Decimal  @db.Decimal(5, 1)
-  late        Int
-  halfDays    Int
-  onDuty      Int
-  leave       Decimal  @db.Decimal(5, 1)
-  holidays    Int
-  weeklyOffs  Int
-  diesNon     Decimal  @db.Decimal(5, 1)
+  id           String   @id @default(cuid())
+  boardId      String
+  employeeId   String
+  sectionId    String
+  month        String
+  daysInMonth  Int
+  daysOnRoll   Int
+  present      Decimal  @db.Decimal(5, 1)
+  late         Int
+  halfDays     Int
+  onDuty       Int
+  leave        Decimal  @db.Decimal(5, 1)
+  holidays     Int
+  weeklyOffs   Int
+  diesNon      Decimal  @db.Decimal(5, 1)
   /// Leave on half pay (HPL) and on no pay (EOL) in the month — payroll applies the pay effect (LV-04).
-  halfPayLeave Decimal @default(0) @db.Decimal(5, 1)
-  noPayLeave   Decimal @default(0) @db.Decimal(5, 1)
+  halfPayLeave Decimal  @default(0) @db.Decimal(5, 1)
+  noPayLeave   Decimal  @default(0) @db.Decimal(5, 1)
   /// Days paid for regular staff: days on the rolls less dies-non (and no-pay leave once the Leave module runs).
-  payableDays Decimal  @db.Decimal(5, 1)
+  payableDays  Decimal  @db.Decimal(5, 1)
   /// Days actually worked — what contract and daily-wage workers are paid for (AT-06).
-  workedDays  Decimal  @db.Decimal(5, 1)
-  createdAt   DateTime @default(now())
+  workedDays   Decimal  @db.Decimal(5, 1)
+  createdAt    DateTime @default(now())
 
   @@unique([employeeId, month])
   @@index([boardId, month])
@@ -1033,7 +1034,6 @@ model LeaveApplication {
   @@index([employeeId, fromDate])
   @@index([boardId, status])
 }
-
 
 // ─── Module 6: rates and rules, monthly payroll (PRD §8) ──────────────────────────
 
@@ -1361,6 +1361,8 @@ model Loan {
   startMonth       String
   status           LoanStatus @default(PENDING)
   closedMonth      String?
+  /// Interest already owed on a loan brought from the old system (recovered after the principal, like the rest).
+  openingInterest  Decimal    @default(0) @db.Decimal(12, 2)
   createdById      String
   createdByName    String
   createdAt        DateTime   @default(now())
@@ -1401,22 +1403,22 @@ enum GpfEntryKind {
 
 /// GPF account (§9): every credit and debit; the balance is the sum. Subscriptions and refunds come from approved pay bills.
 model GpfEntry {
-  id         String       @id @default(cuid())
-  boardId    String
-  employeeId String
+  id          String       @id @default(cuid())
+  boardId     String
+  employeeId  String
   /// "YYYY-MM" the entry belongs to.
-  month      String
+  month       String
   /// "2026-27"
-  fy         String
-  kind       GpfEntryKind
+  fy          String
+  kind        GpfEntryKind
   /// Credit positive, debit negative.
-  amount     Decimal      @db.Decimal(12, 2)
-  runId      String?
+  amount      Decimal      @db.Decimal(12, 2)
+  runId       String?
   /// The advance or withdrawal this entry pays out or recovers.
-  advanceId  String?
-  note       String?
+  advanceId   String?
+  note        String?
   createdById String?
-  createdAt  DateTime     @default(now())
+  createdAt   DateTime     @default(now())
 
   employee Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   advance  GpfAdvance? @relation(fields: [advanceId], references: [id])
@@ -1492,21 +1494,21 @@ enum DeclarationStatus {
 
 /// ST-02, ST-03: the regime chosen for a year and the investments declared, with proofs; verified by HR & Accounts.
 model TaxDeclaration {
-  id          String            @id @default(cuid())
-  boardId     String
-  employeeId  String
-  fy          String
-  regime      String            @default("NEW")
+  id           String            @id @default(cuid())
+  boardId      String
+  employeeId   String
+  fy           String
+  regime       String            @default("NEW")
   /// { sec80C, sec80D, sec80CCD1B, homeLoanInterest, rentPaid, otherIncome } in rupees (old regime deductions).
-  items       Json
+  items        Json
   /// Stored proof files: [{ key, name, size, sha256 }]
-  proofs      Json?
-  status      DeclarationStatus @default(DRAFT)
-  remarks     String?
-  submittedAt DateTime?
+  proofs       Json?
+  status       DeclarationStatus @default(DRAFT)
+  remarks      String?
+  submittedAt  DateTime?
   verifiedById String?
-  verifiedAt  DateTime?
-  updatedAt   DateTime          @updatedAt
+  verifiedAt   DateTime?
+  updatedAt    DateTime          @updatedAt
 
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
@@ -1573,27 +1575,27 @@ model Form16 {
 /// ST-01, ST-08: when each filing is due. MONTHLY: the day of the next month; QUARTERLY / YEARLY: listed "MM-DD" dates;
 /// AFTER_PAY: days after the pay bill is approved.
 model DueRule {
-  id            String   @id @default(cuid())
-  boardId       String
-  code          String
-  name          String
-  nameHi        String
-  kind          String
-  day           Int      @default(0)
-  dates         String[]
-  version       Int      @default(1)
-  updatedAt     DateTime @updatedAt
+  id        String   @id @default(cuid())
+  boardId   String
+  code      String
+  name      String
+  nameHi    String
+  kind      String
+  day       Int      @default(0)
+  dates     String[]
+  version   Int      @default(1)
+  updatedAt DateTime @updatedAt
 
   @@unique([boardId, code])
 }
 
 /// ST-08: a reminder sent for a due date (once).
 model DueReminder {
-  id        String   @id @default(cuid())
-  boardId   String
-  code      String
-  dueOn     DateTime @db.Date
-  sentAt    DateTime @default(now())
+  id      String   @id @default(cuid())
+  boardId String
+  code    String
+  dueOn   DateTime @db.Date
+  sentAt  DateTime @default(now())
 
   @@unique([boardId, code, dueOn])
 }
@@ -1659,9 +1661,10 @@ model Pensioner {
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
 
-  employee         Employee          @relation(fields: [employeeId], references: [id])
+  employee         Employee            @relation(fields: [employeeId], references: [id])
   lifeCertificates LifeCertificate[]
   users            User[]
+  verification     RecordVerification?
 
   @@unique([boardId, ppoNumber])
   @@index([employeeId])
@@ -1681,23 +1684,23 @@ enum LifeCertificateStatus {
 /// PN-06: a life certificate — entered by HR & Accounts (Pension), or a Jeevan Pramaan certificate uploaded by the
 /// pensioner and verified by Pension.
 model LifeCertificate {
-  id          String                @id @default(cuid())
-  boardId     String
-  pensionerId String
-  source      LifeCertificateSource
-  status      LifeCertificateStatus @default(VERIFIED)
+  id           String                @id @default(cuid())
+  boardId      String
+  pensionerId  String
+  source       LifeCertificateSource
+  status       LifeCertificateStatus @default(VERIFIED)
   /// The date the certificate was given (on the certificate).
-  certifiedOn DateTime              @db.Date
+  certifiedOn  DateTime              @db.Date
   /// Jeevan Pramaan ID, when it came from there.
-  jpId        String?
-  fileKey     String?
-  fileSha     String?
-  fileName    String?
-  note        String?
-  enteredById String
+  jpId         String?
+  fileKey      String?
+  fileSha      String?
+  fileName     String?
+  note         String?
+  enteredById  String
   verifiedById String?
-  verifiedAt  DateTime?
-  createdAt   DateTime              @default(now())
+  verifiedAt   DateTime?
+  createdAt    DateTime              @default(now())
 
   pensioner Pensioner @relation(fields: [pensionerId], references: [id], onDelete: Cascade)
 
@@ -1715,26 +1718,26 @@ enum PensionCaseStatus {
 /// PN-08, PN-09: a new pension case — the calculator's inputs and working, checked by a Checker and approved by an Admin,
 /// then the PPO. For a death in service (type FAMILY) the retirement date is the date of death.
 model PensionCase {
-  id            String            @id @default(cuid())
-  boardId       String
-  employeeId    String
-  type          PensionType
-  retirementDate DateTime         @db.Date
+  id             String            @id @default(cuid())
+  boardId        String
+  employeeId     String
+  type           PensionType
+  retirementDate DateTime          @db.Date
   /// Commutation %, non-qualifying days, family pensioner, bank … as entered.
-  inputs        Json
+  inputs         Json
   /// Qualifying service, emoluments, pension, commutation, gratuity, leave encashment, GPF, family pension.
-  working       Json
-  status        PensionCaseStatus @default(DRAFT)
-  ppoNumber     String?
-  ppoKey        String?
-  ppoSha        String?
-  pensionerId   String?
-  benefitsRunId String?
-  createdById   String
-  createdByName String
-  approvedAt    DateTime?
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
+  working        Json
+  status         PensionCaseStatus @default(DRAFT)
+  ppoNumber      String?
+  ppoKey         String?
+  ppoSha         String?
+  pensionerId    String?
+  benefitsRunId  String?
+  createdById    String
+  createdByName  String
+  approvedAt     DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
 
   employee Employee     @relation(fields: [employeeId], references: [id])
   noDues   NoDuesItem[]
@@ -1744,12 +1747,12 @@ model PensionCase {
 
 /// PN-07: each section's no-dues for a retirement.
 model NoDuesItem {
-  id        String      @id @default(cuid())
+  id        String    @id @default(cuid())
   caseId    String
   sectionId String
   /// PENDING, CLEAR or DUES
-  status    String      @default("PENDING")
-  amount    Decimal     @default(0) @db.Decimal(12, 2)
+  status    String    @default("PENDING")
+  amount    Decimal   @default(0) @db.Decimal(12, 2)
   note      String?
   byId      String?
   byName    String?
@@ -1772,4 +1775,171 @@ model RuleTable {
   createdAt     DateTime @default(now())
 
   @@unique([boardId, code, effectiveFrom])
+}
+
+// ─── Module 10: FoxPro migration (PRD §15, S-90) ─────────────────────────────────
+
+/// A file from the old system kept exactly as uploaded, with its checksum (§15 step 1). Tables (.DBF, CSV, Excel) are
+/// also staged row by row (step 3); memo, index and program files are kept frozen only.
+model MigrationFile {
+  id             String   @id @default(cuid())
+  boardId        String
+  fileName       String
+  /// DBF, CSV, XLSX — staged; FPT, CDX, PRG and anything else — frozen only.
+  kind           String
+  size           Int
+  sha256         String
+  storageKey     String
+  /// The staged table's name: the file name without its extension, in capitals.
+  tableName      String?
+  /// Records the file itself says it holds (the DBF header count; rows for CSV and Excel).
+  sourceCount    Int?
+  liveCount      Int      @default(0)
+  deletedCount   Int      @default(0)
+  /// [{ name, type, length, decimals }]
+  columns        Json?
+  /// Memo file read with the table, and memos it could not find.
+  memoFileId     String?
+  missingMemos   Int      @default(0)
+  /// A newer upload of the same table replaces this one in the mapping.
+  replaced       Boolean  @default(false)
+  uploadedById   String
+  uploadedByName String
+  createdAt      DateTime @default(now())
+
+  rows MigrationRow[]
+
+  @@index([boardId, tableName])
+}
+
+/// One staged row. `data` stays as read; cleaning (§15 step 5) writes `fixed`, value by value.
+model MigrationRow {
+  id        String    @id @default(cuid())
+  fileId    String
+  rowNo     Int
+  deleted   Boolean   @default(false)
+  data      Json
+  fixed     Json?
+  fixedById String?
+  fixedAt   DateTime?
+
+  file MigrationFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@unique([fileId, rowNo])
+  @@index([fileId, deleted])
+}
+
+/// §15 step 4: how one staged table becomes records here — field by field, with code lists (pay codes, sections, posts,
+/// types). Signed off by Accounts; any change clears the sign-off.
+model MigrationMapping {
+  id           String    @id @default(cuid())
+  boardId      String
+  target       String
+  fileId       String?
+  /// { field: { column, transform } }
+  fields       Json
+  /// { list: { oldValue: newValue } }
+  codes        Json?
+  /// Values for the whole load (as-on date, financial year, control totals).
+  options      Json?
+  signedById   String?
+  signedByName String?
+  signedAt     DateTime?
+  updatedById  String
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([boardId, target])
+}
+
+/// A flagged row explained in writing instead of fixed (§15 "Exceptions").
+model MigrationNote {
+  id        String   @id @default(cuid())
+  boardId   String
+  /// target:fileId:rowNo:code
+  key       String
+  note      String
+  byId      String
+  byName    String
+  createdAt DateTime @default(now())
+
+  @@unique([boardId, key])
+}
+
+/// A §15 check signed by one of the people the PRD names, with the figures they saw.
+model MigrationSignoff {
+  id         String     @id @default(cuid())
+  boardId    String
+  check      String
+  permission Permission
+  userId     String
+  userName   String
+  result     Json
+  createdAt  DateTime   @default(now())
+
+  @@unique([boardId, check, permission])
+}
+
+/// §15 step 7: a record compared with the paper service book by HR, confirmed by the person (online or on a signed
+/// sheet) and then locked by a Checker. One row per employee or per pension.
+model RecordVerification {
+  id                String    @id @default(cuid())
+  boardId           String
+  employeeId        String?   @unique
+  pensionerId       String?   @unique
+  serviceBookById   String?
+  serviceBookByName String?
+  serviceBookAt     DateTime?
+  /// SELF (online) or SHEET (a printed sheet signed by the person, entered by HR).
+  confirmedVia      String?
+  confirmedByName   String?
+  confirmedAt       DateTime?
+  /// What the person said was wrong (sent on as a change request).
+  problem           String?
+  lockedById        String?
+  lockedByName      String?
+  lockedAt          DateTime?
+  updatedAt         DateTime  @updatedAt
+
+  employee  Employee?  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  pensioner Pensioner? @relation(fields: [pensionerId], references: [id], onDelete: Cascade)
+
+  @@index([boardId])
+}
+
+/// §15 step 9: one month of the parallel run — FoxPro's pay sheet against the bills here.
+model ParallelRun {
+  id            String   @id @default(cuid())
+  boardId       String
+  month         String
+  fileId        String
+  people        Int
+  heads         Int
+  matched       Int
+  createdById   String
+  createdByName String
+  createdAt     DateTime @default(now())
+
+  diffs ParallelDiff[]
+
+  @@unique([boardId, month])
+}
+
+/// A difference over ₹1 for one person and head; each one is explained before the next month (§15 step 9).
+model ParallelDiff {
+  id              String    @id @default(cuid())
+  runId           String
+  employeeCode    String
+  employeeId      String?
+  name            String?
+  head            String
+  fox             Decimal   @db.Decimal(12, 2)
+  ours            Decimal   @db.Decimal(12, 2)
+  note            String?
+  explainedById   String?
+  explainedByName String?
+  explainedAt     DateTime?
+
+  run ParallelRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
 }

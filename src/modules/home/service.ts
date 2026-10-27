@@ -49,7 +49,7 @@ export interface Tile {
   value: string | number;
   href?: string;
   tone?: "green" | "amber" | "red" | "gray" | "blue";
-  icon: "users" | "sections" | "employees" | "history" | "inbox" | "probation" | "joining" | "attendance" | "lock" | "leave" | "payroll" | "statutory" | "pension" | "certificate" | "cost" | "retire" | "alert" | "request" | "increment" | "joiners";
+  icon: "users" | "sections" | "employees" | "history" | "inbox" | "probation" | "joining" | "attendance" | "lock" | "leave" | "payroll" | "statutory" | "pension" | "certificate" | "cost" | "retire" | "alert" | "request" | "increment" | "joiners" | "migration";
   /** A short line under the figure (the month it is for, what is behind it). */
   hint?: string;
   hintHi?: string;
@@ -313,6 +313,14 @@ export async function homeTiles(actor: Actor): Promise<Tile[]> {
   if (canAll(actor, "statutory", "create")) {
     const due = await dueSoon(actor);
     tiles.push({ key: "statutoryDue", value: due.length, href: "/statutory", icon: "statutory", tone: due.some((d) => d.state === "OVERDUE") ? "red" : due.length ? "amber" : "gray" });
+  }
+  // S-90 (set-up only): HR & Accounts menus are full (§13), so the console opens from here until the cut-over.
+  if (actor.loginType === "HR_ACCOUNTS" && canAll(actor, "migration", "view") && !(await db.setting.findUnique({ where: { boardId_key: { boardId: actor.boardId, key: "migration.cutover" } } }))) {
+    const [staff, locked] = await Promise.all([
+      db.employee.count({ where: { boardId: actor.boardId, status: { in: ["ACTIVE", "SUSPENDED"] } } }),
+      db.recordVerification.count({ where: { boardId: actor.boardId, lockedAt: { not: null }, employee: { status: { in: ["ACTIVE", "SUSPENDED"] } } } }),
+    ]);
+    tiles.push({ key: "migrationSetup", value: `${locked} / ${staff}`, href: "/migration", icon: "migration", tone: "blue", hint: "records verified (§15)", hintHi: "रिकॉर्ड सत्यापित (§15)" });
   }
   if (can(actor, "audit_trail", "view")) {
     const start = new Date(fromISODate(todayIST()).getTime() - 5.5 * 3600_000);
