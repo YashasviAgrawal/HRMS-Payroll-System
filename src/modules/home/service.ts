@@ -3,17 +3,31 @@ import { countInbox, listInbox } from "@/lib/approvals";
 import { hasApprovalsInbox } from "@/lib/auth/menu";
 import type { Actor } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { formatDate, formatMonth, todayIST, fromISODate } from "@/lib/dates";
+import { addDays, endOfMonth, formatDate, formatMonth, todayIST, fromISODate, toISODate } from "@/lib/dates";
 import { formatINR } from "@/lib/money";
 import { locksDue, sectionScope, todayBoard } from "@/modules/attendance/service";
 import { ensureCredits, ledgerBalances } from "@/modules/leave/balance";
 import { can, canAll, scopeFor } from "@/lib/auth/access";
 import { RUN_GROUPS } from "@/modules/payroll/compute";
-import { dueSoon, sendDueReminders } from "@/modules/statutory/calendar-service";
+import { calendarFor, dueSoon, sendDueReminders } from "@/modules/statutory/calendar-service";
 import { currentFy } from "@/modules/statutory/tax";
 import { pensionDailyJobs, pensionerHome, pensionWork } from "@/modules/pension/overview";
+import { lcViewOf } from "@/modules/pension/pensioners";
+import { incrementMonthFor, nextIncrementDate, qualifies } from "@/modules/payroll/pay-rules";
 
 const fmtDays = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
+const num = (v: { toString(): string } | null | undefined) => (v === null || v === undefined ? 0 : Number(v));
+const PAID = ["APPROVED", "PAID", "CLOSED"] as const;
+const GROUP_SHORT: Record<string, [string, string]> = { OPS: ["OPS", "ओपीएस"], NPS: ["NPS", "एनपीएस"], CONTRACT: ["Contract", "संविदा"] };
+const STAGE: Record<string, [string, string]> = {
+  DRAFT: ["being prepared", "तैयार हो रहा"],
+  CHECKING: ["with Checker", "जाँचकर्ता के पास"],
+  APPROVING: ["with Admin", "एडमिन के पास"],
+  APPROVED: ["approved", "स्वीकृत"],
+  PAID: ["paid", "भुगतान"],
+  CLOSED: ["closed", "बंद"],
+};
+const MATRIX_TYPES = ["PERMANENT_OPS", "PERMANENT_NPS", "DEPUTATION"];
 
 /**
  * S-02 Home: "My work" list + dashboard tiles. Every screen opens from "My work" (PRD §13), so each
@@ -35,7 +49,10 @@ export interface Tile {
   value: string | number;
   href?: string;
   tone?: "green" | "amber" | "red" | "gray" | "blue";
-  icon: "users" | "sections" | "employees" | "history" | "inbox" | "probation" | "joining" | "attendance" | "lock" | "leave" | "payroll" | "statutory" | "pension" | "certificate";
+  icon: "users" | "sections" | "employees" | "history" | "inbox" | "probation" | "joining" | "attendance" | "lock" | "leave" | "payroll" | "statutory" | "pension" | "certificate" | "cost" | "retire" | "alert" | "request" | "increment" | "joiners";
+  /** A short line under the figure (the month it is for, what is behind it). */
+  hint?: string;
+  hintHi?: string;
 }
 
 export async function myWork(actor: Actor): Promise<WorkItem[]> {
@@ -69,6 +86,8 @@ export async function myWork(actor: Actor): Promise<WorkItem[]> {
   }
   // ST-08: filings due within 5 days (and any overdue) for the people who prepare them; the day's SMS reminders.
   void sendDueReminders(actor.boardId).catch((e) => console.error("[statutory] reminders failed", e));
+  // PN-10, PN-06: people past their retirement date leave the rolls; life certificate reminders go out (once a day).
+  pensionDailyJobs(actor.boardId);
   for (const d of await dueSoon(actor)) {
     const late = d.state === "OVERDUE";
     items.push({
@@ -96,7 +115,6 @@ export async function myWork(actor: Actor): Promise<WorkItem[]> {
   // PN-06, PN-12: the pensioner's own life certificate.
   const mine = await pensionerHome(actor);
   if (mine) {
-    pensionDailyJobs(actor.boardId);
     if (mine.returnedNote) items.unshift({ key: "lc-returned", title: `Your life certificate was not accepted: ${mine.returnedNote}`, titleHi: `आपका जीवन प्रमाण पत्र स्वीकार नहीं हुआ: ${mine.returnedNote}`, href: "/my/life-certificate", tone: "red" });
     else if (mine.lc.waiting === 0 && mine.state !== "VALID") {
       const held = mine.state === "HELD";
@@ -132,6 +150,28 @@ export async function homeTiles(actor: Actor): Promise<Tile[]> {
   if (hasApprovalsInbox(actor)) {
     tiles.push({ key: "approvalsWaiting", value: await countInbox(actor), href: "/approvals", tone: "amber", icon: "inbox" });
   }
+  // §11 Admin: this month's salary and pension cost (the last approved month until this month's bills are approved).
+  if (actor.loginType === "ADMIN" && canAll(actor, "payroll", "view")) {
+    const runs = await db.payrollRun.findMany({ where: { boardId: actor.boardId, status: { in: [...PAID] } }, select: { month: true, payGroup: true, gross: true, employer: true, employees: true }, orderBy: { month: "desc" }, take: 60 });
+    const lastOf = (pension: boolean) => runs.find((r) => (r.payGroup === "PENSION") === pension)?.month ?? null;
+    for (const pension of [false, true]) {
+      const month = lastOf(pension);
+      const here = runs.filter((r) => r.month === month && (r.payGroup === "PENSION") === pension);
+      const amount = here.reduce((a, r) => a + num(r.gross) + (pension ? 0 : num(r.employer)), 0);
+      tiles.push({
+        key: pension ? "pensionCost" : "salaryCost",
+        value: month ? formatINR(Math.round(amount)) : "—",
+        href: pension ? "/pension" : `/reports/salary-cost${month ? `?month=${month}` : ""}`,
+        icon: "cost",
+        tone: "green",
+        hint: month ? formatMonth(month) : undefined,
+        hintHi: month ? formatMonth(month, "hi") : undefined,
+      });
+    }
+    const today = todayIST();
+    const retiring = await db.employee.count({ where: { boardId: actor.boardId, status: { in: ["ACTIVE", "SUSPENDED"] }, type: { not: "REEMPLOYED" }, dateOfRetirement: { gte: fromISODate(today), lte: fromISODate(addDays(today, 183)) } } });
+    tiles.push({ key: "retiring6", value: retiring, href: "/reports/retirements-probation", icon: "retire", tone: retiring ? "amber" : "gray" });
+  }
   if (can(actor, "users_settings", "view")) {
     const [users, sections] = await Promise.all([
       db.user.count({ where: { boardId: actor.boardId, status: "ACTIVE" } }),
@@ -142,7 +182,18 @@ export async function homeTiles(actor: Actor): Promise<Tile[]> {
   }
   if (can(actor, "employee_master", "view") && actor.loginType !== "EMPLOYEE") {
     const employees = await db.employee.count({ where: { boardId: actor.boardId, status: { in: ["ACTIVE", "SUSPENDED"] } } });
-    tiles.push({ key: "employeesCount", value: employees, icon: "employees", tone: "green" });
+    tiles.push({ key: "employeesCount", value: employees, href: can(actor, "reports", "view") ? "/reports/headcount" : undefined, icon: "employees", tone: "green" });
+    if (actor.loginType === "HR_ACCOUNTS") {
+      // §11 HR & Accounts: joiners and leavers this month.
+      const month = todayIST().slice(0, 7);
+      const start = fromISODate(`${month}-01`);
+      const end = fromISODate(endOfMonth(`${month}-01`));
+      const [joined, left] = await Promise.all([
+        db.employee.count({ where: { boardId: actor.boardId, status: { not: "DRAFT" }, dateOfJoining: { gte: start, lte: end } } }),
+        db.employee.count({ where: { boardId: actor.boardId, exitDate: { gte: start, lte: end } } }),
+      ]);
+      tiles.push({ key: "joinersLeavers", value: `${joined} / ${left}`, href: can(actor, "reports", "view") ? "/reports/employee-list" : undefined, icon: "joiners", tone: "blue", hint: `${joined} joined · ${left} left`, hintHi: `${joined} आए · ${left} गए` });
+    }
   }
   if (can(actor, "recruitment", "view") && actor.loginType === "HR_ACCOUNTS") {
     const today = todayIST();
@@ -165,7 +216,47 @@ export async function homeTiles(actor: Actor): Promise<Tile[]> {
     await ensureCredits(actor.boardId);
     const bal = await ledgerBalances(actor.employeeId);
     const parts = ["EL", "CL"].filter((c) => bal.has(c)).map((c) => `${c} ${fmtDays(bal.get(c)!)}`);
+    // §11 Employee: last net pay, leave balance, next increment date, requests waiting.
+    const [slip, me, history, waiting] = await Promise.all([
+      db.payslip.findFirst({ where: { employeeId: actor.employeeId, pensionerId: null, status: "INCLUDED", run: { status: { in: [...PAID] }, payGroup: { not: "PENSION" } } }, orderBy: [{ month: "desc" }, { createdAt: "desc" }], select: { month: true, net: true } }),
+      db.employee.findUnique({ where: { id: actor.employeeId }, select: { type: true, dateOfJoining: true, dateOfRetirement: true, incrementMonth: true } }),
+      db.payHistory.findFirst({ where: { employeeId: actor.employeeId, reason: { in: ["INITIAL", "PROMOTION", "MACP"] }, effectiveFrom: { lte: fromISODate(todayIST()) } }, orderBy: { effectiveFrom: "desc" }, select: { effectiveFrom: true } }),
+      db.approvalTask.groupBy({ by: ["kind"], where: { boardId: actor.boardId, makerId: actor.userId, status: "PENDING" }, _count: { _all: true } }),
+    ]);
+    tiles.push({ key: "lastNetPay", value: slip ? formatINR(num(slip.net)) : "—", href: "/my/payslips", icon: "payroll", tone: "green", hint: slip ? formatMonth(slip.month) : undefined, hintHi: slip ? formatMonth(slip.month, "hi") : undefined });
     if (parts.length) tiles.push({ key: "leaveBalance", value: parts.join(" · "), href: "/leave", icon: "leave", tone: "green" });
+    if (me && MATRIX_TYPES.includes(me.type)) {
+      const today = todayIST();
+      const lastChange = toISODate(history?.effectiveFrom ?? me.dateOfJoining);
+      const month = (me.incrementMonth ?? incrementMonthFor(lastChange)) as 1 | 7;
+      let next = nextIncrementDate(today, month);
+      if (!qualifies(lastChange, next)) next = nextIncrementDate(next, month);
+      const retires = me.dateOfRetirement ? toISODate(me.dateOfRetirement) : null;
+      tiles.push({ key: "nextIncrement", value: retires && retires < next ? "—" : formatDate(next), icon: "increment", tone: "blue" });
+    }
+    // Requests still waiting, by what they are about; the tile opens the screen of the biggest group.
+    const groups: { area: string; href: string; en: string; hi: string; n: number }[] = [
+      { area: "leave.", href: "/leave", en: "leave", hi: "अवकाश", n: 0 },
+      { area: "attendance.", href: "/my/attendance", en: "attendance", hi: "उपस्थिति", n: 0 },
+      { area: "employee.", href: "/my/requests", en: "record", hi: "रिकॉर्ड", n: 0 },
+      { area: "tax.", href: "/my/tax", en: "tax", hi: "कर", n: 0 },
+    ];
+    let total = 0;
+    for (const w of waiting) {
+      total += w._count._all;
+      const g = groups.find((x) => w.kind.startsWith(x.area));
+      if (g) g.n += w._count._all;
+    }
+    const shown = groups.filter((g) => g.n > 0).sort((a, b) => b.n - a.n);
+    tiles.push({
+      key: "pendingRequests",
+      value: total,
+      href: shown[0]?.href ?? "/my/requests",
+      icon: "request",
+      tone: total ? "amber" : "gray",
+      hint: shown.length ? shown.map((g) => `${g.n} ${g.en}`).join(" · ") : undefined,
+      hintHi: shown.length ? shown.map((g) => `${g.n} ${g.hi}`).join(" · ") : undefined,
+    });
   }
   if (scopeFor(actor, "leave", "view") === "all" && actor.loginType === "HR_ACCOUNTS") {
     const waiting = await db.leaveApplication.count({ where: { boardId: actor.boardId, status: "PENDING" } });
@@ -180,9 +271,24 @@ export async function homeTiles(actor: Actor): Promise<Tile[]> {
   // S-40: how far this month's payroll has got, for the people who run, check or sign it.
   if (canAll(actor, "payroll", "view") && actor.loginType !== "EMPLOYEE") {
     const month = todayIST().slice(0, 7);
-    const runs = await db.payrollRun.findMany({ where: { boardId: actor.boardId, month, payGroup: { in: [...RUN_GROUPS] } }, select: { status: true } });
+    const runs = await db.payrollRun.findMany({ where: { boardId: actor.boardId, month, kind: "REGULAR", payGroup: { in: [...RUN_GROUPS] } }, select: { status: true, payGroup: true } });
     const approved = runs.filter((r) => ["APPROVED", "PAID", "CLOSED"].includes(r.status)).length;
-    tiles.push({ key: "payrollMonth", value: `${approved} / ${RUN_GROUPS.length}`, href: "/payroll", icon: "payroll", tone: approved === RUN_GROUPS.length ? "green" : "amber" });
+    // §11 Admin: the stage each pay group's bill has reached this month.
+    const stageOf = (g: string) => runs.find((r) => r.payGroup === g)?.status ?? null;
+    tiles.push({
+      key: "payrollMonth",
+      value: `${approved} / ${RUN_GROUPS.length}`,
+      href: "/payroll",
+      icon: "payroll",
+      tone: approved === RUN_GROUPS.length ? "green" : "amber",
+      hint: RUN_GROUPS.map((g) => `${GROUP_SHORT[g][0]}: ${stageOf(g) ? STAGE[stageOf(g)!][0] : "not run"}`).join(" · "),
+      hintHi: RUN_GROUPS.map((g) => `${GROUP_SHORT[g][1]}: ${stageOf(g) ? STAGE[stageOf(g)!][1] : "नहीं चला"}`).join(" · "),
+    });
+    if (canAll(actor, "payroll", "create") || canAll(actor, "payroll", "check")) {
+      // §11 HR & Accounts: exceptions still open on this month's bills that are not yet approved.
+      const open = await db.payrollException.count({ where: { resolution: null, run: { boardId: actor.boardId, month, status: { in: ["DRAFT", "CHECKING"] } } } });
+      tiles.push({ key: "payrollExceptions", value: open, href: "/payroll", icon: "alert", tone: open ? "red" : "gray" });
+    }
   }
   // S-61: the month's pension bill and the pensioners, for the people who run, check or sign it.
   if (canAll(actor, "pension", "view") && actor.loginType !== "EMPLOYEE") {
@@ -193,6 +299,15 @@ export async function homeTiles(actor: Actor): Promise<Tile[]> {
     ]);
     const paid = run && ["APPROVED", "PAID", "CLOSED"].includes(run.status);
     tiles.push({ key: "pensionMonth", value: pensioners, href: "/pension", icon: "pension", tone: paid ? "green" : "amber" });
+    if (canAll(actor, "pension", "create")) {
+      // §11 HR & Accounts: life certificates overdue (and pensions already held for one).
+      const today = todayIST();
+      const list = await db.pensioner.findMany({ where: { boardId: actor.boardId, status: "ACTIVE" }, select: { startDate: true, lifeCertificates: { select: { certifiedOn: true, status: true } } } });
+      const states = list.map((p) => lcViewOf(p, today).state);
+      const overdue = states.filter((st) => st === "OVERDUE" || st === "HELD").length;
+      const held = states.filter((st) => st === "HELD").length;
+      tiles.push({ key: "lcOverdue", value: overdue, href: "/pension/life-certificates?lc=OVERDUE", icon: "certificate", tone: overdue ? "red" : "gray", hint: held ? `${held} held` : undefined, hintHi: held ? `${held} रुकी` : undefined });
+    }
   }
   // ST-08: open filings due in the next 5 days.
   if (canAll(actor, "statutory", "create")) {
@@ -207,4 +322,28 @@ export async function homeTiles(actor: Actor): Promise<Tile[]> {
     tiles.push({ key: "auditToday", value: count, href: "/admin/audit", icon: "history", tone: "gray" });
   }
   return tiles;
+}
+
+/**
+ * §11 Admin dashboard, below the tiles: headcount by employee type, who retires in the next six months, and the
+ * statutory filings coming due — the Board at a glance for the people who approve and sign.
+ */
+export async function adminPanel(actor: Actor) {
+  if (actor.loginType !== "ADMIN" || !canAll(actor, "payroll", "view") || !canAll(actor, "employee_master", "view")) return null;
+  const today = todayIST();
+  const [types, retiring, due] = await Promise.all([
+    db.employee.groupBy({ by: ["type"], where: { boardId: actor.boardId, status: { in: ["ACTIVE", "SUSPENDED"] } }, _count: { _all: true } }),
+    db.employee.findMany({
+      where: { boardId: actor.boardId, status: { in: ["ACTIVE", "SUSPENDED"] }, type: { not: "REEMPLOYED" }, dateOfRetirement: { gte: fromISODate(today), lte: fromISODate(addDays(today, 183)) } },
+      select: { id: true, firstName: true, middleName: true, lastName: true, nameHi: true, dateOfRetirement: true, post: { select: { name: true, nameHi: true } } },
+      orderBy: { dateOfRetirement: "asc" },
+      take: 8,
+    }),
+    canAll(actor, "statutory", "view") ? calendarFor(actor.boardId, addDays(today, -60), addDays(today, 30), today) : Promise.resolve([]),
+  ]);
+  return {
+    headcount: types.map((t) => ({ type: t.type, count: t._count._all })).sort((a, b) => b.count - a.count),
+    retiring: retiring.map((e) => ({ id: e.id, name: [e.firstName, e.middleName, e.lastName].filter(Boolean).join(" "), nameHi: e.nameHi, post: e.post.name, postHi: e.post.nameHi, date: toISODate(e.dateOfRetirement!) })),
+    due: due.filter((d) => d.state === "OPEN" || d.state === "OVERDUE").sort((a, b) => a.dueOn.localeCompare(b.dueOn)).slice(0, 6),
+  };
 }

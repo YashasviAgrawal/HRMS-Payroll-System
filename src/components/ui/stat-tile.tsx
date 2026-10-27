@@ -31,7 +31,7 @@ export function StatTile({
         {icon && <span className={cn("flex size-9 items-center justify-center rounded-xl", toneClass)}>{icon}</span>}
       </div>
       <p className="tabular mt-3 text-[1.75rem] font-semibold leading-none tracking-tight text-ink-950">{value}</p>
-      {hint && <p className="mt-2 text-xs text-ink-500">{hint}</p>}
+      {hint && <p className={cn("mt-2 text-xs text-ink-500", href && "pr-6")}>{hint}</p>}
       {href && <ArrowUpRight className="absolute bottom-4 right-4 size-4 text-ink-300 transition-colors group-hover:text-brand-600" aria-hidden="true" />}
     </>
   );

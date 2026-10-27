@@ -226,9 +226,9 @@ _Goal: a secure, bilingual shell that every later module plugs into._
 - [x] S-60 Pensioners · S-61 Pension payroll · S-62 Pension case & PPO
 
 ## Module 10 — Reports, dashboards, migration & go-live (§11, §15, §16)
-- [ ] Dashboards per login (Admin / HR & Accounts / Employee / Pensioner tiles per §11)
-- [ ] 25 standard reports, filter by month, section, employee type; Excel + PDF export (S-70)
-- [ ] Report 25 ghost-employee check
+- [x] Dashboards per login (Admin / HR & Accounts / Employee / Pensioner tiles per §11) — _Admin: headcount by type, salary and pension cost, payroll stage per pay group, approvals, retirements in 6 months, statutory due dates; HR & Accounts: My work, locks open, payroll exceptions, leave waiting, joiners / leavers, life certificates overdue; Employee: last net pay, leave balance, next increment, requests waiting; Pensioner: last pension, life certificate_
+- [x] 25 standard reports, filter by month, section, employee type; Excel + PDF export (S-70) — _open to a login with Reports **and** the view right of what the report reads (§14); reporting officers see their own section; every download is in the audit trail; payroll reports read approved bills only_
+- [x] Report 25 ghost-employee check — _same Aadhaar / PAN / bank among current staff (the database already refuses it), a salary account that also takes someone else's pension, two pensions into one account, pay or pension after retirement / leaving / death, pay with no attendance in the month the bill read_
 - [ ] S-90 Migration console: upload (incl. FoxPro .DBF), map, check, verify, parallel-run report, cut-over sign-off
 - [ ] Migration checks table (§15): record counts, money totals, GPF, pension, duplicates, exceptions
 - [ ] Parallel-run comparison: every difference > ₹1 listed per employee per head

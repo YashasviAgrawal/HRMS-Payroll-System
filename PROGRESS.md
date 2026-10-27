@@ -16,13 +16,55 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 | 7 | Pay changes, arrears, loans & salary slips | 🟢 Done & verified |
 | 8 | Statutory & tax | 🟢 Done & verified (24Q / CRA / ECR / ESIC layouts to check with one real upload — PRD §18) |
 | 9 | Pension | 🟢 Done & verified (rules and the PPO layout to confirm for DCB — PRD §10, §18) |
-| 10 | Reports, dashboards, migration & go-live | 🟡 Next |
+| 10 | Reports, dashboards, migration & go-live | 🟡 In progress — reports and dashboards done; migration console, hardening and go-live next |
 
 🟢 Done & verified · 🟡 In progress · ⚪ Pending
 
 ---
 
 ## Change log (newest first)
+
+### 2026-10-27 — Module 10 (part 1): Reports and dashboards ✅
+**Built**
+- S-70 Reports: the 25 standard reports of PRD §11 in six areas — Employees (1 employee list, 2 headcount by section and
+  type, 3 sanctioned vs filled, 4 retirements and probation due, 5 missing PAN / Aadhaar / bank / PRAN / UAN / GPF no.,
+  6 recruitment by vacancy), Attendance and leave (7 monthly register with the muster codes, 8 absent and late with the
+  dates, 9 leave balances at the month end from the ledger, 10 leave taken by type — a leave crossing the month end is
+  split by its own counting rule), Payroll (11 salary register head by head, 12 pay bill abstract by head and account
+  head with links to the printed bills and schedules, 13 acquittance roll, 14 salary cost by section with the Board's
+  share, 15 month-on-month change with the heads that moved, 16 deductions by head and pay group, 17 loans outstanding
+  after the month's recovery, 18 arrears statement due vs drawn by month, 19 bank credits, failures and re-payments),
+  Statutory and tax (20 GPF ledger and annual statement — open a person for the PDF, 21 NPS with missing PRAN flagged,
+  22 EPF and ESIC, 23 TDS deducted vs deposited by month with each quarter's 24Q state), Pension (24 pension register
+  with the month's pay and life certificate status) and Control (25 ghost-employee check).
+- Every report filters by month, section and employee type (where they apply), shows totals, opens on the right month
+  (payroll reports on the last approved bill, the pension register on the last pension bill) and downloads as Excel
+  (numbers stay numbers, frozen header) or PDF (A4, landscape when wide, Hindi or English) — exactly what is on screen.
+  Downloads are recorded in the audit trail. Wide tables keep the first column in view; phones get cards.
+- Access follows §14: a report opens for a login with the Reports right and the view right of the function it reads —
+  HR sees employee, attendance and leave reports; Payroll, the Checker and Admin see pay and statutory reports; Pension
+  sees the pension register; a reporting officer sees their own section only, whatever is picked; the User & settings
+  manager and employees see none.
+- Dashboards (§11): Admin — salary cost (gross + Board's share) and the pension bill of the last approved month,
+  retirements in 6 months, the stage of each pay group's bill, approvals waiting, and a panel with headcount by type
+  (bars), retirements ahead and the statutory due dates; HR & Accounts — My work, attendance locks open, payroll
+  exceptions open on this month's bills, leave waiting, joiners / leavers this month, life certificates overdue;
+  Employee — last net pay, leave balance, next increment date, requests waiting (by kind); pensioners keep last
+  pension and life certificate.
+- API: `GET /api/v1/reports`, `GET /api/v1/reports/{key}`, `GET /api/v1/reports/{key}/export?format=xlsx|pdf`.
+
+**Verified**
+- Integration tests (8): the access rules for every login, all 25 reports for one section and type, the salary register
+  = pay bill abstract = acquittance = deductions for the same bills (₹74,500 gross, ₹5,550 deductions, ₹68,950 net), a
+  ₹350 change explained by its heads, a loan at ₹10,000 after two instalments, NPS with a missing PRAN, the ghost check
+  (a salary account taking someone's pension, pay three years after retirement, pay with no attendance), Excel and PDF
+  files and their audit rows, the Admin and employee dashboards.
+- All 25 reports run on the demo data (largest under 0.3 s); the pay bill abstract, acquittance and deductions agree
+  (₹22,12,743 − ₹2,66,473 = ₹19,46,270 for September).
+- Browser checks: Admin filters a report by section and downloads Excel and PDF (and finds the download in the audit
+  trail); the Admin dashboard; a reporting officer held to their own section; 13 report screens and the Admin
+  dashboard on a phone (45 browser checks in all).
+- typecheck, lint, 334 unit + integration tests, production build; screens, PDFs and Hindi looked at.
 
 ### 2026-10-27 — Module 9: Pension ✅
 **Built**
@@ -390,8 +432,8 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 ---
 
 ## Pending / next up
-- Module 10: dashboards per login, the 25 standard reports (incl. 24 pension register), the migration console with the
-  §15 checks and the parallel run, data export, hardening, accessibility pass and the deployment guide.
+- Module 10: the migration console with the §15 checks and the parallel run, data export, hardening, accessibility
+  pass and the deployment guide.
 - Carried items: employee screens still show Basic from the built-in 7th CPC table (payroll and fixation read the dated
   matrix) — one switch in Module 10 hardening; dev-tool audit items (Module 10); mid-year cut-over also needs the old
   system's GPF subscriptions for 80C (the carry-in holds salary and TDS) and its 24Q deductee rows for the cut-over
@@ -447,6 +489,10 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 | D-46 | After the death of a pensioner brought over from the old records, family pension is suggested from emoluments of twice the basic pension (full pension is half of them); the Pension clerk can change it before the Checker approves | The old records rarely hold last pay; the order on paper decides |
 | D-47 | The GPF account is closed when the person has left the rolls and the case is approved: this year's interest to the month of leaving is credited and the final payment taken out; the 31 March credit skips interest already credited | The ledger ends at zero and the annual credit stays correct for everyone else |
 | D-48 | The commutation factor table is a dated rule table changed through an Admin; every other pension figure is a dated rate | PRD §10: "all formulas are editable tables with central-rule defaults" |
+| D-49 | A report needs the Reports right and the view right of the function it reads; the narrower scope wins (a section-limited right shows the login's own section only) | §14 has a Reports row and a row per function; a report must not show pay to someone who cannot open pay screens |
+| D-50 | Payroll and statutory reports read approved bills only (approved, paid, closed), regular and supplementary together; pay withheld is left out until a supplementary bill pays it | Reports show what was paid, and they add up to the signed bills |
+| D-51 | A report download (Excel or PDF) is logged as a print in the audit trail with its filters and row count; viewing on screen is not | PRD §11: "every create, edit, approve and print"; viewing is already gated by the session |
+| D-52 | The ghost check also compares staff bank accounts with running pensions and pensions with each other, because the database already refuses the same Aadhaar, PAN or bank account for two current staff | The PRD control would otherwise always be empty; the real leaks are pensions paid into other people's accounts |
 | D-08 | Delhi Cantt logo could not be downloaded from inside the build environment (network policy). A placeholder emblem sits at `public/brand/logo.svg`; drop the real logo at the same path | — |
 
 ## Known gaps / risks

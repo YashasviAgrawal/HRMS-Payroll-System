@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, BadgeCheck, CalendarHeart, CheckCircle2, Clock, Fingerprint, HandCoins, History, Hourglass, IdCard, Inbox, Landmark, LayoutGrid, Lock, UserPlus, Users, Wallet } from "lucide-react";
+import { ArrowLeftRight, ArrowRight, BadgeCheck, CalendarClock, CalendarHeart, CheckCircle2, Clock, Fingerprint, HandCoins, History, Hourglass, IdCard, Inbox, IndianRupee, Landmark, LayoutGrid, Lock, Send, TriangleAlert, TrendingUp, UserPlus, Users, Wallet } from "lucide-react";
 import { Card, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatTile } from "@/components/ui/stat-tile";
@@ -8,11 +8,12 @@ import { requireActor } from "@/lib/auth/session";
 import { formatDate, formatDateTime, todayIST } from "@/lib/dates";
 import { tDynamic } from "@/lib/i18n";
 import { getT } from "@/lib/i18n/server";
-import { homeTiles, myWork } from "@/modules/home/service";
+import { adminPanel, homeTiles, myWork } from "@/modules/home/service";
+import { AdminPanel } from "./admin-panel";
 
 export const metadata: Metadata = { title: "Home" };
 
-const TILE_ICONS = { users: Users, sections: LayoutGrid, employees: IdCard, history: History, inbox: Inbox, probation: Hourglass, joining: UserPlus, attendance: Fingerprint, lock: Lock, leave: CalendarHeart, payroll: Wallet, statutory: Landmark, pension: HandCoins, certificate: BadgeCheck };
+const TILE_ICONS = { users: Users, sections: LayoutGrid, employees: IdCard, history: History, inbox: Inbox, probation: Hourglass, joining: UserPlus, attendance: Fingerprint, lock: Lock, leave: CalendarHeart, payroll: Wallet, statutory: Landmark, pension: HandCoins, certificate: BadgeCheck, cost: IndianRupee, retire: CalendarClock, alert: TriangleAlert, request: Send, increment: TrendingUp, joiners: ArrowLeftRight };
 
 function greetingKey(now = new Date()) {
   const hour = Number(new Intl.DateTimeFormat("en-IN", { hour: "numeric", hour12: false, timeZone: "Asia/Kolkata" }).format(now));
@@ -22,7 +23,7 @@ function greetingKey(now = new Date()) {
 export default async function HomePage() {
   const actor = await requireActor();
   const { t, locale } = await getT();
-  const [work, tiles] = await Promise.all([myWork(actor), homeTiles(actor)]);
+  const [work, tiles, panel] = await Promise.all([myWork(actor), homeTiles(actor), adminPanel(actor)]);
   const firstName = (locale === "hi" && actor.nameHi ? actor.nameHi : actor.name).split(" ")[0];
 
   return (
@@ -51,6 +52,7 @@ export default async function HomePage() {
                   value={tile.value}
                   href={tile.href}
                   tone={tile.tone}
+                  hint={locale === "hi" ? (tile.hintHi ?? tile.hint) : tile.hint}
                   icon={<Icon className="size-4.5" aria-hidden="true" />}
                 />
               );
@@ -58,6 +60,8 @@ export default async function HomePage() {
           </div>
         </section>
       )}
+
+      {panel && <AdminPanel panel={panel} t={t} locale={locale} />}
 
       <Card>
         <CardHeader

@@ -19,7 +19,6 @@ const UPCOMING: Record<string, number> = {
   recruitment: 3,
   attendance: 4,
   leave: 5,
-  reports: 10,
   migration: 10,
 };
 
