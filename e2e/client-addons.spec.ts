@@ -106,7 +106,7 @@ test("Client add-on — one screen per employee, DA & TA by year, and scanned se
   await expect(page.getByTestId("overview-salary")).toBeVisible();
   await expect(page.getByTestId("overview-leave")).toBeVisible();
   await page.goto("/admin/rates?tab=daTa");
-  await expect(page.getByRole("heading", { name: "Dearness allowance and transport allowance, year by year" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "2026" })).toBeVisible();
   await expect(page.getByText("DA 58% → 60%").first()).toBeVisible();
   await signOut(page);
 
@@ -114,7 +114,7 @@ test("Client add-on — one screen per employee, DA & TA by year, and scanned se
   await page.goto("/employees/service-books");
   await page.getByTestId("service-book-files").setInputFiles({ name: "DCB10009 service book.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\n%demo service book\n") });
   await page.getByRole("button", { name: "Upload 1 files" }).click();
-  await expect(page.getByText("1 of 1 files saved.")).toBeVisible();
+  await expect(page.getByText("1 of 1 files saved.").first()).toBeVisible();
   await page.goto("/employees?q=DCB10009");
   await page.getByRole("link", { name: "Service book", exact: true }).click();
   await expect(page.getByText("DCB10009 service book.pdf").first()).toBeVisible();
