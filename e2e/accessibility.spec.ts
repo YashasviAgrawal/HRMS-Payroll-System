@@ -61,6 +61,10 @@ test("payroll, statutory and pension screens meet WCAG 2.1 AA", async ({ page })
   await page.getByRole("link", { name: /Vikas Malhotra/ }).click();
   await page.waitForURL(/\/employees\/exits\/c/);
   await expectAccessible(page, new URL(page.url()).pathname);
+  // One employee by financial year (the month / year filter and the year table).
+  await page.goto("/employees?q=DCB10013");
+  await page.waitForURL(/\/employees\/c/);
+  await expectAccessible(page, `${new URL(page.url()).pathname}?tab=overview&view=year`);
   const overview = (await (await page.request.get("/api/v1/payroll/runs")).json()).data as { history: { id: string; payGroup: string }[] };
   await expectAccessible(page, `/payroll/${overview.history.find((r) => r.payGroup === "NPS")!.id}?tab=people`);
   await signIn(page, { as: "HR & Accounts", id: "DCB10005" });

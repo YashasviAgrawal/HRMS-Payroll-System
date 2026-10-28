@@ -135,4 +135,17 @@ test("Client add-on — an Admin sees everyone's record and pay: the employee li
   // Seeing is not changing: no edit or leaving buttons for an Admin.
   await expect(page.getByRole("link", { name: "Edit" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Suspension or leaving" })).toHaveCount(0);
+
+  // Month-wise and year-wise: last month in full, then this financial year month by month.
+  const [y, m] = todayIST().split("-").map(Number);
+  const lastMonth = new Date(Date.UTC(y, m - 2, 1)).toISOString().slice(0, 7);
+  const bar = page.getByTestId("period-bar");
+  await bar.getByLabel("Month").fill(lastMonth);
+  await bar.getByRole("button", { name: "Show" }).click();
+  await expect(bar).toContainText("Showing");
+  await expect(page.getByTestId("overview-salary")).toContainText("Net pay");
+  await bar.getByRole("link", { name: "Year" }).click();
+  await expect(page.getByTestId("overview-year")).toContainText("Total for the year");
+  await page.getByTestId("overview-year").getByRole("link", { name: "All payslips" }).click();
+  await expect(page.getByTestId("payslips-total")).toBeVisible();
 });

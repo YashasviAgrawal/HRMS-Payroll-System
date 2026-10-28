@@ -43,6 +43,12 @@ test("payroll screens fit a phone screen", async ({ page }) => {
   await page.getByRole("link", { name: /Vikas Malhotra/ }).click();
   await page.waitForURL(/\/employees\/exits\/c/);
   await expectNoSidewaysScroll(page, new URL(page.url()).pathname);
+  // One employee by financial year, and the year's payslips.
+  await page.goto("/employees?q=DCB10013");
+  await page.waitForURL(/\/employees\/c/);
+  const profile = new URL(page.url()).pathname;
+  await expectNoSidewaysScroll(page, `${profile}?tab=overview&view=year`);
+  await expectNoSidewaysScroll(page, `${profile}?tab=payslips&fy=2026-27`);
   // A closed month from the demo history: every tab and one pay sheet.
   const overview = (await (await page.request.get("/api/v1/payroll/runs")).json()).data as { history: { id: string; payGroup: string }[] };
   const run = `/payroll/${overview.history.find((r) => r.payGroup === "NPS")!.id}`;

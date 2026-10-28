@@ -25,6 +25,20 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 
 ## Change log (newest first)
 
+### 2026-10-28 — Client add-on: month-wise and year-wise view of one employee ✅
+**Built**
+- The profile's **Overview** has a "Show for: Month / Year" bar. **Month** (any month of the person's service):
+  that month's attendance, salary slip line by line (and any supplementary bill paid that month), leave taken in
+  the month next to today's balances, the year's totals so far. **Year** (financial year, April to March): net pay
+  and income tax for the year, leave taken, and a month-by-month table — gross, deductions, net (regular and
+  supplementary bills together), present, on leave, dies-non — with the year's total and the year's income tax,
+  GPF / NPS / EPF and loan recoveries; each month opens in full.
+- **Payslips** tab: a financial-year filter with the year's total; **Leave** tab: a year filter with the leave
+  approved in that year. The employee's own record has the same filters on its Payslips and Leave tabs.
+**Verified** — typecheck, lint, unit tests (the period rules) and integration tests (a chosen month, an empty month,
+a year month by month with its totals, payslips and leave by year, rights), build, browser checks (month, year and the
+year's payslips as an Admin; the year view in the accessibility and phone checks).
+
 ### 2026-10-28 — Vercel: new database changes apply on every deploy ✅
 - A Vercel copy updated to the client add-ons showed "Something went wrong" on every employee profile: its database
   had not received the suspension / leaving migration (`The table public.Separation does not exist`), and every

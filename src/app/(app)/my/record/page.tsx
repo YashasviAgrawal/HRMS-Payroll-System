@@ -13,13 +13,13 @@ import { PensionRecord } from "./pension-record";
 
 export const metadata: Metadata = { title: "My record" };
 
-export default async function MyRecordPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+export default async function MyRecordPage({ searchParams }: { searchParams: Promise<{ tab?: string; fy?: string; year?: string }> }) {
   const actor = await requireActor();
   // PN-12: a pensioner (retired, or a family pensioner with no service of their own) sees the pension record.
   if (actor.pensionerId && !actor.isEmployee) return <PensionRecord actor={actor} />;
   if (!actor.employeeId) return <NoAccess />;
   const { t, locale } = await getT();
-  const { tab } = await searchParams;
+  const { tab, ...filters } = await searchParams;
   const [e, confirm] = await Promise.all([getEmployee(actor, actor.employeeId), ownRecordState(actor)]);
   const active = (PROFILE_TABS as readonly string[]).includes(tab ?? "") && !HR_ONLY_TABS.includes(tab as ProfileTab) ? (tab as ProfileTab) : "personal";
   return (
@@ -41,7 +41,7 @@ export default async function MyRecordPage({ searchParams }: { searchParams: Pro
           <ConfirmMyRecord confirmedAt={confirm.confirmedAt} changeHref="/my/requests?new=1" />
         </div>
       )}
-      <EmployeeProfile e={e} actor={actor} tab={active} t={t} locale={locale} mode="self" basePath="/my/record" />
+      <EmployeeProfile e={e} actor={actor} tab={active} t={t} locale={locale} mode="self" basePath="/my/record" filters={filters} />
     </div>
   );
 }

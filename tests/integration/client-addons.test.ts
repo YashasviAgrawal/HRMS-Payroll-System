@@ -4,7 +4,7 @@ import { decide } from "@/lib/approvals/engine";
 import { seal } from "@/lib/crypto";
 import { db } from "@/lib/db";
 import { addDays, todayIST } from "@/lib/dates";
-import { employeeOverview } from "@/modules/employees/overview";
+import { employeeOverview, leaveApplicationsOf, payslipsOf } from "@/modules/employees/overview";
 import { uploadDocument, uploadServiceBooks } from "@/modules/employees/records";
 import { currentSeparation, getSeparation, proposeReinstatement, proposeSeparation } from "@/modules/employees/separation";
 import { withheldCandidates } from "@/modules/payroll/arrears";
@@ -328,6 +328,39 @@ describe.skipIf(!hasTestDb)("client add-ons — leaving service and the full and
     const forPayroll = await employeeOverview(payroll, e.id);
     expect(forPayroll.loans?.map((x) => x.left)).toEqual([3000]);
     expect(forPayroll.pay).not.toBeNull();
+  });
+
+  it("shows one employee for a chosen month or financial year: that month's slip, the year month by month with totals", async () => {
+    const e = await person();
+    await slip(e.id, "2019-05", { days: 31, dim: 31 });
+    await slip(e.id, "2019-06", { days: 30, dim: 30 });
+    await slip(e.id, "2020-01", { days: 31, dim: 31 });
+    await db.attendanceMonth.create({ data: { boardId, employeeId: e.id, sectionId, month: "2019-06", daysInMonth: 30, daysOnRoll: 30, present: 24, late: 1, halfDays: 0, onDuty: 0, leave: 2, holidays: 0, weeklyOffs: 4, diesNon: 0, payableDays: 30, workedDays: 24 } });
+    await db.leaveApplication.create({ data: { boardId, employeeId: e.id, leaveCode: "CL", debitCode: "CL", fromDate: new Date("2019-06-10T00:00:00Z"), toDate: new Date("2019-06-11T00:00:00Z"), days: 2, debitDays: 2, reason: "Family function", status: "APPROVED", createdById: "test" } });
+    const net = 35400 + 4248 - 3000 - 1000;
+
+    const june = await employeeOverview(payroll, e.id, { view: "month", month: "2019-06" });
+    expect(june.pay?.last).toMatchObject({ month: "2019-06", net });
+    expect(june.attendance).toMatchObject({ month: "2019-06", present: 24, leave: 2 });
+    expect(june.leave?.taken).toEqual([{ code: "CL", days: 2 }]);
+    expect(june.pay?.year).toMatchObject({ fy: "2019-20", slips: 3, net: net * 3 });
+
+    const july = await employeeOverview(payroll, e.id, { view: "month", month: "2019-07" });
+    expect(july.pay?.last).toBeNull();
+    expect(july.attendance).toBeNull();
+
+    const year = await employeeOverview(payroll, e.id, { view: "year", fy: "2019-20" });
+    expect(year.pay?.months).toHaveLength(12);
+    expect(year.pay?.months?.find((m) => m.month === "2019-06")).toMatchObject({ bills: 1, net, attendance: { present: 24 } });
+    expect(year.pay?.months?.find((m) => m.month === "2019-08")).toMatchObject({ bills: 0, net: 0, attendance: null });
+    expect(year.pay?.year).toMatchObject({ gross: (35400 + 4248) * 3, funds: 9000, loans: 3000 });
+    expect(year.leave?.taken).toEqual([{ code: "CL", days: 2 }]);
+
+    expect((await payslipsOf(payroll, e.id, "2019-20"))?.map((x) => x.month)).toEqual(["2020-01", "2019-06", "2019-05"]);
+    expect(await payslipsOf(payroll, e.id, "2020-21")).toEqual([]);
+    expect(await payslipsOf(hr, e.id, "2019-20")).toBeNull();
+    expect((await leaveApplicationsOf(hr, e.id, 2019))?.taken).toEqual([{ code: "CL", days: 2 }]);
+    expect((await leaveApplicationsOf(hr, e.id, 2020))?.applications).toEqual([]);
   });
 
   it("files scanned service books by the Employee ID that starts each file name", async () => {

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { fyList, monthsOfFy, parsePeriod, yearList } from "@/modules/employees/period";
 import { combineParts, monthParts } from "@/modules/payroll/arrear-days";
 import { daTaHistory } from "@/modules/payroll/da-history";
 import type { PayLine } from "@/modules/payroll/engine";
@@ -143,5 +144,28 @@ describe("full and final settlement rules (client add-on)", () => {
     expect(bill.find((l) => l.code === "GPF")?.amount).toBe(3000);
     expect(sum("EARNING") - sum("DEDUCTION")).toBeCloseTo(totalsOf(st).net, 2);
     expect(totalsOf(st)).toMatchObject({ dues: 32400 + 69384 + 4000, recoveries: 58450.5, payable: 47333.5, toRecover: 0 });
+  });
+});
+
+describe("one-screen employee view by month or financial year (client add-on)", () => {
+  it("lists a financial year's months, April to March, up to the current month", () => {
+    expect(monthsOfFy("2026-27")).toEqual(["2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02", "2027-03"]);
+    expect(monthsOfFy("2026-27", "2026-10")).toHaveLength(7);
+  });
+
+  it("offers the years of the person's service, newest first", () => {
+    expect(fyList("2024-02-10", "2026-10-28")).toEqual(["2026-27", "2025-26", "2024-25", "2023-24"]);
+    expect(yearList("2024-02-10", "2026-10-28")).toEqual([2026, 2025, 2024]);
+  });
+
+  it("reads the period from the address and keeps it within the service and today", () => {
+    const opts = { today: "2026-10-28", doj: "2012-03-01" };
+    expect(parsePeriod({ month: "2026-09" }, opts)).toEqual({ view: "month", month: "2026-09" });
+    expect(parsePeriod({ view: "year", fy: "2025-26" }, opts)).toEqual({ view: "year", fy: "2025-26" });
+    expect(parsePeriod({ month: "2026-11" }, opts)).toBeNull(); // the future
+    expect(parsePeriod({ month: "2011-12" }, opts)).toBeNull(); // before joining
+    expect(parsePeriod({ view: "year", fy: "2025-27" }, opts)).toBeNull();
+    expect(parsePeriod({ view: "year", fy: "2027-28" }, opts)).toBeNull();
+    expect(parsePeriod({}, opts)).toBeNull();
   });
 });
