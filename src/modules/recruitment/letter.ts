@@ -87,7 +87,7 @@ export async function appointmentLetterPdf(actor: Actor, applicantId: string) {
     section[lang="hi"] { font-family: 'Noto Sans Devanagari', 'Inter', sans-serif; line-height: 1.75; }
     section + section { page-break-before: always; }
     header { display: flex; align-items: center; gap: 14px; border-bottom: 2px solid #116541; padding-bottom: 10px; }
-    header img { width: 64px; height: 64px; }
+    header img { height: 86px; width: auto; }
     header h1 { margin: 0; font-size: 18pt; color: #0f432e; }
     header p { margin: 0; font-size: 9.5pt; color: #4f5d56; }
     .meta { display: flex; justify-content: space-between; margin: 14px 0 18px; font-size: 10pt; color: #3b4741; }

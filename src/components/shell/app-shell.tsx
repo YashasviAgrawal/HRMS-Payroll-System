@@ -123,7 +123,7 @@ function Brand({ logo }: { logo: string }) {
   return (
     <Link href="/home" className="flex items-center gap-3 px-2">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={logo} alt="" className="size-10 rounded-full ring-1 ring-ink-200" />
+      <img src={logo} alt="" className="size-10 rounded-full bg-white object-contain ring-1 ring-ink-200" />
       <div className="min-w-0 leading-tight">
         <p className="truncate text-[0.9rem] font-semibold text-ink-900">{t("app.board")}</p>
         <p className="truncate text-xs text-ink-500">{t("app.name")}</p>
@@ -265,7 +265,7 @@ export function AppShell({
           </button>
           <div className="flex min-w-0 items-center gap-2 lg:hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={logo} alt="" className="size-8 rounded-full ring-1 ring-ink-200" />
+            <img src={logo} alt="" className="size-8 rounded-full bg-white object-contain ring-1 ring-ink-200" />
             <span className="truncate text-sm font-semibold text-ink-900">{t("app.boardShort")} HRMS</span>
           </div>
           <div className="ml-auto flex items-center gap-2 sm:gap-3">

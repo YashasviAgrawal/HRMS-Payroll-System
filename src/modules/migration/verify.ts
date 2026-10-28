@@ -176,7 +176,7 @@ export async function verificationSheetPdf(actor: Actor, employeeId: string) {
     @page { size: A4; margin: 14mm; }
     body { font-family: 'Inter', 'Noto Sans Devanagari', sans-serif; color: #17201b; font-size: 10pt; margin: 0; }
     header { display: flex; gap: 12px; align-items: center; border-bottom: 2px solid #116541; padding-bottom: 8px; }
-    header img { width: 46px; height: 46px; } h1 { margin: 0; font-size: 13pt; color: #0f432e; } header p { margin: 2px 0 0; color: #4f5d56; }
+    header img { height: 62px; width: auto; } h1 { margin: 0; font-size: 13pt; color: #0f432e; } header p { margin: 2px 0 0; color: #4f5d56; }
     table { width: 100%; border-collapse: collapse; margin-top: 10px; } td, th { border: 1px solid #d5ddd9; padding: 5px 7px; text-align: left; vertical-align: top; }
     th { background: #edfaf2; color: #115136; width: 34%; font-weight: 600; } .hi { color: #4f5d56; font-weight: 400; }
     h2 { font-size: 11pt; color: #0f432e; margin: 16px 0 4px; } .box { margin-top: 14px; padding: 10px; border: 1px solid #9aa8a1; border-radius: 6px; }

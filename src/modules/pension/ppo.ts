@@ -87,7 +87,7 @@ export async function renderPpo(caseId: string): Promise<Buffer> {
     body { font-family: 'Inter', 'Noto Sans Devanagari', sans-serif; color: #17201b; font-size: 9pt; margin: 0; }
     [lang="hi"] { font-family: 'Noto Sans Devanagari', 'Inter', sans-serif; }
     header { display: flex; gap: 12px; align-items: center; border-bottom: 2px solid #116541; padding-bottom: 8px; }
-    header img { width: 52px; height: 52px; } header h1 { margin: 0; font-size: 14pt; color: #0f432e; } header p { margin: 2px 0 0; color: #4f5d56; }
+    header img { height: 70px; width: auto; } header h1 { margin: 0; font-size: 14pt; color: #0f432e; } header p { margin: 2px 0 0; color: #4f5d56; }
     .ppo { display: flex; justify-content: space-between; margin: 10px 0; padding: 8px 12px; border: 1.5px solid #116541; border-radius: 8px; background: #edfaf2; }
     .ppo b { font-size: 12pt; color: #0f432e; }
     h2 { font-size: 10pt; color: #0f432e; margin: 12px 0 4px; }

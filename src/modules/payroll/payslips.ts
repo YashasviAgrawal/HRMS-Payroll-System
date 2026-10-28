@@ -190,7 +190,7 @@ function doc(body: string) {
     body { font-family: 'Inter', 'Noto Sans Devanagari', sans-serif; color: #17201b; font-size: 9.5pt; margin: 0; }
     .slip { page-break-after: always; } .slip:last-child { page-break-after: auto; }
     header { display: flex; gap: 12px; align-items: center; border-bottom: 2px solid #116541; padding-bottom: 8px; }
-    header img { width: 50px; height: 50px; } header h1 { margin: 0; font-size: 14pt; color: #0f432e; } header p { margin: 2px 0 0; color: #4f5d56; }
+    header img { height: 68px; width: auto; } header h1 { margin: 0; font-size: 14pt; color: #0f432e; } header p { margin: 2px 0 0; color: #4f5d56; }
     .who { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px 22px; margin: 12px 0; } .who b { color: #0f432e; }
     table { width: 100%; border-collapse: collapse; margin-top: 6px; }
     th, td { border: 1px solid #d5ddd9; padding: 4px 7px; text-align: left; } th { background: #edfaf2; color: #115136; }

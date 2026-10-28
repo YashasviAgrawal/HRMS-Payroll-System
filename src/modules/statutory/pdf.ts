@@ -14,7 +14,7 @@ export function statPage(opts: { title: string; subtitle?: string; meta: [string
     @page { size: A4; margin: 12mm 12mm 14mm 12mm; }
     body { font-family: 'Inter', 'Noto Sans Devanagari', sans-serif; color: #17201b; font-size: 9pt; margin: 0; }
     header { display: flex; gap: 12px; align-items: center; border-bottom: 2px solid #116541; padding-bottom: 8px; }
-    header img { width: 48px; height: 48px; }
+    header img { height: 65px; width: auto; }
     header h1 { margin: 0; font-size: 13.5pt; color: #0f432e; }
     header p { margin: 1px 0 0; color: #4f5d56; }
     .meta { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 22px; margin: 10px 0; }

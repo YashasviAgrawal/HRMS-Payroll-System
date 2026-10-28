@@ -66,10 +66,10 @@ export async function renderPdf(html: string, opts: { landscape?: boolean } = {}
   }
 }
 
-/** Logo as a data URL for documents (placeholder SVG until the official file is added). */
+/** The Board's official logo (public/brand/logo.png) as a data URL for documents. */
 export function logoDataUrl(): string {
   const dir = path.join(process.cwd(), "public", "brand");
-  for (const [name, mime] of [["logo.png", "image/png"], ["logo.webp", "image/webp"], ["logo.jpg", "image/jpeg"], ["logo.svg", "image/svg+xml"]] as const) {
+  for (const [name, mime] of [["logo.png", "image/png"], ["logo.webp", "image/webp"], ["logo.jpg", "image/jpeg"]] as const) {
     try {
       return `data:${mime};base64,${readFileSync(path.join(dir, name)).toString("base64")}`;
     } catch {

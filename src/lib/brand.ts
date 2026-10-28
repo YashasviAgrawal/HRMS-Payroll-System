@@ -1,18 +1,7 @@
-import "server-only";
-import { existsSync } from "node:fs";
-import path from "node:path";
-
-let cached: string | undefined;
-
 /**
- * The Board logo. Drop the official file at public/brand/logo.png (or .webp / .jpg) and it is used
- * everywhere — login screen, sidebar, payslips — with no code change. Otherwise the placeholder SVG shows.
+ * The Board's official logo (emblem, motto "हमारा प्रयास बेहतर जनजीवन" and name) for the sign-in screen and every
+ * document, and the emblem alone for the small round places — the menu bar, the top bar and the browser tab.
+ * Documents read the same file through `logoDataUrl()` in lib/pdf.ts.
  */
-export function logoSrc(): string {
-  if (cached) return cached;
-  const dir = path.join(process.cwd(), "public", "brand");
-  for (const name of ["logo.png", "logo.webp", "logo.jpg", "logo.jpeg"]) {
-    if (existsSync(path.join(dir, name))) return (cached = `/brand/${name}`);
-  }
-  return (cached = "/brand/logo.svg");
-}
+export const LOGO = "/brand/logo.png";
+export const MARK = "/brand/mark.png";

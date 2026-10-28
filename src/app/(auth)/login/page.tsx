@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { BadgeCheck, CalendarCheck2, IndianRupee, ShieldCheck } from "lucide-react";
 import { LanguageSwitch } from "@/components/shell/language-switch";
 import { getActor } from "@/lib/auth/session";
-import { logoSrc } from "@/lib/brand";
+import { LOGO, MARK } from "@/lib/brand";
 import { devHelpersEnabled } from "@/lib/env";
 import { getT } from "@/lib/i18n/server";
 import { LoginForm } from "./login-form";
@@ -14,7 +14,6 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   if (await getActor()) redirect("/home");
   const { reason } = await searchParams;
   const { t } = await getT();
-  const logo = logoSrc();
 
   const points = [
     { icon: IndianRupee, text: t("login.point1") },
@@ -29,7 +28,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <div className="grid-pattern absolute inset-0 opacity-60" aria-hidden="true" />
         <div className="relative flex items-center gap-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={logo} alt="" className="size-16 rounded-full bg-white p-1 shadow-lg shadow-black/20" />
+          <img src={LOGO} alt="" className="h-36 w-auto rounded-2xl bg-white p-3 shadow-lg shadow-black/20" />
           <div>
             <p className="text-lg font-semibold leading-tight">{t("app.board")}</p>
             <p className="text-sm text-white/70">{t("app.govt")}</p>
@@ -60,7 +59,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <div className="flex items-center justify-between px-5 py-4 sm:px-8">
           <div className="flex items-center gap-3 lg:invisible">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={logo} alt="" className="size-10 rounded-full ring-1 ring-ink-200" />
+            <img src={MARK} alt="" className="size-10 rounded-full bg-white object-contain ring-1 ring-ink-200" />
             <div className="leading-tight">
               <p className="text-sm font-semibold text-ink-900">{t("app.board")}</p>
               <p className="text-xs text-ink-500">{t("app.name")}</p>

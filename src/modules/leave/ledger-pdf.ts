@@ -46,7 +46,7 @@ export async function leaveLedgerPdf(actor: Actor, employeeId: string) {
     body { font-family: 'Inter', 'Noto Sans Devanagari', sans-serif; color: #17201b; font-size: 9.5pt; margin: 0; }
     [lang="hi"] { font-family: 'Noto Sans Devanagari', 'Inter', sans-serif; }
     header { display: flex; gap: 14px; align-items: center; border-bottom: 2px solid #116541; padding-bottom: 10px; }
-    header img { width: 54px; height: 54px; }
+    header img { height: 73px; width: auto; }
     header h1 { margin: 0; font-size: 15pt; color: #0f432e; }
     header p { margin: 0; color: #4f5d56; }
     .who { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 18px; margin: 12px 0 6px; font-size: 9.5pt; }

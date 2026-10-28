@@ -4,7 +4,7 @@ import { AppShell } from "@/components/shell/app-shell";
 import { countInbox } from "@/lib/approvals";
 import { hasApprovalsInbox, menuFor } from "@/lib/auth/menu";
 import { IDLE_TIMEOUT_MS, requireActor } from "@/lib/auth/session";
-import { logoSrc } from "@/lib/brand";
+import { MARK } from "@/lib/brand";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const actor = await requireActor();
@@ -24,7 +24,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         permissions: actor.permissions,
       }}
       inboxCount={inbox}
-      logo={logoSrc()}
+      logo={MARK}
       idleTimeoutMs={IDLE_TIMEOUT_MS}
       mobileBottomNav={actor.loginType === "EMPLOYEE"}
     >

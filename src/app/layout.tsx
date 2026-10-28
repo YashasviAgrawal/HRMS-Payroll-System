@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   title: { default: "DCB HRMS & Payroll", template: "%s · DCB HRMS" },
   description: "Delhi Cantonment Board — employee records, attendance, leave, payroll and pension.",
   robots: { index: false, follow: false },
-  icons: { icon: "/brand/logo.svg" },
+  icons: { icon: "/brand/mark.png", apple: "/brand/apple-touch-icon.png" },
 };
 
 export const viewport: Viewport = {

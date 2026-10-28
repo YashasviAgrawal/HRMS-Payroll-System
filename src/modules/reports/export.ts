@@ -90,7 +90,7 @@ async function pdf(ran: RanReport, locale: Locale, actor: Actor) {
     @page { size: A4 ${landscape ? "landscape" : "portrait"}; margin: 11mm 10mm 13mm 10mm; }
     body { font-family: ${locale === "hi" ? "'Noto Sans Devanagari', 'Inter'" : "'Inter', 'Noto Sans Devanagari'"}, sans-serif; color: #17201b; font-size: ${tiny ? "6.4pt" : landscape ? "7.6pt" : "8.6pt"}; margin: 0; }
     header { display: flex; gap: 12px; align-items: center; border-bottom: 2px solid #116541; padding-bottom: 7px; }
-    header img { width: 44px; height: 44px; }
+    header img { height: 59px; width: auto; }
     header h1 { margin: 0; font-size: 13pt; color: #0f432e; }
     header p { margin: 1px 0 0; color: #4f5d56; }
     .meta { margin: 7px 0 3px; font-weight: 600; color: #0f432e; }

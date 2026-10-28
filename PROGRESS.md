@@ -25,6 +25,14 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 
 ## Change log (newest first)
 
+### 2026-10-28 — The official DCB logo ✅
+- The client's logo replaces the placeholder: the full logo (emblem, motto "हमारा प्रयास बेहतर जनजीवन" and name) on the
+  sign-in screen and at the top of every PDF (payslips, pay bills and registers, PPO, appointment letters, leave
+  ledgers, reports, statutory forms, migration sheets, the settlement statement); the emblem alone in the menu bar,
+  the top bar and as the browser and phone icon. PDF headers keep the logo's shape (fixed height, width to suit)
+  instead of a square.
+**Verified** — typecheck, lint, tests, build; the sign-in screen, the shell and a payslip PDF looked at.
+
 ### 2026-10-28 — Client add-ons (part 2): suspension, leaving service and the full and final settlement ✅
 Asked by DCB ("when an employee is suspended or removed, calculate all outstanding loans and recoveries in the FnF").
 **Built**
@@ -607,7 +615,7 @@ file), build, 55 browser checks (the migration check now lands on the profile af
 ## Pending / next up
 Release 1 is built. What remains is the Board's, before go-live (details in [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)):
 - The PRD §18 open questions (headcount, salary bank and its file format, e-Chhawani layout, DCB-specific allowances,
-  biometric devices, Hindi typing method, audit retention) and the real logo at `public/brand/logo.png`.
+  biometric devices, Hindi typing method, audit retention).
 - One real upload of each statutory file (24Q through the FVU, CRA, ECR, ESIC) and the bank file with the Board's bank.
 - The security audit by a CERT-In-empanelled auditor on the test copy; the migration rehearsal and three parallel-run
   months (§15) on the test copy; then the cut-over.
@@ -689,7 +697,7 @@ Release 1 is built. What remains is the Board's, before go-live (details in [doc
 | D-71 | Leave encashment on leaving follows CCS (Leave) r. 39 by default (resignation half up to 150 days, termination up to 300, none on removal / dismissal / end of contract / transfer out), changeable per case with the order | The rules differ by the kind of leaving; the order decides in hard cases |
 | D-72 | Arrears of a change inside a month are paid by days (each part counts only its own days) | DA orders and increments often take effect mid-month; paying a whole month at either rate is wrong either way |
 | D-73 | Document types and their size limits are a setting; the bank salary file is Excel by default | DCB is still confirming its document list; banks now take .xlsx uploads |
-| D-08 | Delhi Cantt logo could not be downloaded from inside the build environment (network policy). A placeholder emblem sits at `public/brand/logo.svg`; drop the real logo at the same path | — |
+| D-08 | The official DCB logo (supplied by the client) is `public/brand/logo.png` on the sign-in screen and every PDF; the emblem alone (`mark.png`) fills the small round places and the browser tab | The full logo's name and motto cannot be read at 32–40 px; documents carry the full logo |
 
 ## Known gaps / risks
 - Rate limits live in each Node process's memory (two processes = the limit applies per process); a restart clears

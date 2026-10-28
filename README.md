@@ -93,9 +93,12 @@ tests/unit, tests/integration, e2e/
 
 ## Logo
 
-The official Delhi Cantonment Board logo could not be downloaded from the build environment. Put the file at
-**`public/brand/logo.png`** (a `.webp` or `.jpg` also works). It is then used on the sign-in screen, the sidebar and payslips, with no code change.
-Until then a placeholder emblem (`public/brand/logo.svg`) is shown.
+The official Delhi Cantonment Board logo is in `public/brand/`:
+- **`logo.png`** — the full logo (emblem, motto and name), on the sign-in screen and at the top of every PDF
+  (payslips, pay bills, PPO, letters, reports, statements);
+- **`mark.png`** — the emblem alone, for the menu bar, the top bar and the browser tab (`apple-touch-icon.png` for phones).
+
+To change it, replace these files (same names); no code change is needed.
 
 ## Deployment
 

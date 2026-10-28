@@ -220,12 +220,14 @@ export async function workStatement(tx: DbLike, sep: Pick<Separation, "id" | "bo
     const left = fromPaise(toPaise(pos.principalLeft) + toPaise(pos.interestLeft));
     if (left <= 0) continue;
     const [name, nameHi] = LOAN_NAMES[l.type] ?? LOAN_NAMES.OTHER;
+    // The purpose is shown when it says more than the kind of loan ("Festival advance — Festival advance" reads badly).
+    const purpose = l.purpose && l.purpose.trim().toLowerCase() !== name.toLowerCase() ? l.purpose.trim() : null;
     lines.push({
       key: `loan:${l.id}`,
       kind: "RECOVERY",
       source: "LOAN",
-      label: `${name}${l.purpose ? ` — ${l.purpose}` : ""}`,
-      labelHi: `${nameHi}${l.purpose ? ` — ${l.purpose}` : ""}`,
+      label: `${name}${purpose ? ` — ${purpose}` : ""}`,
+      labelHi: `${nameHi}${purpose ? ` — ${purpose}` : ""}`,
       note: `Principal left ${formatINR(pos.principalLeft)}${pos.interestLeft ? ` + interest ${formatINR(pos.interestLeft)}` : ""} · order ${l.orderNumber ?? "—"} of ${formatDate(toISODate(l.sanctionDate))}`,
       noteHi: `शेष मूलधन ${formatINR(pos.principalLeft)}${pos.interestLeft ? ` + ब्याज ${formatINR(pos.interestLeft)}` : ""} · आदेश ${l.orderNumber ?? "—"}, ${formatDate(toISODate(l.sanctionDate), "hi")}`,
       amount: left,
