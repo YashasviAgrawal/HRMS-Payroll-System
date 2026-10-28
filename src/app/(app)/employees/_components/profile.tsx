@@ -1,24 +1,33 @@
-import { CalendarClock, CalendarDays, Clock, FileText, History, Hourglass, Pencil, Phone, Receipt, ShieldAlert, Users } from "lucide-react";
+import { BookOpen, BriefcaseBusiness, CalendarCheck, CalendarClock, CalendarDays, Clock, FileText, HandCoins, History, Hourglass, IndianRupee, Pencil, Phone, PiggyBank, Receipt, ShieldAlert, Users, Wallet } from "lucide-react";
+import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { LinkButton } from "@/components/ui/button";
 import { Card, CardBody, CardHeader, DescriptionList } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { StatTile } from "@/components/ui/stat-tile";
 import { LinkTabs } from "@/components/ui/tabs";
 import { Table, Td, Th, THead, Tr } from "@/components/ui/table";
 import { canAll } from "@/lib/auth/access";
 import type { Actor } from "@/lib/auth/session";
-import { formatDate, formatDateTime } from "@/lib/dates";
+import { formatDate, formatDateTime, formatMonth } from "@/lib/dates";
 import { tDynamic, type TFunction } from "@/lib/i18n";
 import type { Locale } from "@/lib/i18n/types";
 import { formatINR } from "@/lib/money";
 import { getFamily, listDocuments, listServiceBook } from "@/modules/employees/records";
 import { addressLine } from "@/modules/employees/present";
 import { canRevealIds, fieldHistory, pendingChanges, type EmployeeView } from "@/modules/employees/service";
+import { getSetting } from "@/modules/settings/service";
+import { docTypeName } from "@/modules/settings/schema";
+import { employeeOverview } from "@/modules/employees/overview";
+import { myPayslips } from "@/modules/payroll/payslips";
+import { LEAVE_TONE } from "../../leave/_components/tones";
 import { statusTone, typeTone } from "./tones";
 import { DocumentDelete, DocumentUpload, RevealValue, ServiceEntryDialog, WithdrawButton } from "./widgets";
 
-export const PROFILE_TABS = ["personal", "job", "ids", "family", "documents", "serviceBook", "leave", "payslips", "history"] as const;
+export const PROFILE_TABS = ["overview", "personal", "job", "ids", "family", "documents", "serviceBook", "leave", "payslips", "history"] as const;
+/** Tabs only HR & Accounts see; an employee's own record leaves them out. */
+export const HR_ONLY_TABS: ProfileTab[] = ["overview", "history"];
 export type ProfileTab = (typeof PROFILE_TABS)[number];
 const EDITABLE: ProfileTab[] = ["personal", "job", "ids", "family"];
 
@@ -39,7 +48,7 @@ export async function EmployeeProfile({ e, actor, tab, t, locale, mode, basePath
   const hr = mode === "hr" && canAll(actor, "employee_master", "create") && e.id !== actor.employeeId;
   const pending = await pendingChanges(actor, e.id);
   const name = locale === "hi" && e.nameHi ? e.nameHi : e.name;
-  const tabs = PROFILE_TABS.filter((x) => mode === "hr" || x !== "history").map((key) => ({
+  const tabs = PROFILE_TABS.filter((x) => mode === "hr" || !HR_ONLY_TABS.includes(x)).map((key) => ({
     key,
     label: t(`employees.tabs.${key}`),
     href: `${basePath}?tab=${key}`,
@@ -245,16 +254,9 @@ export async function EmployeeProfile({ e, actor, tab, t, locale, mode, basePath
       {tab === "family" && <FamilyTab e={e} actor={actor} t={t} locale={locale} />}
       {tab === "documents" && <DocumentsTab e={e} actor={actor} t={t} locale={locale} hr={hr} />}
       {tab === "serviceBook" && <ServiceBookTab e={e} actor={actor} t={t} locale={locale} hr={hr} />}
-      {tab === "leave" && (
-        <Card>
-          <EmptyState icon={<CalendarDays className="size-6" aria-hidden="true" />} title={t("employees.tabs.leave")} description={t("employees.profile.comingLeave")} />
-        </Card>
-      )}
-      {tab === "payslips" && (
-        <Card>
-          <EmptyState icon={<Receipt className="size-6" aria-hidden="true" />} title={t("employees.tabs.payslips")} description={t("employees.profile.comingPayslips")} />
-        </Card>
-      )}
+      {tab === "overview" && mode === "hr" && <OverviewTab e={e} actor={actor} t={t} locale={locale} basePath={basePath} />}
+      {tab === "leave" && <LeaveTab e={e} actor={actor} t={t} locale={locale} mode={mode} />}
+      {tab === "payslips" && <PayslipsTab e={e} actor={actor} t={t} locale={locale} mode={mode} />}
       {tab === "history" && mode === "hr" && <HistoryTab e={e} actor={actor} t={t} locale={locale} />}
     </div>
   );
@@ -326,11 +328,12 @@ async function FamilyTab({ e, actor, t, locale }: { e: EmployeeView; actor: Acto
 }
 
 async function DocumentsTab({ e, actor, t, locale, hr }: { e: EmployeeView; actor: Actor; t: TFunction; locale: Locale; hr: boolean }) {
-  const docs = await listDocuments(actor, e.id);
+  const [docs, settings] = await Promise.all([listDocuments(actor, e.id), getSetting(actor.boardId, "documents")]);
+  const types = settings.types.filter((x) => x.active);
   const canOpen = hr || actor.employeeId === e.id || actor.permissions.some((p) => ["CHECKER", "PAYROLL", "PENSION", "APPROVER", "HR"].includes(p));
   return (
     <Card>
-      <CardHeader title={t("employees.tabs.documents")} description={t("employees.documents.fileHint")} actions={hr ? <DocumentUpload employeeId={e.id} /> : undefined} />
+      <CardHeader title={t("employees.tabs.documents")} description={t("employees.documents.fileHintTypes")} actions={hr ? <DocumentUpload employeeId={e.id} types={types} /> : undefined} />
       {docs.length === 0 ? (
         <EmptyState icon={<FileText className="size-6" aria-hidden="true" />} title={t("employees.documents.empty")} />
       ) : (
@@ -349,7 +352,7 @@ async function DocumentsTab({ e, actor, t, locale, hr }: { e: EmployeeView; acto
                   <p className="truncate font-medium text-ink-900">{d.title}</p>
                 )}
                 <p className="text-xs text-ink-500">
-                  {tDynamic(t, `employees.docCategory.${d.category}`)} · {(d.size / 1024).toFixed(0)} KB · {t("employees.documents.uploadedBy", { name: d.uploadedByName })} · {formatDateTime(d.createdAt, locale)}
+                  {docTypeName(settings.types, d.category, locale)} · {d.size >= 1024 * 1024 ? `${(d.size / 1024 / 1024).toFixed(1)} MB` : `${(d.size / 1024).toFixed(0)} KB`} · {t("employees.documents.uploadedBy", { name: d.uploadedByName })} · {formatDateTime(d.createdAt, locale)}
                 </p>
               </div>
               {hr && <DocumentDelete documentId={d.id} />}
@@ -362,10 +365,48 @@ async function DocumentsTab({ e, actor, t, locale, hr }: { e: EmployeeView; acto
 }
 
 async function ServiceBookTab({ e, actor, t, locale, hr }: { e: EmployeeView; actor: Actor; t: TFunction; locale: Locale; hr: boolean }) {
-  const entries = await listServiceBook(actor, e.id);
+  const [entries, docs, settings] = await Promise.all([listServiceBook(actor, e.id), listDocuments(actor, e.id), getSetting(actor.boardId, "documents")]);
+  const scans = docs.filter((d) => d.category === "SERVICE_BOOK");
+  const scanType = settings.types.filter((x) => x.code === "SERVICE_BOOK" && x.active);
+  const canOpen = hr || actor.employeeId === e.id || actor.permissions.some((p) => ["CHECKER", "PAYROLL", "PENSION", "APPROVER", "HR"].includes(p));
   const tone = { PENDING: "amber", APPROVED: "green", REJECTED: "red" } as const;
   const label = { PENDING: t("employees.serviceBook.pending"), APPROVED: t("employees.serviceBook.approved"), REJECTED: t("employees.serviceBook.rejected") };
   return (
+    <div className="space-y-6">
+    <Card>
+      <CardHeader
+        title={t("employees.serviceBookScans.tabTitle")}
+        description={t("employees.serviceBookScans.tabHint")}
+        icon={<BookOpen className="size-4.5" aria-hidden="true" />}
+        actions={hr && scanType.length > 0 ? <DocumentUpload employeeId={e.id} types={scanType} defaultType="SERVICE_BOOK" label={t("employees.serviceBookScans.uploadOne")} /> : undefined}
+      />
+      {scans.length === 0 ? (
+        <CardBody className="text-sm text-ink-500">{t("employees.serviceBookScans.tabEmpty")}</CardBody>
+      ) : (
+        <ul className="divide-y divide-ink-100">
+          {scans.map((d) => (
+            <li key={d.id} className="flex items-center gap-4 px-5 py-3 sm:px-6">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
+                <BookOpen className="size-5" aria-hidden="true" />
+              </span>
+              <div className="min-w-0 flex-1">
+                {canOpen ? (
+                  <a href={`/api/v1/documents/${d.id}?view=1`} target="_blank" rel="noopener" className="block truncate font-medium text-ink-900 hover:text-brand-700 hover:underline">
+                    {d.title}
+                  </a>
+                ) : (
+                  <p className="truncate font-medium text-ink-900">{d.title}</p>
+                )}
+                <p className="text-xs text-ink-500">
+                  {(d.size / 1024 / 1024).toFixed(1)} MB · {t("employees.documents.uploadedBy", { name: d.uploadedByName })} · {formatDateTime(d.createdAt, locale)}
+                </p>
+              </div>
+              {hr && <DocumentDelete documentId={d.id} />}
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
     <Card>
       <CardHeader title={t("employees.tabs.serviceBook")} actions={hr && canAll(actor, "service_book", "create") ? <ServiceEntryDialog employeeId={e.id} /> : undefined} />
       {entries.length === 0 ? (
@@ -405,6 +446,7 @@ async function ServiceBookTab({ e, actor, t, locale, hr }: { e: EmployeeView; ac
         </ol>
       )}
     </Card>
+    </div>
   );
 }
 
@@ -433,6 +475,318 @@ async function HistoryTab({ e, actor, t, locale }: { e: EmployeeView; actor: Act
                 <Td className="text-ink-500">{r.oldValue ?? "—"}</Td>
                 <Td className="font-medium text-ink-900">{r.newValue ?? "—"}</Td>
                 <Td className="text-xs text-ink-500">{t("employees.history.by", { maker: r.changedBy ?? "—", checker: r.approvedBy ?? "—" })}</Td>
+              </Tr>
+            ))}
+          </tbody>
+        </Table>
+      )}
+    </Card>
+  );
+}
+
+type TabProps = { e: EmployeeView; actor: Actor; t: TFunction; locale: Locale };
+const days = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
+
+/** Client add-on: the whole person on one screen — service, leave, attendance, salary, payslips, loans, GPF. */
+async function OverviewTab({ e, actor, t, locale, basePath }: TabProps & { basePath: string }) {
+  const o = await employeeOverview(actor, e.id);
+  const last = o.pay?.last;
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatTile
+          label={t("employees.overview.service")}
+          value={t("employees.overview.serviceValue", { years: o.facts.service.years, months: o.facts.service.months })}
+          hint={t("employees.overview.joined", { date: formatDate(e.dateOfJoining, locale) })}
+          icon={<BriefcaseBusiness className="size-4.5" aria-hidden="true" />}
+        />
+        <StatTile
+          label={t("employees.overview.retires")}
+          value={e.dateOfRetirement ? formatDate(e.dateOfRetirement, locale) : "—"}
+          hint={o.facts.toRetirement ? t("employees.overview.retiresIn", o.facts.toRetirement) : !e.dateOfRetirement ? t("employees.overview.noRetirement") : undefined}
+          icon={<CalendarClock className="size-4.5" aria-hidden="true" />}
+          tone={o.facts.toRetirement && o.facts.toRetirement.years === 0 ? "amber" : "green"}
+        />
+        {e.basicPay !== null ? (
+          <StatTile label={t("employees.overview.basic")} value={formatINR(e.basicPay)} hint={t("employees.overview.levelCell", { level: e.payLevel ?? "—", cell: e.payCell ?? "—" })} icon={<IndianRupee className="size-4.5" aria-hidden="true" />} />
+        ) : e.wageRate !== null ? (
+          <StatTile label={t("employees.overview.wage")} value={formatINR(e.wageRate)} icon={<IndianRupee className="size-4.5" aria-hidden="true" />} />
+        ) : (
+          <StatTile label={t("employees.overview.basic")} value="—" icon={<IndianRupee className="size-4.5" aria-hidden="true" />} tone="gray" />
+        )}
+        {last ? (
+          <StatTile
+            label={t("employees.overview.lastNet")}
+            value={formatINR(last.net)}
+            hint={t("employees.overview.lastNetHint", { month: formatMonth(last.month, locale), gross: formatINR(last.gross) })}
+            icon={<Wallet className="size-4.5" aria-hidden="true" />}
+            href={`${basePath}?tab=payslips`}
+          />
+        ) : (
+          <StatTile label={t("employees.overview.lastNet")} value="—" hint={o.pay ? t("employees.overview.salaryNone") : t("employees.overview.payHidden")} icon={<Wallet className="size-4.5" aria-hidden="true" />} tone="gray" />
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {o.leave && (
+          <Card>
+            <CardHeader
+              title={t("employees.overview.leave")}
+              icon={<CalendarDays className="size-4.5" aria-hidden="true" />}
+              actions={
+                <Link href={`/leave/ledger/${e.id}`} className="text-sm font-medium text-brand-700 hover:underline">
+                  {t("employees.overview.ledger")}
+                </Link>
+              }
+            />
+            <CardBody>
+              {o.leave.balances.length === 0 ? (
+                <p className="text-sm text-ink-500">{t("employees.overview.leaveNone")}</p>
+              ) : (
+                <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3" data-testid="overview-leave">
+                  {o.leave.balances.map((b) => (
+                    <li key={b.code} className="rounded-xl border border-ink-100 px-3 py-2.5">
+                      <p className="text-xs font-medium text-ink-500">
+                        {b.code} · {locale === "hi" ? b.nameHi : b.name}
+                      </p>
+                      <p className="tabular mt-0.5 text-xl font-semibold text-ink-950">{b.balance === null ? "—" : days(b.balance)}</p>
+                      {b.pending > 0 && <p className="text-xs text-amber-700">{t("employees.overview.leaveWaiting", { days: days(b.pending) })}</p>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardBody>
+          </Card>
+        )}
+        <Card>
+          <CardHeader title={o.attendance ? t("employees.overview.attendance", { month: formatMonth(o.attendance.month, locale) }) : t("employees.overview.attendance", { month: "—" })} icon={<CalendarCheck className="size-4.5" aria-hidden="true" />} />
+          <CardBody>
+            {o.attendance ? (
+              <dl className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+                {(
+                  [
+                    ["present", o.attendance.present],
+                    ["onLeave", o.attendance.leave],
+                    ["late", o.attendance.late],
+                    ["diesNon", o.attendance.absentOrDiesNon],
+                    ["payable", o.attendance.payableDays],
+                  ] as const
+                ).map(([k, v]) => (
+                  <div key={k} className="rounded-xl bg-ink-50 px-3 py-2.5">
+                    <dt className="text-xs text-ink-500">{t(`employees.overview.${k}`)}</dt>
+                    <dd className="tabular mt-0.5 text-lg font-semibold text-ink-950">{days(v)}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : (
+              <p className="text-sm text-ink-500">{t("employees.overview.noAttendance")}</p>
+            )}
+          </CardBody>
+        </Card>
+      </div>
+
+      {o.pay ? (
+        <Card>
+          <CardHeader
+            title={last ? t("employees.overview.salary", { month: formatMonth(last.month, locale) }) : t("employees.overview.salary", { month: "—" })}
+            description={t("employees.overview.year", { fy: o.pay.year.fy, count: o.pay.year.slips, gross: formatINR(o.pay.year.gross), deductions: formatINR(o.pay.year.deductions), net: formatINR(o.pay.year.net) })}
+            icon={<Receipt className="size-4.5" aria-hidden="true" />}
+            actions={
+              <Link href={`${basePath}?tab=payslips`} className="text-sm font-medium text-brand-700 hover:underline">
+                {t("employees.overview.allSlips")}
+              </Link>
+            }
+          />
+          {last ? (
+            <CardBody className="grid grid-cols-1 gap-6 md:grid-cols-2" data-testid="overview-salary">
+              {(["EARNING", "DEDUCTION"] as const).map((kind) => {
+                const lines = last.lines.filter((l) => l.kind === kind);
+                return (
+                  <div key={kind}>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-500">{t(kind === "EARNING" ? "employees.overview.earnings" : "employees.overview.deductions")}</p>
+                    <ul className="divide-y divide-ink-100 text-sm">
+                      {lines.map((l) => (
+                        <li key={l.code} className="flex justify-between gap-3 py-1.5">
+                          <span className="text-ink-700">{locale === "hi" ? l.nameHi : l.name}</span>
+                          <span className="tabular font-medium text-ink-900">{formatINR(l.amount)}</span>
+                        </li>
+                      ))}
+                      <li className="flex justify-between gap-3 py-1.5 font-semibold">
+                        <span>{t(kind === "EARNING" ? "employees.overview.gross" : "employees.overview.deductions")}</span>
+                        <span className="tabular">{formatINR(kind === "EARNING" ? last.gross : last.deductions)}</span>
+                      </li>
+                    </ul>
+                  </div>
+                );
+              })}
+              <div className="flex items-baseline justify-between rounded-xl bg-brand-900 px-4 py-3 text-white md:col-span-2">
+                <span className="font-medium">{t("employees.overview.net")}</span>
+                <span className="tabular text-2xl font-semibold">{formatINR(last.net)}</span>
+              </div>
+            </CardBody>
+          ) : (
+            <CardBody className="text-sm text-ink-500">{t("employees.overview.salaryNone")}</CardBody>
+          )}
+        </Card>
+      ) : (
+        <p className="rounded-xl border border-ink-100 bg-white px-4 py-3 text-sm text-ink-600">{t("employees.overview.payHidden")}</p>
+      )}
+
+      {(o.loans || o.gpf) && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {o.loans && (
+            <Card>
+              <CardHeader title={t("employees.overview.loans")} icon={<HandCoins className="size-4.5" aria-hidden="true" />} />
+              {o.loans.length === 0 ? (
+                <CardBody className="text-sm text-ink-500">{t("employees.overview.noLoans")}</CardBody>
+              ) : (
+                <ul className="divide-y divide-ink-100">
+                  {o.loans.map((l) => (
+                    <li key={l.id} className="flex items-center justify-between gap-3 px-5 py-3 sm:px-6">
+                      <div className="min-w-0">
+                        <p className="font-medium text-ink-900">{tDynamic(t, `payroll.loans.types.${l.type}`)}{l.purpose ? ` — ${l.purpose}` : ""}</p>
+                        <p className="text-xs text-ink-500">{t("employees.overview.loanLeft", { left: formatINR(l.left), instalment: formatINR(l.instalmentAmount) })}</p>
+                      </div>
+                      <Link href={`/payroll/loans/${l.id}`} className="text-sm font-medium text-brand-700 hover:underline">
+                        {t("employees.overview.open")}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+          )}
+          {o.gpf && (
+            <Card>
+              <CardHeader title={t("employees.overview.gpf")} icon={<PiggyBank className="size-4.5" aria-hidden="true" />} actions={<Link href={`/statutory/funds/${e.id}`} className="text-sm font-medium text-brand-700 hover:underline">{t("employees.overview.open")}</Link>} />
+              <CardBody>
+                <p className="tabular text-2xl font-semibold text-ink-950">{formatINR(o.gpf.balance)}</p>
+                {o.gpf.advanceLeft > 0 && <p className="mt-1 text-sm text-amber-700">{t("employees.overview.gpfAdvance", { amount: formatINR(o.gpf.advanceLeft) })}</p>}
+              </CardBody>
+            </Card>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+async function LeaveTab({ e, actor, t, locale }: TabProps & { mode: "hr" | "self" }) {
+  const o = await employeeOverview(actor, e.id);
+  if (!o.leave) return <Card><CardBody className="text-sm text-ink-500">{t("employees.leaveTab.noAccess")}</CardBody></Card>;
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader
+          title={t("employees.overview.leave")}
+          icon={<CalendarDays className="size-4.5" aria-hidden="true" />}
+          actions={
+            <Link href={actor.employeeId === e.id ? "/leave/ledger/me" : `/leave/ledger/${e.id}`} className="text-sm font-medium text-brand-700 hover:underline">
+              {t("employees.overview.ledger")}
+            </Link>
+          }
+        />
+        <Table stack>
+          <THead>
+            <tr>
+              <Th>{t("employees.leaveTab.code")}</Th>
+              <Th align="right">{t("employees.leaveTab.balance")}</Th>
+              <Th align="right">{t("employees.leaveTab.waiting")}</Th>
+              <Th align="right">{t("employees.leaveTab.available")}</Th>
+            </tr>
+          </THead>
+          <tbody>
+            {o.leave.balances.map((b) => (
+              <Tr key={b.code}>
+                <Td className="font-medium text-ink-900">
+                  {b.code} · {locale === "hi" ? b.nameHi : b.name}
+                </Td>
+                <Td label={t("employees.leaveTab.balance")} align="right">{b.balance === null ? "—" : days(b.balance)}</Td>
+                <Td label={t("employees.leaveTab.waiting")} align="right">{b.pending ? days(b.pending) : "—"}</Td>
+                <Td label={t("employees.leaveTab.available")} align="right" className="font-semibold">{b.available === null ? "—" : days(b.available)}</Td>
+              </Tr>
+            ))}
+          </tbody>
+        </Table>
+      </Card>
+      <Card>
+        <CardHeader title={t("employees.leaveTab.recent")} />
+        {o.leave.applications.length === 0 ? (
+          <CardBody className="text-sm text-ink-500">{t("employees.leaveTab.noApplications")}</CardBody>
+        ) : (
+          <Table stack>
+            <THead>
+              <tr>
+                <Th>{t("employees.leaveTab.code")}</Th>
+                <Th>{t("employees.leaveTab.dates")}</Th>
+                <Th align="right">{t("employees.leaveTab.days")}</Th>
+                <Th>{t("employees.leaveTab.status")}</Th>
+              </tr>
+            </THead>
+            <tbody>
+              {o.leave.applications.map((a) => (
+                <Tr key={a.id}>
+                  <Td className="font-medium text-ink-900">{a.code}</Td>
+                  <Td label={t("employees.leaveTab.dates")}>
+                    {formatDate(a.from, locale)}
+                    {a.to !== a.from && ` – ${formatDate(a.to, locale)}`}
+                  </Td>
+                  <Td label={t("employees.leaveTab.days")} align="right">{days(a.days)}</Td>
+                  <Td label={t("employees.leaveTab.status")}>
+                    <Badge tone={LEAVE_TONE[a.status]} dot>
+                      {tDynamic(t, `leave.status.${a.status}`)}
+                    </Badge>
+                  </Td>
+                </Tr>
+              ))}
+            </tbody>
+          </Table>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+async function PayslipsTab({ e, actor, t, locale, mode }: TabProps & { mode: "hr" | "self" }) {
+  const slips = mode === "self" ? await myPayslips(actor) : (await employeeOverview(actor, e.id)).pay?.slips ?? null;
+  if (!slips) return <Card><CardBody className="text-sm text-ink-500">{t("employees.overview.payHidden")}</CardBody></Card>;
+  return (
+    <Card>
+      <CardHeader title={t("employees.tabs.payslips")} icon={<Receipt className="size-4.5" aria-hidden="true" />} />
+      {slips.length === 0 ? (
+        <EmptyState icon={<Receipt className="size-6" aria-hidden="true" />} title={t("employees.payslipsTab.empty")} />
+      ) : (
+        <Table stack>
+          <THead>
+            <tr>
+              <Th>{t("employees.payslipsTab.month")}</Th>
+              <Th>{t("employees.payslipsTab.bill")}</Th>
+              <Th align="right">{t("employees.payslipsTab.gross")}</Th>
+              <Th align="right">{t("employees.payslipsTab.deductions")}</Th>
+              <Th align="right">{t("employees.payslipsTab.net")}</Th>
+              <Th>{t("employees.payslipsTab.pdf")}</Th>
+            </tr>
+          </THead>
+          <tbody>
+            {slips.map((s) => (
+              <Tr key={s.id}>
+                <Td className="whitespace-nowrap font-medium text-ink-900">{formatMonth(s.month, locale)}</Td>
+                <Td label={t("employees.payslipsTab.bill")} className="text-sm text-ink-600">
+                  {locale === "hi" ? s.titleHi : s.title}
+                  {s.creditStatus && s.creditStatus !== "CREDITED" && (
+                    <Badge tone={s.creditStatus === "FAILED" ? "red" : "blue"} className="ml-2">
+                      {tDynamic(t, `payroll.credit.${s.creditStatus}`)}
+                    </Badge>
+                  )}
+                </Td>
+                <Td label={t("employees.payslipsTab.gross")} align="right">{formatINR(s.gross)}</Td>
+                <Td label={t("employees.payslipsTab.deductions")} align="right">{formatINR(s.deductions)}</Td>
+                <Td label={t("employees.payslipsTab.net")} align="right" className="font-semibold">{formatINR(s.net)}</Td>
+                <Td label={t("employees.payslipsTab.pdf")}>
+                  <a href={`/api/v1/payslips/${s.id}/pdf?lang=${locale}`} target="_blank" rel="noopener" className="text-sm font-medium text-brand-700 hover:underline">
+                    {t("employees.payslipsTab.pdf")}
+                  </a>
+                </Td>
               </Tr>
             ))}
           </tbody>

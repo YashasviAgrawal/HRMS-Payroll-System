@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, DatabaseBackup, Fingerprint, Landmark, Mail, MessageSquareText, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
+import { Building2, DatabaseBackup, FileStack, Fingerprint, Landmark, Mail, MessageSquareText, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardFooter, CardHeader } from "@/components/ui/card";
 import { Checkbox, Input, Select } from "@/components/ui/field";
@@ -46,6 +46,10 @@ export function SettingsForms({ initial, readOnly, smsForcedConsole }: { initial
   const general = useSection("general", initial.general);
   const attendance = useSection("attendance", initial.attendance);
   const statutory = useSection("statutory", initial.statutory);
+  const documents = useSection("documents", initial.documents);
+  const savedCodes = new Set(initial.documents.types.map((x) => x.code));
+  const setDocType = (i: number, patch: Partial<SettingValue<"documents">["types"][number]>) =>
+    documents.setValue({ types: documents.value.types.map((x, k) => (k === i ? { ...x, ...patch } : x)) });
   const st = statutory.value;
   const setSt = (patch: Partial<typeof st>) => statutory.setValue({ ...st, ...patch });
 
@@ -126,6 +130,10 @@ export function SettingsForms({ initial, readOnly, smsForcedConsole }: { initial
                   {f.replace(/_/g, " ")}
                 </option>
               ))}
+            </Select>
+            <Select label={t("settings.bankFileType")} value={bank.value.fileType} disabled={readOnly} onChange={(e) => bank.setValue({ ...bank.value, fileType: e.target.value as "XLSX" | "TEXT" })}>
+              <option value="XLSX">{t("settings.bankFileXlsx")}</option>
+              <option value="TEXT">{t("settings.bankFileText")}</option>
             </Select>
             <div className="grid grid-cols-2 gap-3">
               <Input label="IFSC" value={bank.value.ifsc} disabled={readOnly} onChange={(e) => bank.setValue({ ...bank.value, ifsc: e.target.value.toUpperCase() })} error={bank.errors.ifsc} />
@@ -243,6 +251,48 @@ export function SettingsForms({ initial, readOnly, smsForcedConsole }: { initial
             </div>
           </CardBody>
           {footer(attendance.save, attendance.busy)}
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <CardHeader title={t("settings.docTypes")} description={t("settings.docTypesHint")} icon={<FileStack className="size-4.5" aria-hidden="true" />} />
+          <CardBody className="space-y-2">
+            {documents.errors.types && <p className="text-sm font-medium text-red-700">{documents.errors.types}</p>}
+            <div className="hidden grid-cols-[9rem_minmax(0,1fr)_minmax(0,1fr)_7rem_6rem_2.5rem] gap-2 text-xs font-semibold uppercase tracking-wide text-ink-500 md:grid">
+              <span>{t("settings.docCode")}</span>
+              <span>{t("settings.docName")}</span>
+              <span>{t("settings.docNameHi")}</span>
+              <span>{t("settings.docMaxMb")}</span>
+              <span>{t("settings.docActive")}</span>
+              <span />
+            </div>
+            {documents.value.types.map((d, i) => (
+              <div key={i} className="grid grid-cols-1 gap-2 rounded-lg border border-ink-100 p-3 md:grid-cols-[9rem_minmax(0,1fr)_minmax(0,1fr)_7rem_6rem_2.5rem] md:items-start md:border-0 md:p-0">
+                <Input
+                  aria-label={t("settings.docCode")}
+                  value={d.code}
+                  disabled={readOnly || savedCodes.has(d.code)}
+                  onChange={(e) => setDocType(i, { code: e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, "_") })}
+                  error={documents.errors[`types.${i}.code`]}
+                  className="font-mono text-sm"
+                />
+                <Input aria-label={t("settings.docName")} value={d.name} disabled={readOnly} onChange={(e) => setDocType(i, { name: e.target.value })} error={documents.errors[`types.${i}.name`]} />
+                <Input aria-label={t("settings.docNameHi")} value={d.nameHi} disabled={readOnly} lang="hi" onChange={(e) => setDocType(i, { nameHi: e.target.value })} />
+                <Input aria-label={t("settings.docMaxMb")} type="number" min={1} max={50} value={d.maxMb} disabled={readOnly} onChange={(e) => setDocType(i, { maxMb: Number(e.target.value) || 1 })} error={documents.errors[`types.${i}.maxMb`]} />
+                <Checkbox label={t("settings.docActive")} checked={d.active} disabled={readOnly} onChange={(e) => setDocType(i, { active: e.target.checked })} />
+                {!readOnly && !savedCodes.has(d.code) ? (
+                  <Button variant="ghost" icon={<Trash2 className="size-4" />} onClick={() => documents.setValue({ types: documents.value.types.filter((_, k) => k !== i) })} aria-label={t("settings.removeDocType")} />
+                ) : (
+                  <span />
+                )}
+              </div>
+            ))}
+            {!readOnly && (
+              <Button size="sm" icon={<Plus className="size-4" />} onClick={() => documents.setValue({ types: [...documents.value.types, { code: "", name: "", nameHi: "", maxMb: 5, active: true }] })}>
+                {t("settings.addDocType")}
+              </Button>
+            )}
+          </CardBody>
+          {footer(documents.save, documents.busy)}
         </Card>
 
         <Card className="lg:col-span-2">

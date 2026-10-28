@@ -1,3 +1,4 @@
+import ExcelJS from "exceljs";
 import { beforeAll, describe, expect, it } from "vitest";
 import { decide } from "@/lib/approvals/engine";
 import { seal } from "@/lib/crypto";
@@ -184,10 +185,17 @@ describe.skipIf(!hasTestDb)("payroll (S-40, PR-01 to PR-14)", () => {
   it("builds the bank file from the record's bank account, without the withheld pay (PR-12)", async () => {
     const data = await getRun(payroll, runId);
     const file = await db.fileRecord.findUniqueOrThrow({ where: { id: data.bankFile!.id } });
-    const csv = (await loadFile(file.storageKey)).toString("utf8");
+    expect(file.fileName).toMatch(/\.xlsx$/);
+    // The bank's columns in an Excel sheet: the account stays text (no lost zeros), the amount is a number.
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load((await loadFile(file.storageKey)) as unknown as ArrayBuffer);
+    const rows = (wb.worksheets[0].getSheetValues() as unknown[][]).filter(Boolean).map((r) => r.slice(1));
+    expect(rows[0]).toEqual(["Sl No", "Employee ID", "Beneficiary name", "Account number", "IFSC", "Amount", "Payment mode", "Narration"]);
     const a = data.people.find((p) => p.employeeId === ids.a)!;
-    expect(csv).toContain(`30001112223334,SBIN0001234,${a.net.toFixed(2)}`);
-    expect(csv).not.toContain(codes.c);
+    const rowA = rows.find((r) => r[3] === "30001112223334")!;
+    expect(rowA[4]).toBe("SBIN0001234");
+    expect(rowA[5]).toBe(a.net);
+    expect(rows.flat()).not.toContain(codes.c);
   });
 
   it("reads the return file, re-pays failed credits and closes with a balanced accounting summary (PR-12, PR-14)", async () => {

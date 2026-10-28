@@ -149,7 +149,10 @@ async function slipHtml(s: Slip, lang: Lang) {
   const table = earnDedTable(s, lang);
   const arrears = detail.arrears?.length
     ? `<h3>${L(lang, "Arrears by month (due − drawn)", "माह-वार बकाया (देय − आहरित)")}</h3><table><thead><tr><th>${L(lang, "Month", "माह")}</th><th>${L(lang, "Head", "मद")}</th><th class="n">${L(lang, "Due", "देय")}</th><th class="n">${L(lang, "Drawn", "आहरित")}</th><th class="n">${L(lang, "Arrear", "बकाया")}</th></tr></thead><tbody>${detail.arrears
-        .flatMap((m) => m.lines.map((l) => `<tr><td>${esc(formatMonth(m.month, lang))}</td><td>${esc(lang === "hi" ? l.nameHi : l.name)}</td><td class="n">${rs(l.due)}</td><td class="n">${rs(l.drawn)}</td><td class="n">${rs(l.diff)}</td></tr>`))
+        .flatMap((m) => {
+          const days = m.parts ? `<br><span class="days">${m.parts.map((p) => `${esc(formatDate(p.from, lang))} – ${esc(formatDate(p.to, lang))}: ${p.days} ${L(lang, "days", "दिन")}`).join("; ")}</span>` : "";
+          return m.lines.map((l, i) => `<tr><td>${esc(formatMonth(m.month, lang))}${i === 0 ? days : ""}</td><td>${esc(lang === "hi" ? l.nameHi : l.name)}</td><td class="n">${rs(l.due)}</td><td class="n">${rs(l.drawn)}</td><td class="n">${rs(l.diff)}</td></tr>`);
+        })
         .join("")}</tbody></table>`
     : "";
   return `<section class="slip">
@@ -197,6 +200,7 @@ function doc(body: string) {
     h3 { font-size: 10pt; color: #0f432e; margin: 14px 0 4px; }
     .extra { margin-top: 12px; display: grid; gap: 4px; } .extra b { color: #0f432e; } .warn { color: #b91c1c; font-weight: 600; }
     footer { margin-top: 18px; font-size: 8pt; color: #56645d; }
+    .days { font-size: 7.5pt; color: #56645d; }
   </style></head><body>${body}</body></html>`;
 }
 

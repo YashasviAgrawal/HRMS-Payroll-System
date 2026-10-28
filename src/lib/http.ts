@@ -38,3 +38,17 @@ export async function api<T = unknown>(url: string, opts: { method?: Method; bod
   if (!payload.ok) throw new ApiError(payload.error.message, res.status, payload.error.code, payload.error.fields);
   return payload.data;
 }
+
+/** Sends a multipart form (file uploads) to /api/v1 with the same errors as api(). */
+export async function apiForm<T = unknown>(url: string, form: FormData, method: "POST" | "PUT" = "POST"): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(url, { method, body: form, credentials: "same-origin" });
+  } catch {
+    throw new ApiError(document.documentElement.lang === "hi" ? "सर्वर से संपर्क नहीं हो सका।" : "Could not reach the server.", 0, "network");
+  }
+  const payload = (await res.json().catch(() => null)) as { ok: true; data: T } | { ok: false; error: { code: string; message: string; fields?: Record<string, string> } } | null;
+  if (!payload) throw new ApiError("Unexpected response", res.status, "bad_response");
+  if (!payload.ok) throw new ApiError(payload.error.message, res.status, payload.error.code, payload.error.fields);
+  return payload.data;
+}

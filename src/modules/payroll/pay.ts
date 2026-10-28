@@ -15,7 +15,7 @@ import { emit } from "@/lib/outbox";
 import { saveFile, sniff } from "@/lib/storage";
 import { fullName } from "@/modules/employees/present";
 import { getSetting } from "@/modules/settings/service";
-import { buildBankFile, parseReturnRows, type BankRow } from "./bank-formats";
+import { bankTable, buildBankFile, parseReturnRows, type BankRow, type BankTable } from "./bank-formats";
 import type { PayLine } from "./engine";
 import { fnOf, titleOf } from "./compute";
 import { sendPayslipNotices } from "./payslips";
@@ -76,9 +76,30 @@ async function slipCodes(runId: string) {
   return { slips, byCode: new Map(slips.map((s) => [s.pensionerId ? ppo.get(s.pensionerId) : s.employee.employeeCode, s])) };
 }
 
+/** The bank's columns as an Excel sheet: account numbers kept as text (no lost zeros), amounts as numbers. */
+export async function bankXlsx(table: BankTable): Promise<Buffer> {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet("Salary");
+  ws.addRow(table.header).font = { bold: true };
+  const isAmount = table.header.map((h) => /amount/i.test(h));
+  for (const r of table.rows) ws.addRow(r.map((v, i) => (isAmount[i] ? Number(v) : String(v))));
+  table.header.forEach((h, i) => {
+    const col = ws.getColumn(i + 1);
+    col.width = Math.min(40, Math.max(h.length + 2, ...table.rows.map((r) => String(r[i]).length + 2)));
+    col.numFmt = isAmount[i] ? "0.00" : "@";
+  });
+  ws.views = [{ state: "frozen", ySplit: 1 }];
+  return Buffer.from(await wb.xlsx.writeBuffer());
+}
+
 async function bankFileFor(actor: Actor, tx: Tx, run: { id: string; month: string; payGroup: string }, rows: BankRow[], kind: "bank.salary" | "bank.repay") {
   const bank = await getSetting(actor.boardId, "bank", tx);
-  const out = buildBankFile(bank.format, rows, { debitIfsc: bank.ifsc, valueDate: todayIST() });
+  const opts = { debitIfsc: bank.ifsc, valueDate: todayIST() };
+  const text = buildBankFile(bank.format, rows, opts);
+  const out =
+    bank.fileType === "XLSX"
+      ? { ext: "xlsx" as const, mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: await bankXlsx(bankTable(bank.format, rows, opts)) }
+      : { ext: text.ext, mimeType: text.mimeType, buffer: Buffer.from(text.content, "utf8") };
   const total = rows.reduce((s, r) => s + r.amount, 0);
   const repay = kind === "bank.repay";
   const title = titleOf(run);
@@ -90,12 +111,12 @@ async function bankFileFor(actor: Actor, tx: Tx, run: { id: string; month: strin
       fileName: `${repay ? "repay" : run.payGroup === "PENSION" ? "pension" : "salary"}-${run.month}-${run.payGroup.toLowerCase()}${repay ? `-${Date.now().toString(36)}` : ""}.${out.ext}`,
       ext: out.ext,
       mimeType: out.mimeType,
-      buffer: Buffer.from(out.content, "utf8"),
+      buffer: out.buffer,
       preview: {
         columns: [run.payGroup === "PENSION" ? "PPO no." : "Employee ID", "Name", "Account", "IFSC", "Amount"],
         rows: rows.slice(0, 25).map((r) => [r.employeeCode, r.name, mask(r.account), r.ifsc, r.amount.toFixed(2)]),
         totalRows: rows.length,
-        totals: { "Total amount": formatINR(total, { decimals: true }), Format: bank.format },
+        totals: { "Total amount": formatINR(total, { decimals: true }), Format: `${bank.format.replace(/_/g, " ")} · ${bank.fileType === "XLSX" ? "Excel" : out.ext.toUpperCase()}` },
       },
       title: `${repay ? "Re-pay bank file" : "Bank file"}: ${title} — ${rows.length} credits, ${formatINR(total)}`,
       titleHi: `${repay ? "पुनः भुगतान बैंक फ़ाइल" : "बैंक फ़ाइल"}: ${titleOf(run, "hi")} — ${rows.length} भुगतान, ${formatINR(total)}`,

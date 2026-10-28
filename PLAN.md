@@ -238,6 +238,17 @@ _Goal: a secure, bilingual shell that every later module plugs into._
 
 ---
 
+## Client add-ons (DCB review after the FoxPro walk-through)
+- [x] C1 One employee, one screen — profile Overview: service, leave balances, attendance, salary, payslips, loans, GPF (by rights)
+- [ ] C2 Suspension and leaving service (resignation, removal, dismissal, termination, contract end, transfer out) with a full and final settlement that takes every outstanding loan and recovery
+- [x] C3 Arrears of a DA rate / increment paid late, worked out by days when the change falls inside a month
+- [x] C4 DA and transport allowance (with DA on it) year by year, with each revision's step
+- [x] C5 Scanned service books of existing staff — one at a time or many at once, filed by Employee ID in the file name
+- [x] C6 Bank salary file as Excel (text file kept as a setting)
+- [x] C7 Document types as a setting (names in English and Hindi, largest size, in use) — the Board confirms its list
+
+---
+
 ## Open questions carried from the PRD (§18) — built as settings, not code
 - [ ] Headcount by type; number of pensioners / family pensioners
 - [ ] FoxPro version and current maintainer

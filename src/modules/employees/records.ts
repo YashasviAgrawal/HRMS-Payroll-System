@@ -9,10 +9,11 @@ import { seal } from "@/lib/crypto";
 import { db } from "@/lib/db";
 import { formatDate, fromISODate, toISODate } from "@/lib/dates";
 import { badRequest, conflict, forbidden, notFound } from "@/lib/errors";
+import { emit } from "@/lib/outbox";
 import { loadFile, mimeOf, saveFile, sniff } from "@/lib/storage";
+import { getSetting } from "@/modules/settings/service";
 import { addressLine, fieldLabel, fullName, maskedIds } from "./present";
 import {
-  DOC_CATEGORIES,
   EVENTS_NEEDING_APPROVER,
   familySchema,
   sanctionedSchema,
@@ -22,7 +23,7 @@ import {
 } from "./schema";
 import { assertNoDuplicates, canViewEmployee } from "./service";
 
-const MAX_DOC_BYTES = 5 * 1024 * 1024;
+const MB = 1024 * 1024;
 
 async function employeeFor(actor: Actor, employeeId: string) {
   const e = await db.employee.findFirst({ where: { id: employeeId, boardId: actor.boardId } });
@@ -120,7 +121,7 @@ export async function listDocuments(actor: Actor, employeeId: string) {
 }
 
 /**
- * Uploads a PDF or image (≤ 5 MB), recognised by its content. HR uploads for anyone; an employee may attach a
+ * Uploads a PDF or image, recognised by its content, within its document type's size limit (Settings → Document types). HR uploads for anyone; an employee may attach a
  * document to their own change request (e.g. a cancelled cheque).
  */
 export async function uploadDocument(actor: Actor, employeeId: string, file: File, meta: { category: string; title: string }) {
@@ -128,11 +129,15 @@ export async function uploadDocument(actor: Actor, employeeId: string, file: Fil
   if (!e) throw notFound();
   const hr = canAll(actor, "employee_master", "create");
   if (!hr && actor.employeeId !== employeeId) throw forbidden();
-  if (file.size > MAX_DOC_BYTES) throw badRequest("employees.errors.fileTooBig", { file: "employees.errors.fileTooBig" });
+  const types = (await getSetting(actor.boardId, "documents")).types.filter((x) => x.active);
+  // HR picks any active type; an employee attaching proof to their own request files it as bank proof or Other.
+  const allowed = hr ? types : types.filter((x) => x.code === "BANK_PROOF" || x.code === "OTHER");
+  const type = allowed.find((x) => x.code === meta.category) ?? types.find((x) => x.code === "OTHER")!;
+  if (file.size > type.maxMb * MB) throw badRequest("employees.errors.fileTooBig", { file: "employees.errors.fileTooBig" }, { mb: type.maxMb });
   const buffer = Buffer.from(await file.arrayBuffer());
   const kind = sniff(buffer);
   if (!kind || !["pdf", "png", "jpg"].includes(kind)) throw badRequest("employees.errors.fileType", { file: "employees.errors.fileType" });
-  const category = (DOC_CATEGORIES as readonly string[]).includes(meta.category) ? meta.category : "OTHER";
+  const category = type.code;
   const title = meta.title.trim().slice(0, 120) || file.name.slice(0, 120);
   const stored = await saveFile("documents", buffer, kind);
   return db.$transaction(async (tx) => {
@@ -157,6 +162,7 @@ export async function uploadDocument(actor: Actor, employeeId: string, file: Fil
       summary: `Uploaded "${title}" for ${fullName(e)}`,
       newValue: { category, fileName: doc.fileName, size: doc.size, sha256: doc.sha256 },
     });
+    await emit(tx, actor.boardId, "employee.document_added", { type: "EmployeeDocument", id: doc.id }, { employeeId, category });
     return doc;
   });
 }
@@ -437,4 +443,55 @@ export async function employeeRequests(actor: Actor) {
     orderBy: { createdAt: "asc" },
     take: 300,
   });
+}
+
+// ─── Scanned service books (client add-on) ────────────────────────────────────
+
+export type ServiceBookUpload = {
+  fileName: string;
+  status: "saved" | "noCode" | "noEmployee" | "tooBig" | "badType";
+  employeeId?: string;
+  employeeCode?: string;
+  name?: string;
+};
+
+/** The Employee ID at the start of a file name: "DCB10009.pdf", "dcb10009 part 2.pdf", "DCB10009_SB.pdf". */
+export function codeFromFileName(fileName: string): string | null {
+  return fileName.trim().match(/^([A-Za-z]{2,6}\d{3,8})(?![0-9])/)?.[1]?.toUpperCase() ?? null;
+}
+
+/**
+ * Scanned service books of existing and older staff, many at once: each file is matched to the employee whose ID
+ * starts its name and kept as a "Scanned service book" document. Files that cannot be matched are reported, not kept.
+ */
+export async function uploadServiceBooks(actor: Actor, files: File[]): Promise<ServiceBookUpload[]> {
+  if (!canAll(actor, "employee_master", "create")) throw forbidden();
+  if (!files.length) throw badRequest("errors.validation", { files: "validation.required" });
+  if (files.length > 20) throw badRequest("employees.serviceBookScans.tooMany");
+  const codes = [...new Set(files.map((f) => codeFromFileName(f.name)).filter((c): c is string => Boolean(c)))];
+  const employees = new Map((await db.employee.findMany({ where: { boardId: actor.boardId, employeeCode: { in: codes } } })).map((e) => [e.employeeCode!, e]));
+  const out: ServiceBookUpload[] = [];
+  for (const file of files) {
+    const code = codeFromFileName(file.name);
+    if (!code) {
+      out.push({ fileName: file.name, status: "noCode" });
+      continue;
+    }
+    const e = employees.get(code);
+    if (!e) {
+      out.push({ fileName: file.name, status: "noEmployee", employeeCode: code });
+      continue;
+    }
+    const who = { employeeId: e.id, employeeCode: code, name: fullName(e) };
+    try {
+      await uploadDocument(actor, e.id, file, { category: "SERVICE_BOOK", title: `Service book (scanned) — ${file.name}` });
+      out.push({ fileName: file.name, status: "saved", ...who });
+    } catch (err) {
+      const key = (err as { key?: string }).key;
+      if (key === "employees.errors.fileTooBig") out.push({ fileName: file.name, status: "tooBig", ...who });
+      else if (key === "employees.errors.fileType") out.push({ fileName: file.name, status: "badType", ...who });
+      else throw err;
+    }
+  }
+  return out;
 }

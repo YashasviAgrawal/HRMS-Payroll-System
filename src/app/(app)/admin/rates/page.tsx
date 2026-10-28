@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Calculator, CalendarClock, Download, Grid3x3, Landmark, Layers, Percent } from "lucide-react";
+import { Calculator, CalendarClock, Download, Grid3x3, Landmark, Layers, Percent, TrendingUp } from "lucide-react";
 import { NoAccess } from "@/components/no-access";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
@@ -13,6 +13,7 @@ import { requireActor } from "@/lib/auth/session";
 import { formatDate, todayIST } from "@/lib/dates";
 import { getT } from "@/lib/i18n/server";
 import { levelOrder } from "@/modules/payroll/compute";
+import { daTaHistory, TA_BANDS } from "@/modules/payroll/da-history";
 import { rulesOverview } from "@/modules/payroll/rates";
 import { dueRulesScreen, taxRulesScreen } from "@/modules/statutory/rules";
 import { commutationTables } from "@/modules/pension/tables";
@@ -26,7 +27,7 @@ import { TaxRuleButton } from "./tax-rule-button";
 
 export const metadata: Metadata = { title: "Rates and rules" };
 
-const TABS = ["rates", "heads", "matrix", "tax", "dues", "pension"] as const;
+const TABS = ["rates", "daTa", "heads", "matrix", "tax", "dues", "pension"] as const;
 type Tab = (typeof TABS)[number];
 
 /** S-81: the dated tables the pay engine reads. HR & Accounts propose, an Admin approves. */
@@ -181,6 +182,8 @@ export default async function RatesPage({ searchParams }: { searchParams: Promis
         </Card>
       )}
 
+      {tab === "daTa" && <DaTaHistory rates={data.rates.flatMap((r) => r.history.map((h) => ({ key: r.key, ...h })))} today={today} t={t} locale={locale} />}
+
       {tab === "heads" && (
         <Card>
           <CardHeader title={t("rates.tabs.heads")} icon={<Layers className="size-4.5" aria-hidden="true" />} />
@@ -295,3 +298,52 @@ export default async function RatesPage({ searchParams }: { searchParams: Promis
   );
 }
 
+/** Year-wise DA and TA (client add-on): each DA order and what it means for DA on transport allowance. */
+function DaTaHistory({ rates, today, t, locale }: { rates: { key: string; value: number; effectiveFrom: string; note: string | null }[]; today: string; t: Awaited<ReturnType<typeof getT>>["t"]; locale: "en" | "hi" }) {
+  const years = daTaHistory(rates, today);
+  const rs = (n: number) => n.toLocaleString("en-IN");
+  if (!years.length) return <Card><CardBody className="text-sm text-ink-500">{t("rates.daTa.empty")}</CardBody></Card>;
+  return (
+    <div className="space-y-5">
+      <p className="max-w-3xl text-sm text-ink-600">{t("rates.daTa.help")}</p>
+      {years.map((y) => (
+        <Card key={y.year}>
+          <CardHeader title={y.year} description={t("rates.daTa.yearSummary", { start: y.daStart, end: y.daEnd })} icon={<TrendingUp className="size-4.5" aria-hidden="true" />} />
+          <Table stack>
+            <THead>
+              <tr>
+                <Th>{t("rates.daTa.from")}</Th>
+                <Th align="right">{t("rates.daTa.da")}</Th>
+                {TA_BANDS.map((b) => (
+                  <Th key={b} align="right">{t(`rates.daTa.band.${b}`)}</Th>
+                ))}
+                <Th>{t("rates.daTa.order")}</Th>
+              </tr>
+            </THead>
+            <tbody>
+              {y.rows.map((r) => (
+                <Tr key={r.from}>
+                  <Td className="whitespace-nowrap font-medium text-ink-900">
+                    {formatDate(r.from, locale)} {r.upcoming && <Badge tone="blue">{t("rates.daTa.upcoming")}</Badge>}
+                  </Td>
+                  <Td label={t("rates.daTa.da")} align="right">
+                    <span className="text-base font-semibold text-ink-950">{t("rates.percent", { value: r.da })}</span>
+                    <span className="mt-0.5 block">
+                      {r.daStep === null ? <Badge tone="gray">{t("rates.daTa.first")}</Badge> : r.daStep !== 0 && <Badge tone="green">{t("rates.daTa.step", { points: r.daStep })}</Badge>}
+                    </span>
+                  </Td>
+                  {TA_BANDS.map((b) => (
+                    <Td key={b} label={t(`rates.daTa.band.${b}`)} align="right" className="text-sm">
+                      {t("rates.daTa.taWithDa", { ta: rs(r.ta[b]), da: rs(r.daOnTa[b]), total: rs(r.taTotal[b]) })}
+                    </Td>
+                  ))}
+                  <Td label={t("rates.daTa.order")} className="text-sm text-ink-600">{r.note ?? "—"}</Td>
+                </Tr>
+              ))}
+            </tbody>
+          </Table>
+        </Card>
+      ))}
+    </div>
+  );
+}

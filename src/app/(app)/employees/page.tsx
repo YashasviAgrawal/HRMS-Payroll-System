@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { ClipboardList, IdCard, LayoutGrid, Search, Upload, UserPlus } from "lucide-react";
+import { redirect } from "next/navigation";
+import { BookOpen, ClipboardList, IdCard, LayoutGrid, Search, Upload, UserPlus } from "lucide-react";
 import { NoAccess } from "@/components/no-access";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +38,10 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
     listEmployees(actor, { q: sp.q, sectionId: sp.sectionId, type: sp.type, payLevel: sp.payLevel, status: sp.status, page }),
     formOptions(actor.boardId),
   ]);
+  // An exact Employee ID opens that person's full profile straight away (client add-on: one employee, one view).
+  const exact = sp.q?.trim().toUpperCase();
+  const match = exact && data.rows.find((r) => r.employeeCode === exact);
+  if (match && data.total === 1) redirect(`/employees/${match.id}`);
   const hr = canAll(actor, "employee_master", "create");
   const isChecker = actor.permissions.includes("CHECKER");
 
@@ -61,6 +66,9 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
               <>
                 <LinkButton href="/employees/bulk" icon={<Upload className="size-4" aria-hidden="true" />}>
                   {t("employees.bulkUpload")}
+                </LinkButton>
+                <LinkButton href="/employees/service-books" icon={<BookOpen className="size-4" aria-hidden="true" />}>
+                  {t("employees.serviceBookScans.button")}
                 </LinkButton>
                 <LinkButton href="/employees/new" variant="primary" icon={<UserPlus className="size-4" aria-hidden="true" />}>
                   {t("employees.add")}

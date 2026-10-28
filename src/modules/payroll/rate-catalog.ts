@@ -61,10 +61,30 @@ export const RATE_CATALOG: RateDef[] = [
 
 export const RATE_KEYS = RATE_CATALOG.map((r) => r.key);
 
-/** Defaults loaded by the seed: [key, value, effective from]. DA 58% from 1 Jul 2025 lets arrears be shown later. */
-export const RATE_DEFAULTS: [string, number, string][] = [
-  ["DA_PERCENT", 58, "2025-07-01"],
-  ["DA_PERCENT", 60, "2026-01-01"],
+/**
+ * Defaults loaded by the seed: [key, value, effective from, note]. DA follows the central orders under the 7th CPC
+ * (DA and DA on TA move together); 60% from 1 Jan 2026 is a demo value for the Board to replace with the real order.
+ */
+const DA_ORDER = "Central DA order (7th CPC)";
+export const RATE_DEFAULTS: [string, number, string, string?][] = [
+  ["DA_PERCENT", 0, "2016-01-01", "7th CPC pay from 1 Jan 2016, DA reset to 0"],
+  ["DA_PERCENT", 2, "2016-07-01", DA_ORDER],
+  ["DA_PERCENT", 4, "2017-01-01", DA_ORDER],
+  ["DA_PERCENT", 5, "2017-07-01", DA_ORDER],
+  ["DA_PERCENT", 7, "2018-01-01", DA_ORDER],
+  ["DA_PERCENT", 9, "2018-07-01", DA_ORDER],
+  ["DA_PERCENT", 12, "2019-01-01", DA_ORDER],
+  ["DA_PERCENT", 17, "2019-07-01", `${DA_ORDER}; held at 17% to June 2021`],
+  ["DA_PERCENT", 31, "2021-07-01", DA_ORDER],
+  ["DA_PERCENT", 34, "2022-01-01", DA_ORDER],
+  ["DA_PERCENT", 38, "2022-07-01", DA_ORDER],
+  ["DA_PERCENT", 42, "2023-01-01", DA_ORDER],
+  ["DA_PERCENT", 46, "2023-07-01", DA_ORDER],
+  ["DA_PERCENT", 50, "2024-01-01", DA_ORDER],
+  ["DA_PERCENT", 53, "2024-07-01", DA_ORDER],
+  ["DA_PERCENT", 55, "2025-01-01", DA_ORDER],
+  ["DA_PERCENT", 58, "2025-07-01", DA_ORDER],
+  ["DA_PERCENT", 60, "2026-01-01", "Demo value — replace with the actual DA order"],
   ["HRA_PERCENT", 30, "2024-01-01"],
   ["HRA_MIN", 5400, "2016-01-01"],
   ["TA_HIGH", 7200, "2016-01-01"],

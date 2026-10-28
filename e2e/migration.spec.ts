@@ -95,8 +95,9 @@ test("Module 10 — S-90: a FoxPro table is staged, mapped, cleaned, signed off 
 
   await signIn(page, { as: "HR & Accounts", id: "DCB10006" });
   await approveTask(page, /Bulk upload: 2 employees \(FoxPro EMPMAST\)/);
+  // Searching an exact Employee ID opens the person's profile.
   await page.goto("/employees?q=DCB10095");
-  await expect(page.getByRole("cell", { name: /Ramesh Chandra Joshi/ }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: /Ramesh Chandra Joshi/ })).toBeVisible();
 
   // The checks table: record counts pass.
   await page.goto("/migration?tab=checks");

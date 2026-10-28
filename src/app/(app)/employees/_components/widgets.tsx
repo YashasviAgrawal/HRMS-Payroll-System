@@ -9,8 +9,9 @@ import { Input, Select, Textarea } from "@/components/ui/field";
 import { useToast } from "@/components/ui/toast";
 import { ApiError, api } from "@/lib/http";
 import { tDynamic } from "@/lib/i18n";
-import { useT } from "@/lib/i18n/client";
-import { DOC_CATEGORIES, EVENTS_NEEDING_APPROVER, SERVICE_EVENTS } from "@/modules/employees/schema";
+import { useI18n, useT } from "@/lib/i18n/client";
+import { EVENTS_NEEDING_APPROVER, SERVICE_EVENTS } from "@/modules/employees/schema";
+import { docTypeName, type DocumentType } from "@/modules/settings/schema";
 import { msg } from "./fields";
 
 /** Shows a masked number; HR and Checkers may reveal it (each look is audited). */
@@ -82,12 +83,15 @@ export async function uploadDoc(employeeId: string, file: File, category: string
   return payload.data!.id;
 }
 
-export function DocumentUpload({ employeeId }: { employeeId: string }) {
+export function DocumentUpload({ employeeId, types, defaultType, label }: { employeeId: string; types: DocumentType[]; defaultType?: string; label?: string }) {
   const t = useT();
+  const { locale } = useI18n();
   const toast = useToast();
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [category, setCategory] = useState("APPOINTMENT_ORDER");
+  const [category, setCategory] = useState(defaultType ?? types[0]?.code ?? "OTHER");
+  const type = types.find((x) => x.code === category);
+  const maxMb = type?.maxMb ?? 5;
   const [title, setTitle] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string>();
@@ -95,13 +99,13 @@ export function DocumentUpload({ employeeId }: { employeeId: string }) {
   return (
     <>
       <Button variant="secondary" size="sm" icon={<FileUp className="size-4" />} onClick={() => setOpen(true)}>
-        {t("employees.documents.upload")}
+        {label ?? t("employees.documents.upload")}
       </Button>
       <Dialog
         open={open}
         onClose={() => setOpen(false)}
-        title={t("employees.documents.upload")}
-        description={t("employees.documents.fileHint")}
+        title={label ?? t("employees.documents.upload")}
+        description={t("employees.documents.fileHintMb", { mb: maxMb })}
         footer={
           <>
             <Button variant="ghost" onClick={() => setOpen(false)}>
@@ -113,7 +117,7 @@ export function DocumentUpload({ employeeId }: { employeeId: string }) {
               disabled={!file}
               onClick={async () => {
                 if (!file) return;
-                if (file.size > 5 * 1024 * 1024) return setError(t("employees.errors.fileTooBig"));
+                if (file.size > maxMb * 1024 * 1024) return setError(t("employees.errors.fileTooBig", { mb: maxMb }));
                 setBusy(true);
                 setError(undefined);
                 try {
@@ -137,9 +141,9 @@ export function DocumentUpload({ employeeId }: { employeeId: string }) {
       >
         <div className="space-y-4">
           <Select label={t("employees.documents.category")} value={category} onChange={(e) => setCategory(e.target.value)}>
-            {DOC_CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {tDynamic(t, `employees.docCategory.${c}`)}
+            {types.map((c) => (
+              <option key={c.code} value={c.code}>
+                {docTypeName(types, c.code, locale)} ({t("employees.documents.upToMb", { mb: c.maxMb })})
               </option>
             ))}
           </Select>

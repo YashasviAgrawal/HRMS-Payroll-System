@@ -40,6 +40,8 @@ export const settingsSchemas = {
   bank: z.object({
     name: z.string().max(100),
     format: z.enum(BANK_FORMATS),
+    /** XLSX = the bank's columns in an Excel sheet (most bank portals take it); TEXT = the bank's CSV / text layout. */
+    fileType: z.enum(["XLSX", "TEXT"]),
     debitAccountLast4: z.string().regex(/^\d{0,4}$/),
     ifsc: z.union([z.literal(""), z.string().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "validation.ifsc")]),
   }),
@@ -84,6 +86,26 @@ export const settingsSchemas = {
     /** Monthly gross up to `upTo` (null = above) → professional tax for the month. */
     ptSlabs: z.array(z.object({ upTo: z.number().min(0).nullable(), amount: z.number().min(0).max(2500) })).max(10),
   }),
+  /**
+   * The kinds of document kept on an employee's file (EM-05). The Board can add or switch off types without a code
+   * change; each has its own size limit (a scanned service book needs far more than a photograph).
+   */
+  documents: z.object({
+    types: z
+      .array(
+        z.object({
+          code: z.string().trim().regex(/^[A-Z][A-Z0-9_]{1,29}$/, "settings.docCodeRule"),
+          name: z.string().trim().min(2, "validation.tooShort").max(80),
+          nameHi: z.string().trim().max(80),
+          maxMb: z.number().int().min(1).max(50),
+          active: z.boolean(),
+        }),
+      )
+      .min(1)
+      .max(60)
+      .refine((types) => new Set(types.map((x) => x.code)).size === types.length, "settings.docCodeTwice")
+      .refine((types) => types.some((x) => x.code === "OTHER" && x.active), "settings.docOtherNeeded"),
+  }),
 } as const;
 
 export type SettingKey = keyof typeof settingsSchemas;
@@ -108,7 +130,7 @@ export const SETTING_DEFAULTS: { [K in SettingKey]: SettingValue<K> } = {
     userEnv: "SMTP_USER",
     passwordEnv: "SMTP_PASSWORD",
   },
-  bank: { name: "", format: "GENERIC_CSV", debitAccountLast4: "", ifsc: "" },
+  bank: { name: "", format: "GENERIC_CSV", fileType: "XLSX", debitAccountLast4: "", ifsc: "" },
   // PRD §6: each section locks its month by the 25th.
   general: { attendanceLockDay: 25 },
   // Central government office hours in Delhi; to confirm for DCB (PRD §18).
@@ -132,4 +154,34 @@ export const SETTING_DEFAULTS: { [K in SettingKey]: SettingValue<K> } = {
       { upTo: null, amount: 200 },
     ],
   },
+  // The usual papers on a government employee's file; the Board confirms the list (client add-on).
+  documents: {
+    types: [
+      { code: "APPOINTMENT_ORDER", name: "Appointment order", nameHi: "नियुक्ति आदेश", maxMb: 5, active: true },
+      { code: "JOINING_REPORT", name: "Joining report", nameHi: "कार्यग्रहण रिपोर्ट", maxMb: 5, active: true },
+      { code: "CERTIFICATE", name: "Educational certificates", nameHi: "शैक्षिक प्रमाण पत्र", maxMb: 5, active: true },
+      { code: "CASTE_CERTIFICATE", name: "Caste / category certificate", nameHi: "जाति / वर्ग प्रमाण पत्र", maxMb: 5, active: true },
+      { code: "DISABILITY_CERTIFICATE", name: "Disability certificate", nameHi: "दिव्यांगता प्रमाण पत्र", maxMb: 5, active: true },
+      { code: "ID_PROOF", name: "Identity proof (Aadhaar, PAN, voter ID)", nameHi: "पहचान प्रमाण (आधार, पैन, मतदाता पहचान पत्र)", maxMb: 5, active: true },
+      { code: "BANK_PROOF", name: "Bank passbook / cancelled cheque", nameHi: "बैंक पासबुक / रद्द चेक", maxMb: 5, active: true },
+      { code: "MEDICAL", name: "Medical fitness certificate", nameHi: "चिकित्सा फ़िटनेस प्रमाण पत्र", maxMb: 5, active: true },
+      { code: "POLICE_VERIFICATION", name: "Police / character verification", nameHi: "पुलिस / चरित्र सत्यापन", maxMb: 5, active: true },
+      { code: "SERVICE_ORDER", name: "Service orders (promotion, transfer, increment)", nameHi: "सेवा आदेश (पदोन्नति, स्थानांतरण, वेतनवृद्धि)", maxMb: 5, active: true },
+      { code: "APAR", name: "APAR / ACR", nameHi: "एपीएआर / एसीआर", maxMb: 10, active: true },
+      { code: "NOMINATION", name: "Nomination forms (GPF, gratuity, NPS)", nameHi: "नामांकन प्रपत्र (जीपीएफ, उपदान, एनपीएस)", maxMb: 5, active: true },
+      { code: "SERVICE_BOOK", name: "Scanned service book", nameHi: "स्कैन की गई सेवा पुस्तिका", maxMb: 50, active: true },
+      { code: "PHOTO", name: "Photograph", nameHi: "फ़ोटो", maxMb: 2, active: true },
+      { code: "SIGNATURE", name: "Signature specimen", nameHi: "हस्ताक्षर नमूना", maxMb: 2, active: true },
+      { code: "OTHER", name: "Other", nameHi: "अन्य", maxMb: 5, active: true },
+    ],
+  },
 };
+
+export type DocumentType = SettingValue<"documents">["types"][number];
+
+/** A document's type name, in Hindi where the Board gave one; unknown codes show as they are. */
+export function docTypeName(types: DocumentType[], code: string, lang: "en" | "hi" = "en"): string {
+  const type = types.find((x) => x.code === code);
+  if (!type) return code.replace(/_/g, " ").toLowerCase().replace(/^./, (c) => c.toUpperCase());
+  return lang === "hi" && type.nameHi ? type.nameHi : type.name;
+}

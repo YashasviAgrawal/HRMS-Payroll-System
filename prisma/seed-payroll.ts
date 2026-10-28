@@ -19,10 +19,10 @@ export async function seedPayrollRules(db: PrismaClient, boardId: string) {
     create: { boardId, name: "7th CPC pay matrix", effectiveFrom: fromISODate("2016-01-01"), levels: seventhCpcMatrix() },
     update: {},
   });
-  for (const [key, value, from] of RATE_DEFAULTS) {
+  for (const [key, value, from, note] of RATE_DEFAULTS) {
     await db.payRate.upsert({
       where: { boardId_key_effectiveFrom: { boardId, key, effectiveFrom: fromISODate(from) } },
-      create: { boardId, key, value, effectiveFrom: fromISODate(from), note: "Default rate" },
+      create: { boardId, key, value, effectiveFrom: fromISODate(from), note: note ?? "Default rate" },
       update: {},
     });
   }

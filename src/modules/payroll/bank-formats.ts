@@ -38,52 +38,55 @@ export function paymentMode(ifsc: string, debitIfsc: string): "INTERNAL" | "NEFT
   return debitIfsc && ifsc.slice(0, 4) === debitIfsc.slice(0, 4) ? "INTERNAL" : "NEFT";
 }
 
-export function buildBankFile(format: BankFormat, rows: BankRow[], opts: { debitIfsc: string; valueDate: ISODate }): BankFileOut {
+/** The rows of a bank file as a table: the bank's column headings and one row per credit. */
+export interface BankTable {
+  header: string[];
+  rows: (string | number)[][];
+  /** How the bank takes it as text: comma-separated with headings, or pipe-separated without (Canara). */
+  text: "csv" | "pipe";
+}
+
+export function bankTable(format: BankFormat, rows: BankRow[], opts: { debitIfsc: string; valueDate: ISODate }): BankTable {
   const mode = (r: BankRow) => paymentMode(r.ifsc, opts.debitIfsc);
   switch (format) {
     case "SBI_CMP":
       return {
-        ext: "csv",
-        mimeType: "text/csv",
-        content: csv([
-          ["Beneficiary Name", "Beneficiary Account No", "IFSC", "Transaction Type", "Amount", "Value Date", "Remarks"],
-          ...rows.map((r) => [bankName(r.name), r.account, r.ifsc, mode(r) === "INTERNAL" ? "IFT" : "NEFT", amt(r.amount), ddmmyyyy(opts.valueDate), r.narration]),
-        ]),
+        text: "csv",
+        header: ["Beneficiary Name", "Beneficiary Account No", "IFSC", "Transaction Type", "Amount", "Value Date", "Remarks"],
+        rows: rows.map((r) => [bankName(r.name), r.account, r.ifsc, mode(r) === "INTERNAL" ? "IFT" : "NEFT", amt(r.amount), ddmmyyyy(opts.valueDate), r.narration]),
       };
     case "PNB_BULK":
       return {
-        ext: "csv",
-        mimeType: "text/csv",
-        content: csv([
-          ["Account No", "Name", "IFSC", "Amount", "Mode", "Narration"],
-          ...rows.map((r) => [r.account, bankName(r.name), r.ifsc, amt(r.amount), mode(r) === "INTERNAL" ? "TRF" : "NEFT", r.narration]),
-        ]),
+        text: "csv",
+        header: ["Account No", "Name", "IFSC", "Amount", "Mode", "Narration"],
+        rows: rows.map((r) => [r.account, bankName(r.name), r.ifsc, amt(r.amount), mode(r) === "INTERNAL" ? "TRF" : "NEFT", r.narration]),
       };
     case "BOB_BULK":
       return {
-        ext: "csv",
-        mimeType: "text/csv",
-        content: csv([
-          ["Beneficiary Account", "Beneficiary Name", "IFSC Code", "Amount", "Payment Type", "Value Date", "Remarks"],
-          ...rows.map((r) => [r.account, bankName(r.name), r.ifsc, amt(r.amount), mode(r) === "INTERNAL" ? "WIB" : "NEFT", ddmmyyyy(opts.valueDate), r.narration]),
-        ]),
+        text: "csv",
+        header: ["Beneficiary Account", "Beneficiary Name", "IFSC Code", "Amount", "Payment Type", "Value Date", "Remarks"],
+        rows: rows.map((r) => [r.account, bankName(r.name), r.ifsc, amt(r.amount), mode(r) === "INTERNAL" ? "WIB" : "NEFT", ddmmyyyy(opts.valueDate), r.narration]),
       };
     case "CANARA_BULK":
       return {
-        ext: "txt",
-        mimeType: "text/plain",
-        content: rows.map((r) => [r.account, bankName(r.name), r.ifsc, amt(r.amount), mode(r) === "INTERNAL" ? "I" : "N", r.narration.replace(/\|/g, " ")].join("|")).join("\r\n") + "\r\n",
+        text: "pipe",
+        header: ["Account No", "Name", "IFSC", "Amount", "Mode", "Narration"],
+        rows: rows.map((r) => [r.account, bankName(r.name), r.ifsc, amt(r.amount), mode(r) === "INTERNAL" ? "I" : "N", r.narration.replace(/\|/g, " ")]),
       };
     default:
       return {
-        ext: "csv",
-        mimeType: "text/csv",
-        content: csv([
-          ["Sl No", "Employee ID", "Beneficiary name", "Account number", "IFSC", "Amount", "Payment mode", "Narration"],
-          ...rows.map((r, i) => [i + 1, r.employeeCode, bankName(r.name), r.account, r.ifsc, amt(r.amount), mode(r), r.narration]),
-        ]),
+        text: "csv",
+        header: ["Sl No", "Employee ID", "Beneficiary name", "Account number", "IFSC", "Amount", "Payment mode", "Narration"],
+        rows: rows.map((r, i) => [i + 1, r.employeeCode, bankName(r.name), r.account, r.ifsc, amt(r.amount), mode(r), r.narration]),
       };
   }
+}
+
+/** The bank file in the bank's own text layout (CSV, or pipe-separated for Canara). */
+export function buildBankFile(format: BankFormat, rows: BankRow[], opts: { debitIfsc: string; valueDate: ISODate }): BankFileOut {
+  const table = bankTable(format, rows, opts);
+  if (table.text === "pipe") return { ext: "txt", mimeType: "text/plain", content: table.rows.map((r) => r.join("|")).join("\r\n") + "\r\n" };
+  return { ext: "csv", mimeType: "text/csv", content: csv([table.header, ...table.rows]) };
 }
 
 // ─── Return file ──────────────────────────────────────────────────────────────

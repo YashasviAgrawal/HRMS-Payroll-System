@@ -10,7 +10,7 @@ import { Input, Select } from "@/components/ui/field";
 import { Segmented } from "@/components/ui/segmented";
 import { Table, Td, Th, THead, Tr } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
-import { formatMonth } from "@/lib/dates";
+import { formatDate, formatMonth } from "@/lib/dates";
 import { ApiError, api } from "@/lib/http";
 import { useI18n } from "@/lib/i18n/client";
 import { formatINR } from "@/lib/money";
@@ -23,7 +23,7 @@ interface ArrearsRow {
   code: string;
   name: string;
   nameHi: string | null;
-  months: { month: string; lines: { code: string; name: string; nameHi: string; kind: string; due: number; drawn: number; diff: number }[] }[];
+  months: { month: string; lines: { code: string; name: string; nameHi: string; kind: string; due: number; drawn: number; diff: number }[]; parts?: { from: string; to: string; days: number }[] }[];
   gross: number;
   deductions: number;
   net: number;
@@ -273,6 +273,11 @@ function ArrearsRows({ a, open, onToggle, name }: { a: ArrearsRow; open: boolean
           <Tr key={m.month} className="bg-ink-50/50">
             <Td colSpan={5} className="text-sm">
               <p className="font-semibold text-ink-800">{formatMonth(m.month, locale)}</p>
+              {m.parts && (
+                <p className="text-xs text-ink-500">
+                  {t("payroll.supplementary.byDays", { parts: m.parts.map((p) => t("payroll.supplementary.partDays", { from: formatDate(p.from, locale), to: formatDate(p.to, locale), days: p.days })).join(" · ") })}
+                </p>
+              )}
               <ul className="mt-1 grid grid-cols-1 gap-0.5 sm:grid-cols-2">
                 {m.lines.map((l) => (
                   <li key={l.code} className="flex justify-between gap-3 text-ink-700">

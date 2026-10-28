@@ -24,6 +24,33 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 
 ## Change log (newest first)
 
+### 2026-10-28 — Client add-ons (part 1): one-screen employee view, arrears by days, DA & TA by year, scanned service books, Excel bank file, document types ✅
+Asked by DCB after the FoxPro walk-through (Mohit's notes).
+**Built**
+- **One employee, one screen:** the profile opens on a new **Overview** tab — service so far and to retirement, the
+  pay on record, last net pay; leave balances (CL, EL, HPL …) and the last applications; last month's attendance; the
+  last salary slip's earnings and deductions with this year's totals; running loans and the GPF balance. Each block
+  shows only to logins whose rights cover it (leave / payroll / loans / statutory). The **Leave** and **Salary slips**
+  tabs now list the person's leave and payslips (the employee's own view keeps its own slips). Searching an exact
+  Employee ID on the Employees list opens that person straight away.
+- **Arrears by days:** a DA rate, pay matrix or a person's pay (increment, promotion, fixation) that changes in the
+  middle of a month is now paid by days — the month is split at each change and every part counts only its own days
+  (e.g. an increment from 15 April: 14 days at the old Basic, 16 at the new). The arrears screen and the arrears page of
+  the slip show the split.
+- **DA & TA by year:** Rates & rules has a new **DA & TA by year** tab — every DA revision, year by year (newest first),
+  the step from the last rate (+2 %, +4 % …), and transport allowance with DA on it for each band. The default rates now
+  carry the DA history from 2016 (the demo's January 2026 rate is marked "replace with the actual order").
+- **Scanned service books:** a "Scanned service books" screen (HR) takes many PDFs or images at once and files each one
+  under the employee whose Employee ID starts the file name (e.g. `DCB10095 service book.pdf`), up to 50 MB each; one
+  can also be added from the profile's Service book tab. The result lists what was filed and what was not, and why.
+- **Bank salary file as Excel:** the bank file is now an .xlsx by default (account number kept as text so leading zeros
+  stay, amounts with two decimals, header frozen); the old text file is a setting (Settings → Salary bank → File type).
+- **Document types:** Settings has a **Document types** list (code, English and Hindi name, largest file size, in use);
+  sixteen common types are there to start with (appointment order, joining report, caste / disability certificate,
+  police verification, APAR, nomination, scanned service book, photo, signature …). Uploads check the type and its size.
+**Verified** — typecheck, lint, 382 unit / integration tests (new: arrears by days, DA / TA history, the Excel bank
+file), build, 55 browser checks (the migration check now lands on the profile after an exact ID search).
+
 ### 2026-10-27 — Module 10 (part 3): hardening, accessibility, performance and the deployment guide ✅
 **Built**
 - Security (PRD §16): a Content Security Policy on every screen with a fresh nonce per request (scripts run only from

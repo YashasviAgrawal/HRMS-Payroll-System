@@ -48,7 +48,7 @@ export function NewRequest({ employeeId, startOpen }: { employeeId: string; star
       if (kind === "nominee") body = { ...body, details };
       if (kind === "bank") {
         const file = fileRef.current?.files?.[0];
-        const documentId = file ? await uploadDoc(employeeId, file, "OTHER", "Bank account proof") : null;
+        const documentId = file ? await uploadDoc(employeeId, file, "BANK_PROOF", "Bank account proof") : null;
         body = { ...body, ...bank, documentId };
       }
       await api("/api/v1/me/requests", { body });

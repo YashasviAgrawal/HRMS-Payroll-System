@@ -5,13 +5,14 @@ import { audit } from "@/lib/audit";
 import { canAll } from "@/lib/auth/access";
 import type { Actor } from "@/lib/auth/session";
 import { db, type DbLike } from "@/lib/db";
-import { datesOfMonth, fromISODate, isMonth, shiftMonth, todayIST } from "@/lib/dates";
+import { datesOfMonth, endOfMonth, fromISODate, isMonth, shiftMonth, todayIST, toISODate, type ISODate } from "@/lib/dates";
 import { badRequest, forbidden, notFound } from "@/lib/errors";
 import { formatINR, fromPaise, toPaise } from "@/lib/money";
 import { emit } from "@/lib/outbox";
 import { fullName } from "@/modules/employees/present";
 import { rerunPensionBill } from "@/modules/pension/bills";
 import type { GpfRefund } from "@/modules/statutory/gpf-posting";
+import { combineParts, monthParts, type MonthPart } from "./arrear-days";
 import { preChecks, type Found } from "./checks";
 import {
   basicFrom,
@@ -35,7 +36,9 @@ import { computePay, TYPES_IN_GROUP, WORKED_OUT, type PayLine } from "./engine";
  * PR-08, S-42: arrears as "due vs drawn", and supplementary bills.
  *
  * Due: what a month should have paid with the rates, matrix and pay history as they stand now (a DA order dated back,
- * a late increment, a promotion), on the days the month actually paid. Drawn: what the approved pay bills of that month
+ * a late increment, a promotion), on the days the month actually paid. A change that takes effect after the 1st splits
+ * the month: each part is paid at its own rates for its own days (e.g. a promotion on 15 April: 14 days at the old pay,
+ * 16 at the new). Drawn: what the approved pay bills of that month
  * paid, including arrears already paid for it. Only heads the system works out are compared — standing amounts (GPF
  * subscription, licence fee, TDS) and group insurance are not changed by a back-dated order.
  *
@@ -65,6 +68,8 @@ export interface ArrearLine {
 export interface ArrearMonth {
   month: string;
   lines: ArrearLine[];
+  /** Set when a change took effect after the 1st: the parts the month was split into. */
+  parts?: MonthPart[];
 }
 
 export interface PersonArrears {
@@ -100,44 +105,57 @@ export async function computeArrears(tx: DbLike, boardId: string, employeeIds: s
   const headBy = new Map(heads.map((h) => [h.code, h]));
   const posts = new Map((await tx.post.findMany({ where: { boardId } })).map((p) => [p.id, p]));
   const history = await tx.payHistory.findMany({ where: { employeeId: { in: employeeIds } }, orderBy: [{ effectiveFrom: "desc" }, { createdAt: "desc" }] });
+  // Dates on which a rate or the matrix changed — a change after the 1st splits that month.
+  const [rateDates, matrixDates] = await Promise.all([
+    tx.payRate.findMany({ where: { boardId }, select: { effectiveFrom: true }, distinct: ["effectiveFrom"] }),
+    tx.payMatrix.findMany({ where: { boardId }, select: { effectiveFrom: true } }),
+  ]);
+  const boardChanges = [...rateDates, ...matrixDates].map((r) => toISODate(r.effectiveFrom));
   const cache = new Map<string, { rates: Record<string, number>; levels: Record<string, number[]> | null }>();
-  const monthData = async (month: string) => {
-    if (!cache.has(month)) {
-      const start = `${month}-01`;
-      const [rates, matrix] = await Promise.all([ratesOn(boardId, start, tx), matrixOn(boardId, start, tx)]);
-      cache.set(month, { rates, levels: (matrix?.levels as Record<string, number[]>) ?? null });
+  const dayData = async (day: ISODate) => {
+    if (!cache.has(day)) {
+      const [rates, matrix] = await Promise.all([ratesOn(boardId, day, tx), matrixOn(boardId, day, tx)]);
+      cache.set(day, { rates, levels: (matrix?.levels as Record<string, number[]>) ?? null });
     }
-    return cache.get(month)!;
+    return cache.get(day)!;
   };
 
   const byPerson = new Map<string, PersonArrears>();
   for (const s of slips.filter((x) => x.run.kind === "REGULAR")) {
     const e = s.employee;
-    const { rates, levels } = await monthData(s.month);
-    const start = fromISODate(`${s.month}-01`);
-    const h = history.find((x) => x.employeeId === e.id && x.effectiveFrom <= start);
-    const level = h?.payLevel ?? s.payLevel;
-    const cell = h?.payCell ?? s.payCell;
-    const post = posts.get(h?.postId ?? s.postId) ?? e.post;
+    const first = `${s.month}-01` as ISODate;
+    const last = endOfMonth(first);
+    const personChanges = history.filter((x) => x.employeeId === e.id).map((x) => toISODate(x.effectiveFrom));
+    const parts = monthParts(s.month, [...boardChanges, ...personChanges].filter((d) => d > first && d <= last));
     const lossDays = num(s.lossDays);
     const halfPayDays = num(s.halfPayDays);
     const workedDays = s.workedDays === null ? null : num(s.workedDays);
-    const last = lossDays || halfPayDays || workedDays !== null ? { daysInMonth: datesOfMonth(shiftMonth(s.month, -1)).length, lossDays, halfPayDays, workedDays: workedDays ?? 0 } : null;
-    const due = computePay({
-      type: e.type,
-      postCode: post.code,
-      group: post.group,
-      payLevel: level,
-      basic: basicFrom(levels, level, cell),
-      wageRate: e.wageRate === null ? null : num(e.wageRate),
-      wageBasis: e.wageBasis,
-      daysInMonth: s.daysInMonth,
-      daysOnRoll: num(s.daysOnRoll),
-      last,
-      rates,
-      heads: rules,
-      items: {},
-    });
+    const lastMonth = lossDays || halfPayDays || workedDays !== null ? { daysInMonth: datesOfMonth(shiftMonth(s.month, -1)).length, lossDays, halfPayDays, workedDays: workedDays ?? 0 } : null;
+    const partPay: { lines: PayLine[]; days: number }[] = [];
+    for (const part of parts) {
+      const { rates, levels } = await dayData(part.from);
+      const h = history.find((x) => x.employeeId === e.id && x.effectiveFrom <= fromISODate(part.from));
+      const level = h?.payLevel ?? s.payLevel;
+      const cell = h?.payCell ?? s.payCell;
+      const post = posts.get(h?.postId ?? s.postId) ?? e.post;
+      const pay = computePay({
+        type: e.type,
+        postCode: post.code,
+        group: post.group,
+        payLevel: level,
+        basic: basicFrom(levels, level, cell),
+        wageRate: e.wageRate === null ? null : num(e.wageRate),
+        wageBasis: e.wageBasis,
+        daysInMonth: s.daysInMonth,
+        daysOnRoll: num(s.daysOnRoll),
+        last: lastMonth,
+        rates,
+        heads: rules,
+        items: {},
+      });
+      partPay.push({ lines: pay.lines, days: part.days });
+    }
+    const due = { lines: combineParts(partPay, datesOfMonth(s.month).length) };
     const drawnLines = s.lines as unknown as PayLine[];
     const codes = new Set([...due.lines.map((l) => l.code), ...drawnLines.map((l) => l.code)].filter((c) => compared.has(c)));
     const lines: ArrearLine[] = [];
@@ -150,7 +168,7 @@ export async function computeArrears(tx: DbLike, boardId: string, employeeIds: s
     }
     if (!lines.length) continue;
     const p = byPerson.get(e.id) ?? { employeeId: e.id, months: [], gross: 0, deductions: 0, employer: 0, net: 0 };
-    p.months.push({ month: s.month, lines });
+    p.months.push({ month: s.month, lines, ...(parts.length > 1 ? { parts } : {}) });
     for (const l of lines) {
       if (l.kind === "EARNING") p.gross += l.diff;
       else if (l.kind === "DEDUCTION") p.deductions += l.diff;

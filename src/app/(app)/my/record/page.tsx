@@ -8,7 +8,7 @@ import { getT } from "@/lib/i18n/server";
 import { getEmployee } from "@/modules/employees/service";
 import { ownRecordState } from "@/modules/migration/verify";
 import { ConfirmMyRecord } from "../../migration/_components/actions";
-import { EmployeeProfile, PROFILE_TABS, type ProfileTab } from "../../employees/_components/profile";
+import { EmployeeProfile, HR_ONLY_TABS, PROFILE_TABS, type ProfileTab } from "../../employees/_components/profile";
 import { PensionRecord } from "./pension-record";
 
 export const metadata: Metadata = { title: "My record" };
@@ -21,7 +21,7 @@ export default async function MyRecordPage({ searchParams }: { searchParams: Pro
   const { t, locale } = await getT();
   const { tab } = await searchParams;
   const [e, confirm] = await Promise.all([getEmployee(actor, actor.employeeId), ownRecordState(actor)]);
-  const active = (PROFILE_TABS as readonly string[]).includes(tab ?? "") && tab !== "history" ? (tab as ProfileTab) : "personal";
+  const active = (PROFILE_TABS as readonly string[]).includes(tab ?? "") && !HR_ONLY_TABS.includes(tab as ProfileTab) ? (tab as ProfileTab) : "personal";
   return (
     <div>
       <PageHeader
