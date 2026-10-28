@@ -77,7 +77,7 @@ test("employee self-service and Admin screens meet WCAG 2.1 AA", async ({ page }
     await expectAccessible(page, path);
   }
   await signIn(page, { as: "Admin", id: "DCB10002" });
-  for (const path of ["/home", "/admin/users", "/admin/settings", "/admin/audit"]) {
+  for (const path of ["/home", "/admin", "/employees", "/admin/users", "/admin/settings", "/admin/audit"]) {
     await expectAccessible(page, path);
   }
 });

@@ -25,6 +25,23 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 
 ## Change log (newest first)
 
+### 2026-10-28 — Client add-on: the Admin sees everything ✅
+Asked by DCB: "the Admin has limited rights to change things but must see everything — who earns what, how many
+staff, what is going on where", and the one-screen employee view had no way in from the Admin's menu.
+**Built**
+- **Admin menu** (still 8 items): Home · Approvals · **Employees** · **Attendance and leave** · Payroll and sign ·
+  **Pension** · Reports · **Administration**. The Administration page holds the rest — Statutory and tax,
+  Recruitment and joining, Users and permissions, Rates and rules, Migration, Audit trail (and Settings for the User
+  & settings manager, whose menu keeps them one by one and still shows no pay or employee screens).
+- **Employees list:** a "Last net pay" column (with its month) for logins that see pay — Admin, Payroll, Checker.
+- **Find an employee** box in the top bar for every login that sees the employee list: an exact Employee ID opens
+  that person's full profile (Overview: service, joining and retirement, leave balances with CL, attendance, the last
+  salary slip with this year's totals, loans, GPF), a name lists the matches.
+- The Admin dashboard's employee tile now opens the employee list.
+**Verified** — typecheck, lint, 396 unit / integration tests (the Admin menu and Administration page per login),
+build, browser checks (Admin menu and Administration page; the Admin finds an employee from the top bar and sees pay
+and leave; the new pages in the accessibility and phone checks).
+
 ### 2026-10-28 — The official DCB logo ✅
 - The client's logo replaces the placeholder: the full logo (emblem, motto "हमारा प्रयास बेहतर जनजीवन" and name) on the
   sign-in screen and at the top of every PDF (payslips, pay bills and registers, PPO, appointment letters, leave
@@ -697,6 +714,7 @@ Release 1 is built. What remains is the Board's, before go-live (details in [doc
 | D-71 | Leave encashment on leaving follows CCS (Leave) r. 39 by default (resignation half up to 150 days, termination up to 300, none on removal / dismissal / end of contract / transfer out), changeable per case with the order | The rules differ by the kind of leaving; the order decides in hard cases |
 | D-72 | Arrears of a change inside a month are paid by days (each part counts only its own days) | DA orders and increments often take effect mid-month; paying a whole month at either rate is wrong either way |
 | D-73 | Document types and their size limits are a setting; the bank salary file is Excel by default | DCB is still confirming its document list; banks now take .xlsx uploads |
+| D-74 | The Admin menu adds Employees, Attendance and leave and Pension to PRD §13's list and moves the admin tools (and Statutory, Recruitment) behind one "Administration" item; the User & settings manager's menu is unchanged | Client request: an Admin must see everything; §14 already gives the Approver "view" everywhere, only the way in was missing; the 8-item limit stays |
 | D-08 | The official DCB logo (supplied by the client) is `public/brand/logo.png` on the sign-in screen and every PDF; the emblem alone (`mark.png`) fills the small round places and the browser tab | The full logo's name and motto cannot be read at 32–40 px; documents carry the full logo |
 
 ## Known gaps / risks

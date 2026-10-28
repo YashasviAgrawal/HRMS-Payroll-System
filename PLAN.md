@@ -245,6 +245,7 @@ _Goal: a secure, bilingual shell that every later module plugs into._
 - [x] C4 DA and transport allowance (with DA on it) year by year, with each revision's step
 - [x] C5 Scanned service books of existing staff — one at a time or many at once, filed by Employee ID in the file name
 - [x] C6 Bank salary file as Excel (text file kept as a setting)
+- [x] C1a The Admin sees everything — Employees, Attendance and leave, Pension in the Admin menu; an Administration page for the admin tools; last net pay on the employee list; a "find an employee" box in the top bar
 - [x] C7 Document types as a setting (names in English and Hindi, largest size, in use) — the Board confirms its list
 
 ---

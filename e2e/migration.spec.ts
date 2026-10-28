@@ -115,7 +115,8 @@ test("Module 10 — S-90: an employee confirms their own record; the cut-over wa
   await signOut(page);
 
   await signIn(page, { as: "Admin", id: "DCB10002" });
-  await page.getByRole("navigation", { name: "Menu" }).first().getByRole("link", { name: "Migration (set-up)" }).click();
+  await page.getByRole("navigation", { name: "Menu" }).first().getByRole("link", { name: "Administration" }).click();
+  await page.getByTestId("admin-hub").getByRole("link", { name: /Migration \(set-up\)/ }).click();
   await page.getByRole("link", { name: "Record check" }).click();
   await page.getByRole("textbox", { name: "Search" }).fill("DCB10014");
   await page.getByRole("button", { name: "Search" }).click();

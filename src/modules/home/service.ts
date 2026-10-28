@@ -190,7 +190,7 @@ export async function homeTiles(actor: Actor): Promise<Tile[]> {
   }
   if (can(actor, "employee_master", "view") && actor.loginType !== "EMPLOYEE") {
     const employees = await db.employee.count({ where: { boardId: actor.boardId, status: { in: ["ACTIVE", "SUSPENDED"] } } });
-    tiles.push({ key: "employeesCount", value: employees, href: can(actor, "reports", "view") ? "/reports/headcount" : undefined, icon: "employees", tone: "green" });
+    tiles.push({ key: "employeesCount", value: employees, href: can(actor, "employee_master", "view") ? "/employees" : can(actor, "reports", "view") ? "/reports/headcount" : undefined, icon: "employees", tone: "green" });
     if (actor.loginType === "HR_ACCOUNTS") {
       // §11 HR & Accounts: joiners and leavers this month.
       const month = todayIST().slice(0, 7);

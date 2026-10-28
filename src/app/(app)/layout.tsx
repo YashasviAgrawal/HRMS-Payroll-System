@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { countInbox } from "@/lib/approvals";
+import { scopeFor } from "@/lib/auth/access";
 import { hasApprovalsInbox, menuFor } from "@/lib/auth/menu";
 import { IDLE_TIMEOUT_MS, requireActor } from "@/lib/auth/session";
 import { MARK } from "@/lib/brand";
@@ -27,6 +28,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       logo={MARK}
       idleTimeoutMs={IDLE_TIMEOUT_MS}
       mobileBottomNav={actor.loginType === "EMPLOYEE"}
+      employeeSearch={actor.loginType !== "EMPLOYEE" && Boolean(scopeFor(actor, "employee_master", "view"))}
     >
       {children}
     </AppShell>

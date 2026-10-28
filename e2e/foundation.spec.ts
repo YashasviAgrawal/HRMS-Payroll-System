@@ -61,8 +61,13 @@ test.describe("Module 1 — foundation", () => {
   test("Approver sees the admin menu and their approvals inbox", async ({ page }) => {
     await signIn(page, { as: "Admin", id: "DCB10002" });
     const nav = page.getByRole("navigation", { name: "Menu" }).first();
-    for (const item of ["Approvals", "Payroll and sign", "Reports", "Rates and rules", "Audit trail"]) {
+    // An Admin approves little but sees every area of the Board; the admin tools sit behind "Administration".
+    for (const item of ["Approvals", "Employees", "Attendance and leave", "Payroll and sign", "Pension", "Reports", "Administration"]) {
       await expect(nav.getByRole("link", { name: item })).toBeVisible();
+    }
+    await nav.getByRole("link", { name: "Administration" }).click();
+    for (const item of ["Statutory and tax", "Recruitment and joining", "Users and permissions", "Rates and rules", "Audit trail"]) {
+      await expect(page.getByTestId("admin-hub").getByRole("link", { name: new RegExp(item) })).toBeVisible();
     }
     await nav.getByRole("link", { name: "Approvals" }).click();
     // The demo leaves a 5-day EL application waiting for an Admin (Education has no reporting officer).

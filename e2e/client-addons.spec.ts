@@ -119,3 +119,20 @@ test("Client add-on — one screen per employee, DA & TA by year, and scanned se
   await page.getByRole("link", { name: "Service book", exact: true }).click();
   await expect(page.getByText("DCB10009 service book.pdf").first()).toBeVisible();
 });
+
+test("Client add-on — an Admin sees everyone's record and pay: the employee list with last net pay, and one person in full", async ({ page }) => {
+  await signIn(page, { as: "Admin", id: "DCB10001" });
+  await page.getByRole("navigation", { name: "Menu" }).first().getByRole("link", { name: "Employees" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Employees" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Last net pay" })).toBeVisible();
+  await expect(page.getByRole("row", { name: /Arun Joshi/ })).toContainText("₹");
+  // The search in the top bar: an exact Employee ID opens the whole person on one screen.
+  await page.getByRole("searchbox", { name: "Find an employee — ID or name" }).fill("DCB10013");
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("heading", { level: 1, name: /Arun Joshi/ })).toBeVisible();
+  await expect(page.getByTestId("overview-salary")).toBeVisible();
+  await expect(page.getByTestId("overview-leave")).toBeVisible();
+  // Seeing is not changing: no edit or leaving buttons for an Admin.
+  await expect(page.getByRole("link", { name: "Edit" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Suspension or leaving" })).toHaveCount(0);
+});

@@ -14,12 +14,14 @@ import { RowLink } from "@/components/ui/row-link";
 import { Table, Td, Th, THead } from "@/components/ui/table";
 import { canAll, scopeFor } from "@/lib/auth/access";
 import { requireActor } from "@/lib/auth/session";
-import { formatDate } from "@/lib/dates";
+import { formatDate, formatMonth } from "@/lib/dates";
 import { tDynamic } from "@/lib/i18n";
 import { getT } from "@/lib/i18n/server";
+import { formatINR } from "@/lib/money";
 import { levelsOf } from "@/modules/payroll/matrix-7cpc";
 import { EMPLOYEE_TYPES } from "@/modules/employees/schema";
 import { listEmployees } from "@/modules/employees/service";
+import { lastNetPays } from "@/modules/employees/overview";
 import { canSeeSeparations } from "@/modules/employees/separation";
 import { formOptions } from "./_components/options";
 import { statusTone, typeTone } from "./_components/tones";
@@ -43,6 +45,9 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
   const exact = sp.q?.trim().toUpperCase();
   const match = exact && data.rows.find((r) => r.employeeCode === exact);
   if (match && data.total === 1) redirect(`/employees/${match.id}`);
+  // Logins that see pay (Admin, Payroll, Checker) also see what each person was last paid.
+  const showPay = canAll(actor, "payroll", "view");
+  const pays = showPay ? await lastNetPays(actor, data.rows.map((r) => r.id)) : new Map<string, { month: string; net: number }>();
   const hr = canAll(actor, "employee_master", "create");
   const isChecker = actor.permissions.includes("CHECKER");
 
@@ -139,6 +144,7 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
                   <Th align="right">{t("employees.columns.level")}</Th>
                   <Th>{t("employees.columns.joined")}</Th>
                   <Th>{t("employees.columns.status")}</Th>
+                  {showPay && <Th align="right">{t("employees.columns.lastNetPay")}</Th>}
                 </tr>
               </THead>
               <tbody>
@@ -169,6 +175,18 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
                         {tDynamic(t, `employees.status.${e.status}`)}
                       </Badge>
                     </Td>
+                    {showPay && (
+                      <Td align="right" className="whitespace-nowrap">
+                        {pays.get(e.id) ? (
+                          <>
+                            <span className="tabular font-medium text-ink-900">{formatINR(pays.get(e.id)!.net)}</span>
+                            <span className="block text-xs text-ink-500">{formatMonth(pays.get(e.id)!.month, locale)}</span>
+                          </>
+                        ) : (
+                          <span className="text-ink-400">—</span>
+                        )}
+                      </Td>
+                    )}
                   </RowLink>
                 ))}
               </tbody>

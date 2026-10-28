@@ -93,3 +93,15 @@ export async function employeeOverview(actor: Actor, employeeId: string) {
 }
 
 export type EmployeeOverview = Awaited<ReturnType<typeof employeeOverview>>;
+
+/** Each person's last approved regular salary (net, and the month) — for the Employees list, to logins that see pay. */
+export async function lastNetPays(actor: Actor, employeeIds: string[]): Promise<Map<string, { month: string; net: number }>> {
+  if (!canAll(actor, "payroll", "view") || !employeeIds.length) return new Map();
+  const slips = await db.payslip.findMany({
+    where: { boardId: actor.boardId, employeeId: { in: employeeIds }, pensionerId: null, status: "INCLUDED", run: { kind: "REGULAR", status: { in: [...PAID] } } },
+    select: { employeeId: true, month: true, net: true },
+    orderBy: [{ month: "desc" }],
+    distinct: ["employeeId"],
+  });
+  return new Map(slips.map((s) => [s.employeeId, { month: s.month, net: num(s.net) }]));
+}

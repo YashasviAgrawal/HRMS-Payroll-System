@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { LoginType, Permission } from "@/generated/prisma/enums";
 import { can, canSeeSensitive, permissionConflicts, scopeFor, type Action, type Fn, type Principal } from "@/lib/auth/access";
-import { MAX_MENU_ITEMS, menuFor } from "@/lib/auth/menu";
+import { adminTools, MAX_MENU_ITEMS, menuFor } from "@/lib/auth/menu";
 
 /**
  * PRD §14 access matrix, typed in again by hand from the document so the coded matrix is checked against
@@ -106,9 +106,12 @@ describe("menus (PRD §13)", () => {
   const all = (login: LoginType, perms: Permission[], isEmployee = false, isPensioner = false) =>
     menuFor({ loginType: login, permissions: perms, isEmployee, isPensioner }).map((m) => m.key);
 
-  it("Admin with every permission sees the 8 PRD items in order", () => {
-    expect(all("ADMIN", ["APPROVER", "PAY_BILL_SIGNER"])).toEqual(["home", "approvals", "payrollSign", "reports", "users", "rates", "migration", "audit"]);
+  it("an Admin sees every area of the Board, with the admin tools behind one Administration item (client add-on)", () => {
+    expect(all("ADMIN", ["APPROVER", "PAY_BILL_SIGNER"])).toEqual(["home", "approvals", "employees", "attendanceLeave", "payrollSign", "pension", "reports", "admin"]);
+    expect(adminTools({ loginType: "ADMIN", permissions: ["APPROVER"], isEmployee: false, isPensioner: false }).map((m) => m.key)).toEqual(["statutory", "recruitment", "users", "rates", "migration", "audit"]);
+    // The User & settings manager keeps the tools one by one and never sees pay or employee screens.
     expect(all("ADMIN", ["USER_SETTINGS_MANAGER"])).toEqual(["home", "users", "settings", "migration", "audit"]);
+    expect(adminTools({ loginType: "HR_ACCOUNTS", permissions: ["HR"], isEmployee: false, isPensioner: false })).toEqual([]);
   });
 
   it("HR & Accounts sees its 8 items when holding every permission", () => {

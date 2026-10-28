@@ -8,7 +8,8 @@
 - **Layers:** `src/modules/<module>/service.ts` holds business rules and permission checks; `src/app/api/v1/**` are thin REST wrappers
   (`apiRoute`); pages read through the same services. Every write: audit (`lib/audit.ts`) + outbox (`lib/outbox.ts`) in the same transaction;
   maker-checker through `lib/approvals`.
-- **Permissions:** `lib/auth/access.ts` is PRD §14 as data — never hard-code role checks in pages. Menus: `lib/auth/menu.ts` (≤ 8 items).
+- **Permissions:** `lib/auth/access.ts` is PRD §14 as data — never hard-code role checks in pages. Menus: `lib/auth/menu.ts` (≤ 8 items;
+  the Admin's tools collapse into `/admin` — `adminTools()` — when they do not fit).
 - **Text:** every visible string lives in `lib/i18n/en.ts` and `hi.ts` (same keys — a unit test enforces it). Simple words.
 - **Money:** `lib/money.ts` (paise maths, rupee rounding). **Dates:** `lib/dates.ts` (ISO strings, India time).
 - **Checks before commit:** `npm run typecheck && npm run lint && npm test && npm run build`; browser checks: `npm run test:e2e` (after a build — it rebuilds and seeds `E2E_DATABASE_URL` and starts its own server on :3100).

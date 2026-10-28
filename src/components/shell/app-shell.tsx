@@ -15,6 +15,7 @@ import {
   Home,
   IdCard,
   Inbox,
+  LayoutGrid,
   Landmark,
   Leaf,
   Database,
@@ -23,6 +24,7 @@ import {
   MoreHorizontal,
   Receipt,
   Scale,
+  Search,
   Send,
   Settings,
   User,
@@ -63,6 +65,7 @@ const ICONS: Record<MenuIcon, LucideIcon> = {
   fingerprint: Fingerprint,
   leaf: Leaf,
   database: Database,
+  grid: LayoutGrid,
 };
 
 interface ShellUser {
@@ -190,6 +193,7 @@ export function AppShell({
   logo,
   idleTimeoutMs,
   mobileBottomNav,
+  employeeSearch = false,
   children,
 }: {
   menu: MenuItem[];
@@ -198,6 +202,8 @@ export function AppShell({
   logo: string;
   idleTimeoutMs: number;
   mobileBottomNav: boolean;
+  /** Logins that see the employee list get a search box: an exact Employee ID opens that person's full profile. */
+  employeeSearch?: boolean;
   children: React.ReactNode;
 }) {
   const t = useT();
@@ -268,6 +274,18 @@ export function AppShell({
             <img src={logo} alt="" className="size-8 rounded-full bg-white object-contain ring-1 ring-ink-200" />
             <span className="truncate text-sm font-semibold text-ink-900">{t("app.boardShort")} HRMS</span>
           </div>
+          {employeeSearch && (
+            <form action="/employees" method="get" role="search" className="relative hidden w-full max-w-xs md:block lg:max-w-sm">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-400" aria-hidden="true" />
+              <input
+                name="q"
+                type="search"
+                placeholder={t("shell.findEmployee")}
+                aria-label={t("shell.findEmployee")}
+                className="h-10 w-full rounded-full border border-ink-200 bg-ink-50/70 pl-9 pr-4 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-100"
+              />
+            </form>
+          )}
           <div className="ml-auto flex items-center gap-2 sm:gap-3">
             {inboxCount !== null && (
               <Link

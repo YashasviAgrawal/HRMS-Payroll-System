@@ -96,7 +96,7 @@ test("pensioner screens fit a phone screen", async ({ page }) => {
 
 test("report screens and the Admin dashboard fit a phone screen", async ({ page }) => {
   await signIn(page, { as: "Admin", id: "DCB10002" });
-  for (const path of ["/home", "/reports", "/reports/employee-list", "/reports/headcount", "/reports/attendance-register", "/reports/salary-register", "/reports/pay-bill", "/reports/month-change", "/reports/loans", "/reports/gpf-ledger", "/reports/tds-24q", "/reports/pension-register", "/reports/ghost-check"]) {
+  for (const path of ["/home", "/admin", "/employees", "/reports", "/reports/employee-list", "/reports/headcount", "/reports/attendance-register", "/reports/salary-register", "/reports/pay-bill", "/reports/month-change", "/reports/loans", "/reports/gpf-ledger", "/reports/tds-24q", "/reports/pension-register", "/reports/ghost-check"]) {
     await expectNoSidewaysScroll(page, path);
   }
 });

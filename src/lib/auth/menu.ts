@@ -24,7 +24,8 @@ export type MenuIcon =
   | "team"
   | "fingerprint"
   | "leaf"
-  | "database";
+  | "database"
+  | "grid";
 
 export interface MenuItem {
   key: string;
@@ -44,11 +45,24 @@ const hasPerm =
   (p) =>
     p.permissions.some((x) => perms.includes(x));
 
+/**
+ * Admin: PRD §13's menu, with the Board's records added on the client's request — an Admin approves little but
+ * sees everything (employees, attendance and leave, payroll, pension; §14 gives the Approver "view" on every
+ * function). The admin tools and the remaining screens go behind one "Administration" item when they do not fit.
+ */
 const ADMIN_MENU: MenuDef[] = [
   { key: "home", href: "/home", icon: "home", show: always },
   { key: "approvals", href: "/approvals", icon: "inbox", show: hasPerm("APPROVER", "PAY_BILL_SIGNER") },
+  { key: "employees", href: "/employees", icon: "idcard", show: (p) => can(p, "employee_master", "view") },
+  { key: "attendanceLeave", href: "/attendance", icon: "calendar", show: (p) => can(p, "attendance", "view") || can(p, "leave", "view") },
   { key: "payrollSign", href: "/payroll", icon: "wallet", show: hasPerm("APPROVER", "PAY_BILL_SIGNER") },
+  { key: "pension", href: "/pension", icon: "leaf", show: (p) => can(p, "pension", "view") },
   { key: "reports", href: "/reports", icon: "chart", show: (p) => can(p, "reports", "view") },
+];
+
+const ADMIN_TOOLS: MenuDef[] = [
+  { key: "statutory", href: "/statutory", icon: "landmark", show: (p) => can(p, "statutory", "view") },
+  { key: "recruitment", href: "/recruitment", icon: "briefcase", show: (p) => can(p, "recruitment", "view") },
   { key: "users", href: "/admin/users", icon: "users", show: (p) => can(p, "users_settings", "view") },
   { key: "rates", href: "/admin/rates", icon: "scale", show: (p) => can(p, "rates_rules", "approve") },
   { key: "settings", href: "/admin/settings", icon: "settings", show: hasPerm("USER_SETTINGS_MANAGER") },
@@ -56,6 +70,12 @@ const ADMIN_MENU: MenuDef[] = [
   { key: "migration", href: "/migration", icon: "database", show: (p) => can(p, "migration", "view") || can(p, "migration", "create") },
   { key: "audit", href: "/admin/audit", icon: "history", show: (p) => can(p, "audit_trail", "view") },
 ];
+
+/** The Administration page: the admin tools and other screens this Admin login may open. */
+export function adminTools(p: Principal): MenuItem[] {
+  if (p.loginType !== "ADMIN") return [];
+  return ADMIN_TOOLS.filter((d) => d.show(p)).map(({ key, href, icon }) => ({ key, href, icon }));
+}
 
 const HR_MENU: MenuDef[] = [
   { key: "home", href: "/home", icon: "home", show: always },
@@ -94,8 +114,12 @@ export const MAX_MENU_ITEMS = 8;
 
 export function menuFor(p: Principal): MenuItem[] {
   let defs: MenuDef[];
-  if (p.loginType === "ADMIN") defs = ADMIN_MENU;
-  else if (p.loginType === "HR_ACCOUNTS") defs = HR_MENU;
+  if (p.loginType === "ADMIN") {
+    const core = ADMIN_MENU.filter((d) => d.show(p)).map(({ key, href, icon }) => ({ key, href, icon }));
+    const tools = adminTools(p);
+    // Shown one by one while everything fits in 8 (the User & settings manager); otherwise behind "Administration".
+    return core.length + tools.length <= MAX_MENU_ITEMS ? [...core, ...tools] : [...core, { key: "admin", href: "/admin", icon: "grid" as const }];
+  } else if (p.loginType === "HR_ACCOUNTS") defs = HR_MENU;
   else if (rolesOf(p).includes("EMPLOYEE")) defs = EMPLOYEE_MENU;
   else defs = PENSIONER_MENU;
   return defs

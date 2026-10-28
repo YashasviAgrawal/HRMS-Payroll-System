@@ -151,6 +151,7 @@ export const hi: DeepStrings<typeof en> = {
     REPORTING_OFFICER: "अनुभाग प्रमुख: अपने अनुभाग का अवकाश स्वीकृत करते हैं और उपस्थिति लॉक करते हैं।",
   },
   nav: {
+    admin: "प्रशासन",
     migration: "माइग्रेशन (सेट-अप)",
     home: "होम",
     approvals: "स्वीकृतियाँ",
@@ -178,6 +179,16 @@ export const hi: DeepStrings<typeof en> = {
     menu: "मेनू",
     more: "और",
   },
+  adminHub: {
+    subtitle: "एडमिन के लिए बाकी सब: वैधानिक और कर, भर्ती, उपयोगकर्ता और अनुमतियाँ, दरें और नियम, सेटिंग्स, माइग्रेशन और ऑडिट ट्रेल।",
+    statutory: "टीडीएस और फ़ॉर्म 16, जीपीएफ, एनपीएस और मासिक वैधानिक फ़ाइलें व उनकी देय तिथियाँ।",
+    recruitment: "रिक्तियाँ, आवेदक, कार्यग्रहण और परिवीक्षा।",
+    users: "लॉगिन और हर एक की अनुमतियाँ।",
+    rates: "महँगाई भत्ता व अन्य दरें, वेतन मद, वेतन मैट्रिक्स, कर और पेंशन तालिकाएँ — और आपकी स्वीकृति के लिए बदलाव।",
+    settings: "एसएमएस, ईमेल, वेतन बैंक, दस्तावेज़ प्रकार और अन्य सेटिंग्स।",
+    migration: "फॉक्सप्रो से रिकॉर्ड लाना और कट-ओवर पर हस्ताक्षर।",
+    audit: "हर बदलाव में किसने, क्या और कब किया।",
+  },
   navShort: {
     home: "होम",
     payslips: "वेतन पर्ची",
@@ -190,6 +201,7 @@ export const hi: DeepStrings<typeof en> = {
     lifeCertificate: "जीवन प्रमाण",
   },
   shell: {
+    findEmployee: "कर्मचारी खोजें — आईडी या नाम",
     waitingForYou: "आपके लिए लंबित",
     signedInAs: "साइन इन",
     openMenu: "मेनू खोलें",
@@ -629,6 +641,7 @@ export const hi: DeepStrings<typeof en> = {
     statusLeft: "परिषद छोड़ चुके",
     statusAll: "सभी",
     columns: {
+      lastNetPay: "पिछला शुद्ध वेतन",
       employee: "कर्मचारी",
       post: "पद",
       section: "अनुभाग",

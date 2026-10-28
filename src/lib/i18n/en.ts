@@ -149,6 +149,7 @@ export const en = {
     REPORTING_OFFICER: "Section head: approves leave and locks attendance for own section.",
   },
   nav: {
+    admin: "Administration",
     migration: "Migration (set-up)",
     home: "Home",
     approvals: "Approvals",
@@ -176,6 +177,16 @@ export const en = {
     menu: "Menu",
     more: "More",
   },
+  adminHub: {
+    subtitle: "Everything else an Admin can open: statutory and tax, recruitment, users and permissions, rates and rules, settings, migration and the audit trail.",
+    statutory: "TDS and Form 16, GPF, NPS and the monthly statutory files and their due dates.",
+    recruitment: "Vacancies, applicants, joining and probation.",
+    users: "Logins and the permissions ticked for each.",
+    rates: "DA and other rates, pay heads, the pay matrix, tax and pension tables — and the changes waiting for you.",
+    settings: "SMS, email, the salary bank, document types and other settings.",
+    migration: "Bringing the records over from FoxPro and signing the cut-over.",
+    audit: "Who did what and when, for every change.",
+  },
   navShort: {
     home: "Home",
     payslips: "Payslips",
@@ -188,6 +199,7 @@ export const en = {
     lifeCertificate: "Life cert.",
   },
   shell: {
+    findEmployee: "Find an employee — ID or name",
     waitingForYou: "Waiting for you",
     signedInAs: "Signed in as",
     openMenu: "Open menu",
@@ -627,6 +639,7 @@ export const en = {
     statusLeft: "Left the Board",
     statusAll: "Everyone",
     columns: {
+      lastNetPay: "Last net pay",
       employee: "Employee",
       post: "Post",
       section: "Section",
