@@ -380,4 +380,15 @@ written there vanish between runs, and the data must stay on government cloud in
    (`@sparticuz/chromium`); the first PDF after a quiet spell takes a few seconds longer.
 4. **Uploaded files** (documents, migration files, generated bank files) go to `/tmp` and are lost when Vercel
    recycles the function. Downloads made right away work; nothing is kept.
-5. Deploy by pushing the branch Vercel watches; the build command stays `npm run build`.
+5. Deploy by pushing the branch Vercel watches. Vercel runs the `vercel-build` script, which **applies any new
+   database migrations first** (`prisma migrate deploy`) and then builds — so a new version never meets an old
+   database. `DATABASE_URL` must therefore be available to builds (tick the environments when you add it). If
+   it goes through a connection pooler (Neon host with `-pooler`, Supabase port 6543), also add
+   `DIRECT_DATABASE_URL` with the direct address; migrations use it, the app keeps using `DATABASE_URL`.
+   If the build stops at the migration step, its log names the problem; nothing is half-applied.
+6. **"Something went wrong" on pages after an update** almost always means the database is behind the code (the
+   function log shows `The table … does not exist`). Apply the migrations by hand once:
+   ```bash
+   DATABASE_URL="<hosted url>" npx prisma migrate deploy        # macOS / Linux
+   $env:DATABASE_URL="<hosted url>"; npx prisma migrate deploy   # Windows PowerShell
+   ```

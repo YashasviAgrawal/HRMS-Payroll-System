@@ -25,6 +25,16 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 
 ## Change log (newest first)
 
+### 2026-10-28 — Vercel: new database changes apply on every deploy ✅
+- A Vercel copy updated to the client add-ons showed "Something went wrong" on every employee profile: its database
+  had not received the suspension / leaving migration (`The table public.Separation does not exist`), and every
+  profile looks for a running suspension or exit. Reproduced on a database one migration behind.
+- `npm run vercel-build` (run by Vercel instead of `build`) now applies pending migrations before building, so a new
+  version never meets an old database; `DIRECT_DATABASE_URL` (optional) gives migrations the direct address when
+  `DATABASE_URL` goes through a pooler. Deployment guide §12 says how, and how to apply them by hand.
+**Verified** — the Vercel build against that database applied the migration and built; the profile then opened;
+typecheck, lint, 396 tests.
+
 ### 2026-10-28 — Client add-on: the Admin sees everything ✅
 Asked by DCB: "the Admin has limited rights to change things but must see everything — who earns what, how many
 staff, what is going on where", and the one-screen employee view had no way in from the Admin's menu.
