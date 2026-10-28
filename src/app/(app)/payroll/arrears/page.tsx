@@ -57,7 +57,7 @@ export default async function ArrearsPage() {
                     <Link href={`/payroll/${b.id}`} className="font-medium text-ink-900 hover:text-brand-700">
                       {locale === "hi" ? b.titleHi : b.title}
                     </Link>
-                    {b.reason && b.reason !== "WITHHELD" && b.reason !== "JOINER" && <span className="block text-xs text-ink-500">{b.reason}</span>}
+                    {b.reason && !["WITHHELD", "JOINER", "SETTLEMENT"].includes(b.reason) && <span className="block text-xs text-ink-500">{b.reason}</span>}
                   </Td>
                   <Td label={t("payroll.month")}>{formatMonth(b.month, locale)}</Td>
                   <Td label={t("payroll.people")} align="right">

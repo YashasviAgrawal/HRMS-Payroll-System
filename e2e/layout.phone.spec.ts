@@ -11,7 +11,7 @@ async function expectNoSidewaysScroll(page: Page, path: string) {
 
 test("HR screens fit a phone screen", async ({ page }) => {
   await signIn(page, { as: "HR & Accounts", id: "DCB10007" });
-  for (const path of ["/home", "/employees", "/employees/posts", "/employees/requests", "/recruitment", "/recruitment?tab=joining", "/recruitment?tab=probation", "/recruitment?tab=files", "/recruitment/vacancies/new", "/attendance", "/attendance?tab=register", "/attendance?tab=lock", "/attendance?tab=requests", "/attendance?tab=import", "/attendance/holidays", "/leave/manage", "/leave/manage?tab=balances", "/leave/manage?tab=enter", "/leave/manage?tab=opening", "/leave/manage?tab=rules", "/approvals", "/profile"]) {
+  for (const path of ["/home", "/employees", "/employees/posts", "/employees/requests", "/recruitment", "/recruitment?tab=joining", "/recruitment?tab=probation", "/recruitment?tab=files", "/recruitment/vacancies/new", "/attendance", "/attendance?tab=register", "/attendance?tab=lock", "/attendance?tab=requests", "/attendance?tab=import", "/attendance/holidays", "/leave/manage", "/leave/manage?tab=balances", "/leave/manage?tab=enter", "/leave/manage?tab=opening", "/leave/manage?tab=rules", "/approvals", "/profile", "/employees/exits", "/employees/service-books"]) {
     await expectNoSidewaysScroll(page, path);
   }
   await page.goto("/recruitment");
@@ -36,9 +36,13 @@ test("reporting officer screens fit a phone screen", async ({ page }) => {
 
 test("payroll screens fit a phone screen", async ({ page }) => {
   await signIn(page, { as: "HR & Accounts", id: "DCB10004" });
-  for (const path of ["/payroll", "/payroll/items", "/payroll/increments", "/payroll/increments?tab=fixation", "/payroll/arrears", "/payroll/loans", "/payroll/payslips", "/admin/rates", "/admin/rates?tab=heads", "/admin/rates?tab=matrix"]) {
+  for (const path of ["/payroll", "/payroll/items", "/payroll/increments", "/payroll/increments?tab=fixation", "/payroll/arrears", "/payroll/loans", "/payroll/payslips", "/admin/rates", "/admin/rates?tab=heads", "/admin/rates?tab=matrix", "/admin/rates?tab=daTa", "/employees/exits?show=all"]) {
     await expectNoSidewaysScroll(page, path);
   }
+  await page.goto("/employees/exits?show=all");
+  await page.getByRole("link", { name: /Vikas Malhotra/ }).click();
+  await page.waitForURL(/\/employees\/exits\/c/);
+  await expectNoSidewaysScroll(page, new URL(page.url()).pathname);
   // A closed month from the demo history: every tab and one pay sheet.
   const overview = (await (await page.request.get("/api/v1/payroll/runs")).json()).data as { history: { id: string; payGroup: string }[] };
   const run = `/payroll/${overview.history.find((r) => r.payGroup === "NPS")!.id}`;

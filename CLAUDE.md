@@ -20,6 +20,10 @@
 - **Statutory & tax:** pure rules in `modules/statutory/` (`tax-rules.ts`, `gpf-rules.ts`, `formats.ts`, `calendar.ts`); TDS is projected
   inside `computeRun` (`tds-projection.ts`, no "server-only") — never a pay item; `gpf-posting.ts` posts GPF from approved bills;
   `stat-build.ts` builds the monthly files (seed-safe). Worked-out deductions (LOAN, GPF_REFUND, IT, PT) pass to the engine in `items`.
+- **Leaving service (client add-on):** `employees/separation.ts` records suspensions and exits (Checker → Admin) and
+  moves people off the rolls after the last day (`applyExits`, daily); the full and final settlement is
+  `payroll/settlement.ts` (statement, approvals, receipts) on pure rules in `settlement-rules.ts`; the settlement bill
+  is a SUPPLEMENTARY run with source `SETTLEMENT` built and closed by `settlement-bill.ts` (hooked into `run.ts`).
 - **Pension:** pure rules in `modules/pension/rules.ts` (a month's pension, restoration, additional pension, life
   certificate dates) and `calculator.ts` (the case); `compute.ts` works out the pension bill (pay group PENSION, called
   from `computeRun`, seed-safe) with catch-up of unpaid months and the system hold; `case-facts.ts` reads a case's facts

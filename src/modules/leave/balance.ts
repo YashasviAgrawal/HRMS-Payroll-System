@@ -116,7 +116,7 @@ export async function ensureCredits(boardId: string, today: string = todayIST())
   const rules = (await leaveRules(boardId)).filter((r) => r.isActive && hasBalance(r));
   const employees = await db.employee.findMany({
     where: { boardId, employeeCode: { not: null }, status: { in: ["ACTIVE", "SUSPENDED"] } },
-    select: { id: true, gender: true, type: true, dateOfJoining: true },
+    select: { id: true, gender: true, type: true, dateOfJoining: true, exitDate: true },
   });
   let credited = 0;
   for (const r of rules) {
@@ -124,7 +124,8 @@ export async function ensureCredits(boardId: string, today: string = todayIST())
     const done = new Set((await db.leaveLedger.findMany({ where: { boardId, leaveCode: r.code, period: period.id }, select: { employeeId: true } })).map((x) => x.employeeId));
     for (const e of employees) {
       const doj = toISODate(e.dateOfJoining);
-      if (done.has(e.id) || doj > period.end || !isEligible(r, e)) continue;
+      // Someone whose last day of service falls before the period gets no credit for it.
+      if (done.has(e.id) || doj > period.end || !isEligible(r, e) || (e.exitDate && toISODate(e.exitDate) < period.start)) continue;
       try {
         await db.$transaction(async (tx) => {
           if (r.lapsesAtYearEnd) {

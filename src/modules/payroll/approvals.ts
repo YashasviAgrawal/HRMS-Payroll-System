@@ -10,6 +10,7 @@ import { applyIncrements, type IncrementPayload } from "./increments";
 import { onLoanApproved, onLoanRejected } from "./loans";
 import { applyHead, applyMatrix, applyPayItem, applyRate, type headProposalSchema, type payItemSchema, type rateProposalSchema } from "./rates";
 import { onApproved, onChecked, onSentBack } from "./run";
+import { onSettlementApproved, onSettlementSentBack } from "./settlement";
 
 /** PR-01/PR-02, S-81: rates, pay heads and pay matrices change only when an Admin approves. */
 defineApprovalKind<z.infer<typeof rateProposalSchema>>({
@@ -119,3 +120,26 @@ defineApprovalKind<{ loanId: string; step?: "approver" }>({
   },
 });
 
+
+/** Client add-on: the full and final settlement statement — a Checker checks, an Admin approves (§14 arrears and loans). */
+defineApprovalKind<{ separationId: string; step?: "approver" }>({
+  kind: "separation.settlement",
+  requiredPermission: "CHECKER",
+  sensitive: true,
+  async onApprove({ tx, task, payload, actor }) {
+    if (payload.step !== "approver") {
+      await chainTask(tx, task, { requiredPermission: "APPROVER", payload: { ...payload, step: "approver" } });
+      return;
+    }
+    await onSettlementApproved(tx, task, actor, payload.separationId);
+  },
+  async onReject({ tx, payload }) {
+    await onSettlementSentBack(tx, payload.separationId);
+  },
+  async onReturn({ tx, payload }) {
+    await onSettlementSentBack(tx, payload.separationId);
+  },
+  async onCancel({ tx, payload }) {
+    await onSettlementSentBack(tx, payload.separationId);
+  },
+});

@@ -52,6 +52,8 @@ export const PAY_HEAD_DEFAULTS: PayHeadDefault[] = [
   { code: "COMMUTATION", name: "Commuted part of pension", nameHi: "पेंशन का रूपांतरित भाग", kind: "DEDUCTION", calc: "SYSTEM", prorate: false, accountHead: "E-2.01 Pension and family pension" },
   { code: "GRATUITY", name: "Gratuity", nameHi: "उपदान", kind: "EARNING", calc: "SYSTEM", prorate: false, taxable: false, accountHead: "E-2.04 Gratuity" },
   { code: "COMMUTED_VALUE", name: "Commuted value of pension", nameHi: "पेंशन का रूपांतरित मूल्य", kind: "EARNING", calc: "SYSTEM", prorate: false, taxable: false, accountHead: "E-2.05 Commuted value of pension" },
+  // Leaving service (client add-on): other dues paid in the full and final settlement (subsistence allowance, bonus …).
+  { code: "OTHER_DUE", name: "Other dues (settlement)", nameHi: "अन्य देय (अंतिम निपटान)", kind: "EARNING", calc: "SYSTEM", prorate: false, accountHead: "E-1.04 Other allowances" },
   { code: "LEAVE_ENCASHMENT", name: "Leave encashment", nameHi: "अवकाश नकदीकरण", kind: "EARNING", calc: "SYSTEM", prorate: false, taxable: false, accountHead: "E-1.06 Leave encashment" },
   { code: "NPS_ER", name: "NPS (Board 14%)", nameHi: "एनपीएस (परिषद 14%)", kind: "EMPLOYER", calc: "SYSTEM", prorate: false, accountHead: "E-1.10 Board's NPS contribution" },
   { code: "PENSION_ER", name: "Pension fund (Board 10%)", nameHi: "पेंशन निधि (परिषद 10%)", kind: "EMPLOYER", calc: "SYSTEM", prorate: false, accountHead: "E-1.11 Contribution to pension fund" },

@@ -1,4 +1,4 @@
-import { BookOpen, BriefcaseBusiness, CalendarCheck, CalendarClock, CalendarDays, Clock, FileText, HandCoins, History, Hourglass, IndianRupee, Pencil, Phone, PiggyBank, Receipt, ShieldAlert, Users, Wallet } from "lucide-react";
+import { BookOpen, BriefcaseBusiness, CalendarCheck, CalendarClock, CalendarDays, Clock, DoorOpen, FileText, HandCoins, History, Hourglass, IndianRupee, Pencil, Phone, PiggyBank, Receipt, ShieldAlert, UserX, Users, Wallet } from "lucide-react";
 import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -21,7 +21,9 @@ import { getSetting } from "@/modules/settings/service";
 import { docTypeName } from "@/modules/settings/schema";
 import { employeeOverview } from "@/modules/employees/overview";
 import { myPayslips } from "@/modules/payroll/payslips";
+import { canRecordSeparation, currentSeparation } from "@/modules/employees/separation";
 import { LEAVE_TONE } from "../../leave/_components/tones";
+import { SeparationDialog } from "./separation-dialog";
 import { statusTone, typeTone } from "./tones";
 import { DocumentDelete, DocumentUpload, RevealValue, ServiceEntryDialog, WithdrawButton } from "./widgets";
 
@@ -46,8 +48,10 @@ const dash = (v: unknown) => (v === null || v === undefined || v === "" ? "—" 
 
 export async function EmployeeProfile({ e, actor, tab, t, locale, mode, basePath }: Props) {
   const hr = mode === "hr" && canAll(actor, "employee_master", "create") && e.id !== actor.employeeId;
-  const pending = await pendingChanges(actor, e.id);
+  const [pending, sep] = await Promise.all([pendingChanges(actor, e.id), mode === "hr" ? currentSeparation(actor, e.id) : null]);
   const name = locale === "hi" && e.nameHi ? e.nameHi : e.name;
+  // Client add-on: HR records a suspension or the person leaving (nothing else waiting for them).
+  const canSeparate = mode === "hr" && canRecordSeparation(actor) && e.id !== actor.employeeId && ["ACTIVE", "SUSPENDED"].includes(e.status) && sep?.status !== "PENDING" && !(sep && sep.kind !== "SUSPENSION");
   const tabs = PROFILE_TABS.filter((x) => mode === "hr" || !HR_ONLY_TABS.includes(x)).map((key) => ({
     key,
     label: t(`employees.tabs.${key}`),
@@ -76,6 +80,7 @@ export async function EmployeeProfile({ e, actor, tab, t, locale, mode, basePath
               <Badge tone={statusTone(e.status)} dot>
                 {tDynamic(t, `employees.status.${e.status}`)}
               </Badge>
+              {canSeparate && <SeparationDialog employeeId={e.id} status={e.status} />}
               {hr && EDITABLE.includes(tab) && (
                 <LinkButton href={`/employees/${e.id}/edit?tab=${tab}`} size="sm" variant="primary" icon={<Pencil className="size-4" aria-hidden="true" />}>
                   {t("employees.profile.edit")}
@@ -112,6 +117,30 @@ export async function EmployeeProfile({ e, actor, tab, t, locale, mode, basePath
             <p className="font-medium">{t("employees.profile.draftTitle")}</p>
             <p className="mt-0.5 text-sm">{t("employees.profile.draftBody")}</p>
           </div>
+        </div>
+      )}
+
+      {sep && (
+        <div data-testid="separation-banner" className={`flex flex-wrap items-start justify-between gap-3 rounded-2xl border px-5 py-4 ${sep.kind === "SUSPENSION" ? "border-red-200 bg-red-50 text-red-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
+          <div className="flex items-start gap-3">
+            {sep.kind === "SUSPENSION" ? <UserX className="mt-0.5 size-5 shrink-0" aria-hidden="true" /> : <DoorOpen className="mt-0.5 size-5 shrink-0" aria-hidden="true" />}
+            <div>
+              <p className="font-medium">
+                {sep.status === "PENDING"
+                  ? t("employees.exit.banner.waiting", { what: tDynamic(t, `employees.exit.kind.${sep.kind}`), date: formatDate(sep.effectiveDate, locale) })
+                  : sep.kind === "SUSPENSION"
+                    ? t("employees.exit.banner.suspended", { date: formatDate(sep.effectiveDate, locale) })
+                    : t(e.status === "ACTIVE" || e.status === "SUSPENDED" ? "employees.exit.banner.leaving" : "employees.exit.banner.left", { what: tDynamic(t, `employees.exit.kind.${sep.kind}`), date: formatDate(sep.effectiveDate, locale) })}
+              </p>
+              <p className="mt-0.5 text-sm">
+                {t("employees.exit.banner.order", { order: sep.orderNumber, date: formatDate(sep.orderDate, locale) })}
+                {sep.status === "APPROVED" && sep.kind !== "SUSPENSION" && <> · {tDynamic(t, `employees.exit.settlementStatus.${sep.settlementStatus}`)}</>}
+              </p>
+            </div>
+          </div>
+          <LinkButton href={`/employees/exits/${sep.id}`} size="sm">
+            {t("common.open")}
+          </LinkButton>
         </div>
       )}
 
@@ -586,7 +615,7 @@ async function OverviewTab({ e, actor, t, locale, basePath }: TabProps & { baseP
       </div>
 
       {o.pay ? (
-        <Card>
+        <Card data-testid="overview-salary">
           <CardHeader
             title={last ? t("employees.overview.salary", { month: formatMonth(last.month, locale) }) : t("employees.overview.salary", { month: "—" })}
             description={t("employees.overview.year", { fy: o.pay.year.fy, count: o.pay.year.slips, gross: formatINR(o.pay.year.gross), deductions: formatINR(o.pay.year.deductions), net: formatINR(o.pay.year.net) })}
@@ -598,7 +627,7 @@ async function OverviewTab({ e, actor, t, locale, basePath }: TabProps & { baseP
             }
           />
           {last ? (
-            <CardBody className="grid grid-cols-1 gap-6 md:grid-cols-2" data-testid="overview-salary">
+            <CardBody className="grid grid-cols-1 gap-6 md:grid-cols-2">
               {(["EARNING", "DEDUCTION"] as const).map((kind) => {
                 const lines = last.lines.filter((l) => l.kind === kind);
                 return (

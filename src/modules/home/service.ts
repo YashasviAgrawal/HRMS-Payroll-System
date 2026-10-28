@@ -12,6 +12,7 @@ import { RUN_GROUPS } from "@/modules/payroll/compute";
 import { calendarFor, dueSoon, sendDueReminders } from "@/modules/statutory/calendar-service";
 import { currentFy } from "@/modules/statutory/tax";
 import { pensionDailyJobs, pensionerHome, pensionWork } from "@/modules/pension/overview";
+import { applyExits } from "@/modules/employees/separation";
 import { lcViewOf } from "@/modules/pension/pensioners";
 import { incrementMonthFor, nextIncrementDate, qualifies } from "@/modules/payroll/pay-rules";
 
@@ -88,6 +89,13 @@ export async function myWork(actor: Actor): Promise<WorkItem[]> {
   void sendDueReminders(actor.boardId).catch((e) => console.error("[statutory] reminders failed", e));
   // PN-10, PN-06: people past their retirement date leave the rolls; life certificate reminders go out (once a day).
   pensionDailyJobs(actor.boardId);
+  // Client add-on: people past their last day of service leave the rolls (once a day).
+  void applyExits(actor.boardId).catch((e) => console.error("[employees] exits failed", e));
+  // Client add-on: full and final settlements for Payroll to prepare (the last day passed, nothing sent yet).
+  if (canAll(actor, "arrears_loans", "create")) {
+    const open = await db.separation.count({ where: { boardId: actor.boardId, status: "APPROVED", kind: { not: "SUSPENSION" }, settlementStatus: { in: ["NONE", "APPROVED"] }, effectiveDate: { lt: fromISODate(todayIST()) } } });
+    if (open) items.push({ key: "settlements", title: `Full and final settlements to finish: ${open}`, titleHi: `पूरे किए जाने वाले अंतिम निपटान: ${open}`, href: "/employees/exits", tone: "amber" });
+  }
   for (const d of await dueSoon(actor)) {
     const late = d.state === "OVERDUE";
     items.push({

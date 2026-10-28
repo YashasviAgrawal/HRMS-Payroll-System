@@ -37,7 +37,7 @@ test("HR screens meet WCAG 2.1 AA", async ({ page }) => {
   test.setTimeout(180_000);
   await watchCsp(page);
   await signIn(page, { as: "HR & Accounts", id: "DCB10007" });
-  for (const path of ["/home", "/employees", "/employees/posts", "/employees/new", "/recruitment", "/attendance", "/attendance?tab=register", "/attendance?tab=lock", "/leave/manage", "/leave/manage?tab=balances", "/approvals", "/reports", "/reports/headcount", "/migration", "/migration?tab=files"]) {
+  for (const path of ["/home", "/employees", "/employees/posts", "/employees/new", "/recruitment", "/attendance", "/attendance?tab=register", "/attendance?tab=lock", "/leave/manage", "/leave/manage?tab=balances", "/approvals", "/reports", "/reports/headcount", "/migration", "/migration?tab=files", "/employees/service-books", "/employees/exits"]) {
     await expectAccessible(page, path);
   }
   // Rows open with a real link in their first cell, so screen readers announce them (WCAG 4.1.2) and the
@@ -53,9 +53,14 @@ test("payroll, statutory and pension screens meet WCAG 2.1 AA", async ({ page })
   test.setTimeout(180_000);
   await watchCsp(page);
   await signIn(page, { as: "HR & Accounts", id: "DCB10004" });
-  for (const path of ["/payroll", "/payroll/items", "/payroll/increments", "/payroll/loans", "/payroll/payslips", "/admin/rates", "/admin/rates?tab=matrix", "/statutory", "/statutory/tds", "/statutory/declarations", "/reports/pay-bill"]) {
+  for (const path of ["/payroll", "/payroll/items", "/payroll/increments", "/payroll/loans", "/payroll/payslips", "/admin/rates", "/admin/rates?tab=matrix", "/admin/rates?tab=daTa", "/statutory", "/statutory/tds", "/statutory/declarations", "/reports/pay-bill"]) {
     await expectAccessible(page, path);
   }
+  // A leaver's full and final settlement, with the statement and the clerk's entries (client add-on).
+  await page.goto("/employees/exits");
+  await page.getByRole("link", { name: /Vikas Malhotra/ }).click();
+  await page.waitForURL(/\/employees\/exits\/c/);
+  await expectAccessible(page, new URL(page.url()).pathname);
   const overview = (await (await page.request.get("/api/v1/payroll/runs")).json()).data as { history: { id: string; payGroup: string }[] };
   await expectAccessible(page, `/payroll/${overview.history.find((r) => r.payGroup === "NPS")!.id}?tab=people`);
   await signIn(page, { as: "HR & Accounts", id: "DCB10005" });

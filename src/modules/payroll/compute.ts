@@ -86,7 +86,8 @@ export type SupplementarySource =
   | { type: "ARREARS"; employeeIds: string[]; fromMonth: string; toMonth: string; reason: string; pensionerIds?: string[] }
   | { type: "BENEFITS"; caseId: string; name: string }
   | { type: "WITHHELD"; payslipIds: string[] }
-  | { type: "JOINER"; employeeIds: string[]; forMonth: string };
+  | { type: "JOINER"; employeeIds: string[]; forMonth: string }
+  | { type: "SETTLEMENT"; separationId: string; name: string };
 
 /** The name of a bill: "Payroll October 2026 — Permanent – NPS", or for a supplementary bill what it pays. */
 export function titleOf(run: { payGroup: string; month: string; kind?: string; seq?: number; source?: unknown }, lang: "en" | "hi" = "en"): string {
@@ -110,7 +111,11 @@ export function titleOf(run: { payGroup: string; month: string; kind?: string; s
             ? lang === "hi"
               ? `सेवानिवृत्ति लाभ — ${src.name}`
               : `Retirement benefits — ${src.name}`
-            : "";
+            : src.type === "SETTLEMENT"
+              ? lang === "hi"
+                ? `अंतिम निपटान — ${src.name}`
+                : `Full and final settlement — ${src.name}`
+              : "";
   return lang === "hi"
     ? `पूरक बिल ${run.seq ?? ""} · ${formatMonth(run.month, "hi")} — ${groupLabelHi[group]} — ${what}`
     : `Supplementary bill ${run.seq ?? ""} · ${formatMonth(run.month)} — ${groupLabel[group]} — ${what}`;

@@ -1,10 +1,11 @@
 import "server-only";
 import { z } from "zod";
+import type { PayrollRun } from "@/generated/prisma/client";
 import type { PayGroup } from "@/generated/prisma/enums";
 import { audit } from "@/lib/audit";
 import { canAll } from "@/lib/auth/access";
 import type { Actor } from "@/lib/auth/session";
-import { db, type DbLike } from "@/lib/db";
+import { db, type DbLike, type Tx } from "@/lib/db";
 import { datesOfMonth, endOfMonth, fromISODate, isMonth, shiftMonth, todayIST, toISODate, type ISODate } from "@/lib/dates";
 import { badRequest, forbidden, notFound } from "@/lib/errors";
 import { formatINR, fromPaise, toPaise } from "@/lib/money";
@@ -14,6 +15,7 @@ import { rerunPensionBill } from "@/modules/pension/bills";
 import type { GpfRefund } from "@/modules/statutory/gpf-posting";
 import { combineParts, monthParts, type MonthPart } from "./arrear-days";
 import { preChecks, type Found } from "./checks";
+import { settlementSlip } from "./settlement-bill";
 import {
   basicFrom,
   computeRun,
@@ -225,8 +227,19 @@ export async function withheldCandidates(actor: Actor, payGroup: RunGroup) {
 
 /** Withheld payslips already in a supplementary bill that was not rejected. */
 async function paidElsewhere(boardId: string) {
-  const supp = await db.payslip.findMany({ where: { boardId, run: { kind: "SUPPLEMENTARY" } }, select: { detail: true } });
-  return new Set(supp.map((s) => (s.detail as { withheldSlipId?: string } | null)?.withheldSlipId).filter((x): x is string => Boolean(x)));
+  const [supp, settlements] = await Promise.all([
+    db.payslip.findMany({ where: { boardId, run: { kind: "SUPPLEMENTARY" } }, select: { detail: true } }),
+    db.separation.findMany({ where: { boardId, settlementStatus: { in: ["CHECKING", "APPROVED", "SETTLED"] } }, select: { statement: true } }),
+  ]);
+  // A settlement bill may release several withheld slips of the person leaving; a settlement statement sent for
+  // checking already counts them, before its bill is made.
+  return new Set([
+    ...supp.flatMap((s) => {
+      const d = (s.detail ?? {}) as { withheldSlipId?: string; withheldSlipIds?: string[] };
+      return [...(d.withheldSlipId ? [d.withheldSlipId] : []), ...(d.withheldSlipIds ?? [])];
+    }),
+    ...settlements.flatMap((x) => ((x.statement as { lines?: { slip?: { id: string } }[] } | null)?.lines ?? []).flatMap((l) => (l.slip ? [l.slip.id] : []))),
+  ]);
 }
 
 /** People with no payslip in a month whose regular bill is already approved (joined late in the month). */
@@ -249,6 +262,10 @@ async function buildSupplementary(boardId: string, src: Source, month: string): 
   if (src.type === "BENEFITS" || src.payGroup === "PENSION") throw new Error("Pension bills are built by the pension module");
   const dim = datesOfMonth(month).length;
   const bankHolders = new Map((await db.employee.groupBy({ by: ["bankAccountHash"], where: { boardId, bankAccountHash: { not: null }, status: { in: ["ACTIVE", "SUSPENDED"] } }, _count: { _all: true } })).map((h) => [h.bankAccountHash!, h._count._all]));
+  if (src.type === "SETTLEMENT") {
+    const { slip, bankHash } = await settlementSlip(boardId, src.separationId, dim);
+    return { slips: [slip], found: preChecks([{ employeeId: slip.employeeId, net: slip.net, lastNet: null, hasBank: Boolean(bankHash && slip.ifsc), bankHash, afterRetirement: false, noPayLevel: false, suspended: false }], bankHolders) };
+  }
   if (src.type === "JOINER") {
     const computed = await computeRun(db, boardId, src.payGroup, src.forMonth, { ignoreAttendance: true });
     const slips = computed.slips.filter((s) => src.employeeIds.includes(s.employeeId)).map((s) => ({ ...s, lastNet: null, changePct: null, detail: { ...((s.detail as object) ?? {}), joinerMonth: src.forMonth } }));
@@ -362,12 +379,14 @@ export async function makeSupplementaryBill(actor: Actor, raw: unknown) {
   return saveSupplementary(actor, src, month);
 }
 
-async function saveSupplementary(actor: Actor, src: Source, month: string, runId?: string) {
+/** Saves a supplementary bill worked out from its source; `after` runs in the same transaction (e.g. linking a settlement). */
+export async function saveSupplementary(actor: Actor, src: Source, month: string, runId?: string, after?: (tx: Tx, run: PayrollRun) => Promise<void>) {
   const computed = await buildSupplementary(actor.boardId, src, month);
   if (!computed.slips.length) throw badRequest("payroll.supplementary.nothing");
   return db.$transaction(async (tx) => {
     const run = await saveRun(tx, actor, src.payGroup, month, computed, { kind: "SUPPLEMENTARY", runId, source: src, title: src.type === "ARREARS" ? src.reason : src.type });
     const saved = await tx.payrollRun.findUniqueOrThrow({ where: { id: run.id } });
+    if (after) await after(tx, saved);
     await audit(tx, actor, { action: "RUN", entityType: "PayrollRun", entityId: run.id, summary: `${runId ? "Worked out again" : "Made"} ${titleOf(saved)}: ${computed.slips.length} people, net ${formatINR(num(saved.net))}`, sensitive: true });
     await emit(tx, actor.boardId, "payroll.supplementary", { type: "PayrollRun", id: run.id }, { source: src.type });
     return saved;

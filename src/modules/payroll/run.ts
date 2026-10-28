@@ -17,6 +17,7 @@ import { fullName } from "@/modules/employees/present";
 import { EXCEPTION_RULES, type ExceptionCode, type Resolution } from "./checks";
 import { applyDuePayChanges, applyResolutions, computeRun, fnOf, PAY_GROUPS, recordLoanRecoveries, RUN_GROUPS, runTitle, saveRun, titleOf, undoLoanRecoveries, type RunGroup } from "./compute";
 import { recordGpf, undoGpf } from "@/modules/statutory/gpf-posting";
+import { onSettlementBillApproved, onSettlementBillReopened } from "./settlement-bill";
 import type { TaxDetail } from "@/modules/statutory/tds-projection";
 import type { PayLine } from "./engine";
 import { PENSION_TYPE_LABEL, pensionOfSlip, type PensionSlipDetail } from "@/modules/pension/rules";
@@ -425,6 +426,7 @@ export async function onApproved(tx: Tx, actor: Actor, runId: string) {
   await tx.payrollRun.update({ where: { id: runId }, data: { status: "APPROVED", approvedById: actor.userId, approvedByName: actor.name, approvedAt: new Date() } });
   await recordLoanRecoveries(tx, runId);
   await recordGpf(tx, runId, actor.userId);
+  await onSettlementBillApproved(tx, run, actor);
   await audit(tx, actor, { action: "SIGN", entityType: "PayrollRun", entityId: runId, summary: `Approved and signed with OTP: ${titleOf(run)} (net ${formatINR(num(run.net))})` });
   await emit(tx, run.boardId, "payroll.approved", { type: "PayrollRun", id: runId }, { month: run.month, payGroup: run.payGroup, net: num(run.net) });
 }
@@ -453,6 +455,7 @@ export async function reopenRun(actor: Actor, runId: string, raw: unknown) {
     }
     await undoLoanRecoveries(tx, runId);
     await undoGpf(tx, runId);
+    await onSettlementBillReopened(tx, run);
     await tx.payrollRun.update({
       where: { id: runId },
       data: { status: "DRAFT", reopenedAt: new Date(), reopenNote: note, approvedById: null, approvedByName: null, approvedAt: null, submittedAt: null, checkedById: null, checkedByName: null, bankFileId: null },

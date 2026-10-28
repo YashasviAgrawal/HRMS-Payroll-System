@@ -332,7 +332,7 @@ export async function onCaseApproved(tx: Tx, task: ApprovalTask, actor: Actor, c
  * PN-08: the GPF account is closed once the person has left the rolls and the case is approved — this year's interest to
  * the month of leaving is credited and the final payment taken out (paid from the fund). Done once.
  */
-export async function settleGpf(tx: DbLike, employeeId: string, ppo: string | null, byId: string | null) {
+export async function settleGpf(tx: DbLike, employeeId: string, ppo: string | null, byId: string | null, runId: string | null = null) {
   const e = await tx.employee.findUniqueOrThrow({ where: { id: employeeId } });
   if (e.type !== "PERMANENT_OPS" || ["ACTIVE", "SUSPENDED", "DRAFT"].includes(e.status)) return null;
   if (await tx.gpfEntry.findFirst({ where: { employeeId, kind: "WITHDRAWAL", note: { startsWith: "Final payment" } } })) return null;
@@ -343,8 +343,9 @@ export async function settleGpf(tx: DbLike, employeeId: string, ppo: string | nu
   const g = await gpfFinal(tx, e.boardId, employeeId, month);
   const total = fromPaise(toPaise(g.balance) + toPaise(g.interest));
   if (total <= 0) return null;
-  if (g.interest > 0) await tx.gpfEntry.create({ data: { boardId: e.boardId, employeeId, month, fy: g.fy, kind: "INTEREST", amount: g.interest, note: `Interest to ${month} on the final payment`, createdById: byId } });
-  await tx.gpfEntry.create({ data: { boardId: e.boardId, employeeId, month, fy: g.fy, kind: "WITHDRAWAL", amount: -total, note: `Final payment on leaving service${ppo ? ` (PPO ${ppo})` : ""}`, createdById: byId } });
+  // Made by a settlement bill's approval, the entries carry the bill so reopening it takes them back out (gpf-posting.ts).
+  if (g.interest > 0) await tx.gpfEntry.create({ data: { boardId: e.boardId, employeeId, month, fy: g.fy, kind: "INTEREST", amount: g.interest, note: `Interest to ${month} on the final payment`, createdById: byId, runId } });
+  await tx.gpfEntry.create({ data: { boardId: e.boardId, employeeId, month, fy: g.fy, kind: "WITHDRAWAL", amount: -total, note: `Final payment on leaving service${ppo ? ` (PPO ${ppo})` : ""}`, createdById: byId, runId } });
   await emit(tx, e.boardId, "gpf.final_payment", { type: "Employee", id: employeeId }, { amount: total, interest: g.interest, month });
   return { amount: total, interest: g.interest };
 }

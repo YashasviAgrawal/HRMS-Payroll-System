@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { BookOpen, ClipboardList, IdCard, LayoutGrid, Search, Upload, UserPlus } from "lucide-react";
+import { BookOpen, ClipboardList, DoorOpen, IdCard, LayoutGrid, Search, Upload, UserPlus } from "lucide-react";
 import { NoAccess } from "@/components/no-access";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,7 @@ import { getT } from "@/lib/i18n/server";
 import { levelsOf } from "@/modules/payroll/matrix-7cpc";
 import { EMPLOYEE_TYPES } from "@/modules/employees/schema";
 import { listEmployees } from "@/modules/employees/service";
+import { canSeeSeparations } from "@/modules/employees/separation";
 import { formOptions } from "./_components/options";
 import { statusTone, typeTone } from "./_components/tones";
 
@@ -60,6 +61,11 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
             {actor.loginType !== "EMPLOYEE" && (
               <LinkButton href="/employees/posts" icon={<LayoutGrid className="size-4" aria-hidden="true" />}>
                 {t("employees.posts")}
+              </LinkButton>
+            )}
+            {canSeeSeparations(actor) && (
+              <LinkButton href="/employees/exits" icon={<DoorOpen className="size-4" aria-hidden="true" />}>
+                {t("employees.exit.button")}
               </LinkButton>
             )}
             {hr && (

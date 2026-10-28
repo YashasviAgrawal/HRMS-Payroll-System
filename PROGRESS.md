@@ -17,12 +17,48 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 | 8 | Statutory & tax | 🟢 Done & verified (24Q / CRA / ECR / ESIC layouts to check with one real upload — PRD §18) |
 | 9 | Pension | 🟢 Done & verified (rules and the PPO layout to confirm for DCB — PRD §10, §18) |
 | 10 | Reports, dashboards, migration & go-live | 🟢 Done & verified (go-live steps for the Board's IT cell in [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)) |
+| C | Client add-ons (DCB review: one-screen view, suspension & full and final settlement, arrears by days, DA & TA by year, scanned service books, Excel bank file, document types) | 🟢 Done & verified (subsistence allowance and document list to confirm with DCB) |
 
 🟢 Done & verified · 🟡 In progress · ⚪ Pending
 
 ---
 
 ## Change log (newest first)
+
+### 2026-10-28 — Client add-ons (part 2): suspension, leaving service and the full and final settlement ✅
+Asked by DCB ("when an employee is suspended or removed, calculate all outstanding loans and recoveries in the FnF").
+**Built**
+- **Suspension and leaving service** (Employees → Suspensions & leaving; a button on each profile): HR records a
+  suspension, resignation, removal, dismissal, termination, end of contract or transfer out with the order number,
+  date, reason and the scanned order; a Checker checks and an Admin approves (as a penalty in the service book, §14).
+  Approval puts the person under suspension, or sets the last day of service (up to three months ahead for a notice
+  period) — pay stops after it and the person leaves the rolls the next day (status Resigned / Terminated /
+  Transferred); a service book entry is made either way. A suspension ends by reinstatement (order, first day back;
+  Checker then Admin) or by leaving service. Retirement and death keep their own pension flows. The profile shows a
+  banner while anything is waiting, running or being settled.
+- **Full and final settlement** (Payroll prepares; Checker, then Admin): the statement is worked out from the records —
+  *dues*: pay withheld earlier (released after its own deductions, or left out — pay held for suspension is left out
+  unless ticked), leave encashment by the kind of leaving (resignation: half the earned leave up to 150 days;
+  termination: up to 300; removal, dismissal, end of contract, transfer out: none — the half-year's credit not yet
+  earned is taken off first), and dues by order (subsistence allowance, notice pay …); *recoveries*: **every running
+  loan in full** (principal left plus interest to the month), pay drawn in approved bills for days after the last day,
+  the instalments still to come of standing recoveries (overpayment, society dues …), and recoveries by order (a
+  section's dues). The GPF final payment (OPS) and the NPS exit are shown but paid outside the statement. It can be
+  sent only after the month of leaving is paid; it is fixed once sent.
+- **Paying or recovering:** a net due is paid by a **settlement bill** (a supplementary bill of the person's pay
+  group, through the usual five stages); its approval records the loan recoveries, closes the loans and running GPF
+  advances, credits the GPF subscription in released pay and closes the GPF account; reopening it undoes all of that.
+  When the recoveries are more than the dues, Payroll records the money paid back receipt by receipt; the last one
+  closes the loans and the settlement. A statement PDF (both languages, with the people who prepared, checked and
+  approved it) is ready for signature at every stage.
+- **While suspended**, the profile and the record show the loans and recoveries on record — what a removal or
+  dismissal would recover. Payroll's home lists settlements still to finish.
+**Verified** — typecheck, lint, 396 unit / integration tests (new: the settlement rules; resignation through both
+approvals; the statement against a seeded loan, interest, EL credit, overpaid pay and a standing recovery; repayment
+by receipts closing the loans; a settlement bill through the five stages closing the loans and GPF, and its reopening;
+waiting for the month of leaving; suspension and reinstatement; rights per login), build, browser checks (settlement
+with a Checker and an Admin and the bill made; suspension and reinstatement; overview, DA & TA, scanned service book;
+the new screens in the accessibility and phone checks).
 
 ### 2026-10-28 — Client add-ons (part 1): one-screen employee view, arrears by days, DA & TA by year, scanned service books, Excel bank file, document types ✅
 Asked by DCB after the FoxPro walk-through (Mohit's notes).
@@ -648,6 +684,11 @@ Release 1 is built. What remains is the Board's, before go-live (details in [doc
 | D-66 | Screens and letters read the dated pay matrix in force (letters: on the letter's date); the built-in 7th CPC table is only the fallback before any matrix is stored | One source of truth with payroll (D-24); a new pay commission needs no code change |
 | D-67 | The seed loads demo data by `APP_ENV` and never in production | `NODE_ENV` is often unset on a server shell; production must never get demo people |
 | D-68 | Performance measured on one Node process; the guide runs two per copy behind nginx | Headroom for the payroll window (25th–1st) and rolling restarts without downtime |
+| D-69 | Suspension and leaving service are their own records (Separation), approved by a Checker and an Admin; the status changes on approval, or the day after a future last day | Matches the order-based process; pay stops after the last day through the existing exit date, so the payroll needs no new rule |
+| D-70 | The full and final statement is fixed when sent for checking and paid by a supplementary "settlement" bill; loans are taken whole and closed by the bill's approval (or by the last receipt) | One money path (the five stages, OTP, bank file, reopen) for every rupee paid; the loan register stays the single record of what is owed |
+| D-71 | Leave encashment on leaving follows CCS (Leave) r. 39 by default (resignation half up to 150 days, termination up to 300, none on removal / dismissal / end of contract / transfer out), changeable per case with the order | The rules differ by the kind of leaving; the order decides in hard cases |
+| D-72 | Arrears of a change inside a month are paid by days (each part counts only its own days) | DA orders and increments often take effect mid-month; paying a whole month at either rate is wrong either way |
+| D-73 | Document types and their size limits are a setting; the bank salary file is Excel by default | DCB is still confirming its document list; banks now take .xlsx uploads |
 | D-08 | Delhi Cantt logo could not be downloaded from inside the build environment (network policy). A placeholder emblem sits at `public/brand/logo.svg`; drop the real logo at the same path | — |
 
 ## Known gaps / risks
@@ -672,4 +713,10 @@ Release 1 is built. What remains is the Board's, before go-live (details in [doc
   pass the Protean FVU / one real portal upload before the first filing; the 24Q of the cut-over quarter covers only the
   months paid through this system.
 - Surcharge (income above ₹50 lakh) is not applied — no Board salary reaches it; relief u/s 89 is shown as nil.
+- Suspension: pay is held in full in each payroll while suspended (released by a "Pay withheld earlier" bill after
+  reinstatement, or entered by order in the settlement); a monthly **subsistence allowance** (FR 53: half pay, then
+  raised or reduced after three months) is not yet worked out automatically — to confirm with DCB before go-live.
+  Compassionate allowance on removal / dismissal and the NPS exit with the CRA are outside the settlement.
+- Scanned service books up to 50 MB each upload on the Board's own server; a Vercel demo copy accepts at most about
+  4.5 MB per request.
 - Pay fixation options (FR 22(I)(a)(1)) and the FR 26 postponement of increments for leave without pay (flagged, not applied automatically) to be confirmed with DCB Accounts; stagnation increments beyond the last cell are not granted automatically.

@@ -240,7 +240,7 @@ _Goal: a secure, bilingual shell that every later module plugs into._
 
 ## Client add-ons (DCB review after the FoxPro walk-through)
 - [x] C1 One employee, one screen — profile Overview: service, leave balances, attendance, salary, payslips, loans, GPF (by rights)
-- [ ] C2 Suspension and leaving service (resignation, removal, dismissal, termination, contract end, transfer out) with a full and final settlement that takes every outstanding loan and recovery
+- [x] C2 Suspension and leaving service (resignation, removal, dismissal, termination, contract end, transfer out) with a full and final settlement that takes every outstanding loan and recovery — _HR records with the order, Checker + Admin approve; reinstatement the same; the statement (withheld pay, leave encashment by kind of leaving, every loan with interest, pay drawn after the last day, instalments still to come, lines by order) goes to a Checker and an Admin; the net is paid by a settlement bill whose approval closes the loans and the GPF account, or the person pays back the excess receipt by receipt; statement PDF_
 - [x] C3 Arrears of a DA rate / increment paid late, worked out by days when the change falls inside a month
 - [x] C4 DA and transport allowance (with DA on it) year by year, with each revision's step
 - [x] C5 Scanned service books of existing staff — one at a time or many at once, filed by Employee ID in the file name

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { combineParts, monthParts } from "@/modules/payroll/arrear-days";
 import { daTaHistory } from "@/modules/payroll/da-history";
 import type { PayLine } from "@/modules/payroll/engine";
+import { billLines, elNotEarned, encashableDays, instalmentsLeft, leaveEncashment, paidBeyond, scaleLines, totalsOf, withheldDue, type StatementLine } from "@/modules/payroll/settlement-rules";
 
 const line = (code: string, amount: number): PayLine => ({ code, name: code, nameHi: code, kind: "EARNING", amount, accountHead: "" });
 
@@ -66,5 +67,81 @@ describe("DA and TA by year", () => {
   it("marks an order dated after today as coming", () => {
     const years = daTaHistory([...rates, { key: "DA_PERCENT", value: 64, effectiveFrom: "2027-01-01", note: null }], "2026-10-28");
     expect(years[0].rows[0]).toMatchObject({ from: "2027-01-01", da: 64, daStep: 4, upcoming: true });
+  });
+});
+
+describe("full and final settlement rules (client add-on)", () => {
+  it("pays earned leave by the kind of leaving: half up to 150 days on resignation, up to 300 on termination, none on dismissal", () => {
+    expect(encashableDays("RESIGNATION", 105)).toBe(52.5);
+    expect(encashableDays("RESIGNATION", 287)).toBe(143.5);
+    expect(encashableDays("RESIGNATION", 300)).toBe(150);
+    expect(encashableDays("TERMINATION", 320)).toBe(300);
+    expect(encashableDays("DISMISSAL", 200)).toBe(0);
+    expect(encashableDays("TRANSFER_OUT", 200)).toBe(0);
+    expect(leaveEncashment(52.5, 35400, 12)).toEqual({ withDa: 39648, amount: 69384 });
+  });
+
+  it("takes back the half-year's credit for months not completed before leaving", () => {
+    const h1 = { days: 15, periodStart: "2019-01-01", periodEnd: "2019-06-30", fullCredit: 15 };
+    expect(elNotEarned(h1, "2008-01-01", "2019-03-20")).toBe(10); // January and February completed: 5 earned
+    expect(elNotEarned(h1, "2008-01-01", "2019-03-31")).toBe(7); // left at the end of March: three months, 7½ earned rounds to 8
+    expect(elNotEarned(h1, "2008-01-01", "2019-06-30")).toBe(0);
+    expect(elNotEarned(h1, "2008-01-01", "2019-01-10")).toBe(15);
+    // Joined during the half-year: the pro-rata credit already given less what was earned after joining.
+    expect(elNotEarned({ ...h1, days: 10 }, "2019-02-01", "2019-04-15")).toBe(10 - 5);
+  });
+
+  it("recovers pay drawn after the last day, by days, to the rupee", () => {
+    expect(paidBeyond({ month: "2019-03", net: 62000, daysOnRoll: 31, daysInMonth: 31 }, "2019-03-20")).toEqual({ days: 11, amount: 22000 });
+    expect(paidBeyond({ month: "2019-03", net: 40000, daysOnRoll: 20, daysInMonth: 31 }, "2019-03-20")).toEqual({ days: 0, amount: 0 });
+    expect(paidBeyond({ month: "2019-04", net: 60000, daysOnRoll: 30, daysInMonth: 30 }, "2019-03-20")).toEqual({ days: 30, amount: 60000 });
+    expect(paidBeyond({ month: "2019-02", net: 60000, daysOnRoll: 28, daysInMonth: 28 }, "2019-03-20").amount).toBe(0);
+    expect(paidBeyond({ month: "2019-03", net: 10000, daysOnRoll: 31, daysInMonth: 31 }, "2019-03-30").amount).toBe(323);
+  });
+
+  it("takes the instalments of a standing recovery still to come after the month of leaving", () => {
+    expect(instalmentsLeft({ amount: 500, fromMonth: "2019-01", toMonth: "2019-08" }, "2019-03")).toEqual({ months: 5, amount: 2500 });
+    expect(instalmentsLeft({ amount: 500, fromMonth: "2019-06", toMonth: "2019-08" }, "2019-03")).toEqual({ months: 3, amount: 1500 });
+    expect(instalmentsLeft({ amount: 500, fromMonth: "2019-01", toMonth: "2019-03" }, "2019-03").amount).toBe(0);
+    expect(instalmentsLeft({ amount: 500, fromMonth: "2019-01", toMonth: null }, "2019-03").amount).toBe(0);
+  });
+
+  it("releases withheld pay after its own deductions, leaving the loan instalment to the loan line", () => {
+    const lines: PayLine[] = [
+      { ...line("BASIC", 35400) },
+      { ...line("DA", 4248) },
+      { code: "GPF", name: "GPF", nameHi: "GPF", kind: "DEDUCTION", amount: 3000, accountHead: "" },
+      { code: "LOAN", name: "Loan", nameHi: "Loan", kind: "DEDUCTION", amount: 1000, accountHead: "" },
+      { code: "PENSION_ER", name: "ER", nameHi: "ER", kind: "EMPLOYER", amount: 3965, accountHead: "" },
+    ];
+    expect(withheldDue(lines)).toBe(36648);
+    expect(scaleLines(lines, 10 / 30).map((l) => l.amount)).toEqual([11800, 1416, 1000, 333, 1322]);
+  });
+
+  it("builds the settlement bill so its net equals the statement's", () => {
+    const heads: Record<string, { name: string; nameHi: string; kind: PayLine["kind"]; accountHead: string }> = {
+      LEAVE_ENCASHMENT: { name: "Leave encashment", nameHi: "अवकाश नकदीकरण", kind: "EARNING", accountHead: "E-1.06" },
+      OTHER_DUE: { name: "Other dues", nameHi: "अन्य देय", kind: "EARNING", accountHead: "E-1.04" },
+      LOAN: { name: "Loan", nameHi: "ऋण", kind: "DEDUCTION", accountHead: "D-2.07" },
+      RECOVERY: { name: "Recovery", nameHi: "वसूली", kind: "DEDUCTION", accountHead: "D-2.10" },
+      SOCIETY: { name: "Society", nameHi: "समिति", kind: "DEDUCTION", accountHead: "D-2.09" },
+    };
+    const slipLines: PayLine[] = [line("BASIC", 35400), { code: "GPF", name: "GPF", nameHi: "GPF", kind: "DEDUCTION", amount: 3000, accountHead: "" }, { code: "LOAN", name: "Loan", nameHi: "Loan", kind: "DEDUCTION", amount: 1000, accountHead: "" }];
+    const st: StatementLine[] = [
+      { key: "withheld:1", kind: "DUE", source: "WITHHELD", label: "", labelHi: "", amount: withheldDue(slipLines), headCode: "OTHER_DUE", slip: { id: "1", month: "2019-04", lines: slipLines, gpfRefunds: [] } },
+      { key: "leave", kind: "DUE", source: "LEAVE", label: "", labelHi: "", amount: 69384, headCode: "LEAVE_ENCASHMENT" },
+      { key: "manual:0", kind: "DUE", source: "MANUAL", label: "", labelHi: "", amount: 4000, headCode: "OTHER_DUE" },
+      { key: "loan:a", kind: "RECOVERY", source: "LOAN", label: "", labelHi: "", amount: 25000, headCode: "LOAN", loan: { loanId: "a", principal: 25000, interest: 0 } },
+      { key: "loan:b", kind: "RECOVERY", source: "LOAN", label: "", labelHi: "", amount: 10250.5, headCode: "LOAN", loan: { loanId: "b", principal: 10000, interest: 250.5 } },
+      { key: "overpaid:1", kind: "RECOVERY", source: "OVERPAID", label: "", labelHi: "", amount: 22000, headCode: "RECOVERY" },
+      { key: "item:1", kind: "RECOVERY", source: "ITEM", label: "", labelHi: "", amount: 1200, headCode: "SOCIETY" },
+    ];
+    const bill = billLines(st, (c) => heads[c]);
+    const sum = (k: string) => bill.filter((l) => l.kind === k).reduce((t, l) => t + Math.round(l.amount * 100), 0) / 100;
+    expect(bill.find((l) => l.code === "LOAN")?.amount).toBe(35250.5);
+    expect(bill.find((l) => l.code === "OTHER_DUE")?.amount).toBe(4000);
+    expect(bill.find((l) => l.code === "GPF")?.amount).toBe(3000);
+    expect(sum("EARNING") - sum("DEDUCTION")).toBeCloseTo(totalsOf(st).net, 2);
+    expect(totalsOf(st)).toMatchObject({ dues: 32400 + 69384 + 4000, recoveries: 58450.5, payable: 47333.5, toRecover: 0 });
   });
 });

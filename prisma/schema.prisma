@@ -206,6 +206,7 @@ model Employee {
   pensionCases    PensionCase[]
   form16          Form16[]
   verification    RecordVerification?
+  separations     Separation[]
 
   @@unique([boardId, employeeCode])
   @@unique([boardId, biometricId])
@@ -542,6 +543,9 @@ enum ServiceEvent {
   PENALTY
   REWARD
   RETIREMENT
+  SUSPENSION
+  REINSTATEMENT
+  EXIT
   OTHER
 }
 
@@ -572,6 +576,70 @@ model ServiceBookEntry {
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@index([employeeId, eventDate])
+}
+
+enum SeparationKind {
+  SUSPENSION
+  RESIGNATION
+  REMOVAL
+  DISMISSAL
+  TERMINATION
+  CONTRACT_END
+  TRANSFER_OUT
+}
+
+enum SeparationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  /// A suspension that ended (reinstated, or turned into leaving service).
+  ENDED
+}
+
+enum SettlementStatus {
+  NONE
+  CHECKING
+  APPROVED
+  SETTLED
+}
+
+/// Client add-on: a suspension, or leaving service other than retirement or death (those have their own pension flows),
+/// with the full and final settlement — what is due to the person, and every loan and recovery still outstanding.
+model Separation {
+  id               String           @id @default(cuid())
+  boardId          String
+  employeeId       String
+  kind             SeparationKind
+  status           SeparationStatus @default(PENDING)
+  /// Suspension: the first day under suspension. Leaving: the last day of service.
+  effectiveDate    DateTime         @db.Date
+  orderNumber      String
+  orderDate        DateTime         @db.Date
+  reason           String
+  /// The scanned order (an employee document).
+  documentId       String?
+  /// A suspension ended (reinstated, or turned into leaving service) on this date.
+  endDate          DateTime?        @db.Date
+  endNote          String?
+  /// What the Payroll clerk entered for the settlement: leave days, lines entered by hand, withheld pay released or not.
+  inputs           Json?
+  /// The settlement statement as sent for checking (fixed from then on); worked out afresh until then.
+  statement        Json?
+  settlementStatus SettlementStatus @default(NONE)
+  settlementRunId  String?
+  /// Money paid back by the person when the recoveries were more than the dues: [{ receiptNo, date, amount, byName, at }].
+  receipts         Json?
+  settledAt        DateTime?
+  createdById      String
+  createdByName    String
+  approvedAt       DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([boardId, status])
+  @@index([employeeId])
 }
 
 /// Old and new value of every approved change to an employee record ("keep their old value in history").

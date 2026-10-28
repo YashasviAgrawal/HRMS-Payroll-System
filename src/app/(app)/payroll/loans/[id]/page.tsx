@@ -69,7 +69,7 @@ export default async function LoanPage({ params }: { params: Promise<{ id: strin
                 {recoveries.map((r) => (
                   <Tr key={r.id}>
                     <Td className="whitespace-nowrap">
-                      <Link href={`/payroll/${r.runId}`} className="hover:text-brand-700">
+                      <Link href={r.runId.startsWith("settlement:") ? `/employees/exits/${r.runId.slice(11)}` : `/payroll/${r.runId}`} className="hover:text-brand-700">
                         {formatMonth(r.month, locale)}
                       </Link>
                     </Td>
