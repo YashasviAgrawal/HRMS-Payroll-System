@@ -15,7 +15,18 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   // Chromium (PDFs) and Excel parsing stay as plain Node modules on the server.
-  serverExternalPackages: ["playwright-core", "exceljs"],
+  serverExternalPackages: ["playwright-core", "@sparticuz/chromium", "exceljs"],
+  // Files read at run time that the bundler cannot see: the fonts and logo embedded in PDFs, and the
+  // serverless Chromium used on Vercel.
+  outputFileTracingIncludes: {
+    "/**": [
+      "./node_modules/playwright-core/**/*",
+      "./node_modules/@sparticuz/chromium/**/*",
+      "./node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2",
+      "./node_modules/@fontsource/noto-sans-devanagari/files/noto-sans-devanagari-devanagari-*-normal.woff2",
+      "./public/brand/**/*",
+    ],
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

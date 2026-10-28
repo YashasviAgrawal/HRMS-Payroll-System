@@ -358,3 +358,26 @@ Acceptance checks
 | Audit trail cannot be edited (database trigger), 8 years | `prisma/migrations/*audit*`, `src/lib/audit.ts` |
 | Client address taken from the trusted proxy's entry in `X-Forwarded-For`, never from a value the browser typed | `src/lib/request-meta.ts` |
 | Dependencies pinned; `npm audit` clean at release | `package.json`, `package-lock.json` |
+
+---
+
+## 12. A demo copy on Vercel
+
+Vercel is fine for **showing the product** (a training or demo copy). It is **not** for production: files
+written there vanish between runs, and the data must stay on government cloud in India (§16).
+
+1. **Database**: a hosted PostgreSQL 16 (Neon, Supabase…). Use `?sslmode=verify-full` in the URL (this also
+   silences pg's SSL-mode warning). Create the tables and the demo data once from your machine:
+   ```bash
+   DATABASE_URL="<hosted url>" APP_ENV=training npx prisma migrate deploy
+   DATABASE_URL="<hosted url>" APP_ENV=training DATA_ENCRYPTION_KEY=… BLIND_INDEX_KEY=… OTP_PEPPER=… npx prisma db seed
+   ```
+2. **Environment variables** in Vercel → Settings → Environment Variables:
+   `DATABASE_URL`, `APP_ENV=training`, `APP_URL=https://<project>.vercel.app`, `DATA_ENCRYPTION_KEY`,
+   `BLIND_INDEX_KEY`, `OTP_PEPPER` (the **same keys** used for the seed), `SMS_PROVIDER=console`,
+   `TRUSTED_PROXY_HOPS=1`. With `training` + `console` the OTP is shown on the sign-in screen.
+3. **PDFs**: nothing to set. On Vercel the app uses a Chromium built for serverless functions
+   (`@sparticuz/chromium`); the first PDF after a quiet spell takes a few seconds longer.
+4. **Uploaded files** (documents, migration files, generated bank files) go to `/tmp` and are lost when Vercel
+   recycles the function. Downloads made right away work; nothing is kept.
+5. Deploy by pushing the branch Vercel watches; the build command stays `npm run build`.

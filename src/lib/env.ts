@@ -19,7 +19,8 @@ const schema = z.object({
   BLIND_INDEX_KEY: base64Key,
   OTP_PEPPER: base64Key,
   SMS_PROVIDER: z.enum(["console", "http"]).default("console"),
-  STORAGE_DIR: z.string().default("./storage"),
+  // On Vercel only /tmp can be written (and it is wiped between runs) — fine for a demo, not for real files.
+  STORAGE_DIR: z.string().default(process.env.VERCEL ? "/tmp/dcb-storage" : "./storage"),
   CHROMIUM_PATH: z.string().optional(),
   /** Reverse proxies in front of the app that add to X-Forwarded-For (nginx = 1). */
   TRUSTED_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(1),

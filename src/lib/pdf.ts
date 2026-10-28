@@ -1,7 +1,7 @@
 import "server-only";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { chromium, type Browser } from "playwright-core";
+import type { Browser } from "playwright-core";
 import { env } from "./env";
 
 /**
@@ -11,7 +11,16 @@ import { env } from "./env";
  */
 let browserPromise: Promise<Browser> | undefined;
 
-function launch() {
+/**
+ * Loaded only when a PDF is made, so pages never depend on the browser being installed. On Vercel (no
+ * Chromium on the machine) a Chromium built for serverless functions is used unless CHROMIUM_PATH is set.
+ */
+async function launch() {
+  const { chromium } = await import("playwright-core");
+  if (process.env.VERCEL && !env().CHROMIUM_PATH) {
+    const serverless = (await import("@sparticuz/chromium")).default;
+    return chromium.launch({ executablePath: await serverless.executablePath(), args: [...serverless.args, "--font-render-hinting=none"], headless: true });
+  }
   const executablePath = env().CHROMIUM_PATH || undefined;
   return chromium.launch({ executablePath, args: ["--no-sandbox", "--font-render-hinting=none"] });
 }
