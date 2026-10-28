@@ -386,7 +386,15 @@ written there vanish between runs, and the data must stay on government cloud in
    it goes through a connection pooler (Neon host with `-pooler`, Supabase port 6543), also add
    `DIRECT_DATABASE_URL` with the direct address; migrations use it, the app keeps using `DATABASE_URL`.
    If the build stops at the migration step, its log names the problem; nothing is half-applied.
-6. **"Something went wrong" on pages after an update** almost always means the database is behind the code (the
+6. **Demo data for new features**: a demo copy seeded before an update does not have that update's demo data. Add it
+   without touching anything already there (refuses on `APP_ENV=production`):
+   ```bash
+   DATABASE_URL="<hosted url>" npm run db:demo-addons                 # macOS / Linux
+   $env:DATABASE_URL="<hosted url>"; npm run db:demo-addons            # Windows PowerShell
+   ```
+   For the client add-ons it adds the DA history from 2016 (Rates and rules → DA & TA by year), the "Other dues"
+   pay head, and a leaver to settle (Vikas Malhotra, DCB10012). Run it after the deploy has applied the migrations.
+7. **"Something went wrong" on pages after an update** almost always means the database is behind the code (the
    function log shows `The table … does not exist`). Apply the migrations by hand once:
    ```bash
    DATABASE_URL="<hosted url>" npx prisma migrate deploy        # macOS / Linux

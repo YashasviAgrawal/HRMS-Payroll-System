@@ -15,6 +15,7 @@ import { sealWith } from "../src/lib/crypto-core";
 import { addDays, addYears, fromISODate, retirementDate, shiftMonth, todayIST } from "../src/lib/dates";
 import { hashPassword } from "../src/lib/password";
 import { verhoeffCheckDigit } from "../src/lib/validators";
+import { seedDemoLeaver } from "./seed-addons";
 import { seedAttendance } from "./seed-attendance";
 import { seedLeaveTypes } from "./seed-leave";
 import { seedPayrollDemo, seedPayrollRules } from "./seed-payroll";
@@ -344,22 +345,8 @@ async function main() {
     passwordHash,
   });
 
-  // Client add-on: a resignation at the end of last month (with a running loan) whose full and final settlement Payroll
-  // still has to prepare — the exits screen and the settlement statement have something to show.
-  const leaverId = employeeIds.get("DCB10012")!;
-  if (!(await db.separation.count({ where: { employeeId: leaverId } }))) {
-    const lastDay = addDays(`${thisMonth}-01`, -1);
-    const orderDate = addDays(lastDay, -30);
-    const hr = await userOf("DCB10003");
-    const order = "DCB/EST/Resig/41";
-    const sep = await db.separation.create({
-      data: { boardId: board.id, employeeId: leaverId, kind: "RESIGNATION", status: "APPROVED", effectiveDate: fromISODate(lastDay), orderNumber: order, orderDate: fromISODate(orderDate), reason: "Resigned on selection to a post in the Delhi Jal Board; one month's notice served.", createdById: hr.id, createdByName: hr.name, approvedAt: new Date(`${orderDate}T10:00:00Z`) },
-    });
-    await db.employee.update({ where: { id: leaverId }, data: { status: "RESIGNED", exitDate: fromISODate(lastDay), exitReason: `Resignation (order ${order})` } });
-    await db.serviceBookEntry.create({
-      data: { employeeId: leaverId, event: "EXIT", eventDate: fromISODate(lastDay), orderNumber: order, orderDate: fromISODate(orderDate), details: `Resignation accepted; last day of service ${lastDay}.`, detailsHi: `त्यागपत्र स्वीकृत; सेवा का अंतिम दिन ${lastDay}।`, data: { separationId: sep.id, kind: "RESIGNATION" }, status: "APPROVED", createdById: hr.id },
-    });
-  }
+  // Client add-on: a resignation at the end of last month (with a running loan) whose settlement Payroll prepares.
+  await seedDemoLeaver(db, board.id);
 
   // A demo vacancy (advertised, with applicants) so the recruitment screens have something to show.
   if ((await db.vacancy.count({ where: { boardId: board.id } })) === 0) {

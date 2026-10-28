@@ -25,6 +25,14 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 
 ## Change log (newest first)
 
+### 2026-10-28 — Demo copies: add new demo data safely (`npm run db:demo-addons`) ✅
+- A demo copy seeded before the client add-ons lacked their demo data (the DA history, the leaver to settle), and
+  re-running the full seed there would rewrite the demo employees. `npm run db:demo-addons` adds only what is
+  missing (rates and pay heads where absent, the demo leaver once) and refuses on a production copy.
+- The seed's leaver step moved to `prisma/seed-addons.ts`; a re-run of the seed no longer leaves the leaver "Working".
+**Verified** — on a copy without that data: first run added 17 DA rates, the pay head and the leaver; a second run
+changed nothing; `APP_ENV=production` refused; typecheck, lint, tests, build, browser checks.
+
 ### 2026-10-28 — Client add-on: month-wise and year-wise view of one employee ✅
 **Built**
 - The profile's **Overview** has a "Show for: Month / Year" bar. **Month** (any month of the person's service):
