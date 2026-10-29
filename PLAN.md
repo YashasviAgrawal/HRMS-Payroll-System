@@ -247,6 +247,7 @@ _Goal: a secure, bilingual shell that every later module plugs into._
 - [x] C6 Bank salary file as Excel (text file kept as a setting)
 - [x] C1b Month-wise and year-wise (financial year) view of one employee — Overview, Payslips and Leave tabs
 - [x] C1a The Admin sees everything — Employees, Attendance and leave, Pension in the Admin menu; an Administration page for the admin tools; last net pay on the employee list; a "find an employee" box in the top bar
+- [x] C3a A back-dated promotion, MACP or increment works out the increments recorded after it again (or withdraws them)
 - [x] C2a Leaving mid-month with a loan: a pre-check asks Payroll to hold the last pay (the settlement recovers the loan from it) or explain why it is paid
 - [x] C1c Search a person (full name in any order, ID, mobile; leavers too; one match opens the profile) and see their documents on the Overview
 - [x] C7 Document types as a setting (names in English and Hindi, largest size, in use) — the Board confirms its list

@@ -200,4 +200,48 @@ describe.skipIf(!hasTestDb)("pay changes, arrears, loans and payslips (PR-06 to 
     expect(await db.messageLog.count({ where: { boardId, template: "payslip", recipient: "9811100001" } })).toBe(1);
     expect((await sendPayslipNotices(boardId, runId)).sent).toBe(0);
   });
+
+  it("restates the increments recorded after a back-dated MACP: withdrawn when not yet due, else a cell up in the new level", async () => {
+    async function withJulyIncrement(tag: string) {
+      const e = await db.employee.create({
+        data: { boardId, employeeCode: `PB${tag}${Date.now().toString(36).toUpperCase()}`, type: "PERMANENT_NPS", status: "ACTIVE", firstName: "Back", lastName: tag, gender: "M", dateOfBirth: new Date("1985-02-02T00:00:00Z"), dateOfJoining: new Date("2014-08-05T00:00:00Z"), dateOfRetirement: new Date("2045-02-28T00:00:00Z"), sectionId, postId: postL6, payLevel: "6", payCell: 4 },
+      });
+      for (const [date, cell] of [["2025-07-01", 3], ["2026-07-01", 4]] as const) {
+        const entry = await db.serviceBookEntry.create({ data: { employeeId: e.id, event: "INCREMENT", eventDate: new Date(`${date}T00:00:00Z`), details: `Annual increment to cell ${cell}`, status: "APPROVED", createdById: "test" } });
+        await db.payHistory.create({ data: { boardId, employeeId: e.id, effectiveFrom: new Date(`${date}T00:00:00Z`), payLevel: "6", payCell: cell, reason: "INCREMENT", serviceEntryId: entry.id, applied: true, createdById: "test" } });
+      }
+      return e.id;
+    }
+    async function macp(employeeId: string, effectiveFrom: string) {
+      const task = await submitFixation(hr, { employeeId, kind: "MACP", toLevel: "7", effectiveFrom, option: "FROM_PROMOTION", orderNumber: "DCB/MACP/3" });
+      await decide(checker, task.id, "APPROVE");
+      await decide(approver, (await pendingTask(employeeId)).id, "APPROVE");
+      return db.payHistory.findMany({ where: { employeeId }, orderBy: { effectiveFrom: "asc" } });
+    }
+
+    // MACP from 15 March 2026 (on cell 3): the 1 July 2026 increment is not due (January is now the month, and under
+    // six months in the level), so it is withdrawn and the record keeps the MACP pay.
+    const d = await withJulyIncrement("D");
+    expect((await macp(d, "2026-03-15")).map((h) => [h.reason, h.payLevel, h.payCell])).toEqual([
+      ["INCREMENT", "6", 3],
+      ["MACP", "7", 1],
+    ]);
+    expect((await db.employee.findUniqueOrThrow({ where: { id: d } })).payLevel).toBe("7");
+    const withdrawn = await db.serviceBookEntry.findFirstOrThrow({ where: { employeeId: d, event: "INCREMENT", eventDate: new Date("2026-07-01T00:00:00Z") } });
+    expect(withdrawn.status).toBe("REJECTED");
+    expect(withdrawn.details).toContain("withdrawn after the MACP of 15 Mar 2026");
+
+    // MACP from 20 December 2025: July stays the month and six months are complete, so the increment moves up a cell
+    // in the new level.
+    const e = await withJulyIncrement("E");
+    expect((await macp(e, "2025-12-20")).map((h) => [h.reason, h.payLevel, h.payCell])).toEqual([
+      ["INCREMENT", "6", 3],
+      ["MACP", "7", 1],
+      ["INCREMENT", "7", 2],
+    ]);
+    expect(await db.employee.findUniqueOrThrow({ where: { id: e } })).toMatchObject({ payLevel: "7", payCell: 2 });
+
+    // A later MACP already on record: the earlier one is refused until that is put right.
+    await expect(previewFixation(hr, { employeeId: e, kind: "MACP", toLevel: "8", effectiveFrom: "2025-10-01", option: "FROM_PROMOTION", orderNumber: "DCB/MACP/4" })).rejects.toMatchObject({ fields: { effectiveFrom: "payroll.fixation.laterFixation" } });
+  });
 });

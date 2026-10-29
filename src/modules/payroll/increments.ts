@@ -170,6 +170,59 @@ export interface IncrementPayload {
   rows: { employeeId: string; code: string; name: string; level: string; fromCell: number; toCell: number; fromBasic: number; toBasic: number }[];
 }
 
+/**
+ * A pay change recorded back-dated (a promotion, MACP or an increment from an earlier date) restates the annual
+ * increments already recorded after it, up to the next promotion or MACP: each is again one cell above the pay before
+ * it, or is withdrawn when the person no longer gets it on that date (not their increment month, under six months in
+ * the level, or the top of the level). The record then shows the pay in force today. Returns how many changed.
+ */
+export async function restateLaterIncrements(tx: Tx, boardId: string, employeeId: string, after: ISODate, why: { en: string; hi: string }) {
+  const e = await tx.employee.findUniqueOrThrow({ where: { id: employeeId } });
+  let live = await tx.payHistory.findMany({ where: { employeeId }, orderBy: [{ effectiveFrom: "asc" }, { createdAt: "asc" }] });
+  let changed = 0;
+  for (const h of [...live]) {
+    const date = toISODate(h.effectiveFrom);
+    if (date <= after) continue;
+    if (h.reason === "PROMOTION" || h.reason === "MACP") break;
+    if (h.reason !== "INCREMENT") continue;
+    const earlier = live.filter((x) => x.id !== h.id && toISODate(x.effectiveFrom) < date);
+    const before = earlier.at(-1);
+    if (!before) continue;
+    const lastFix = [...earlier].reverse().find((x) => x.reason === "PROMOTION" || x.reason === "MACP" || x.reason === "INITIAL");
+    const lastChange = lastFix ? toISODate(lastFix.effectiveFrom) : toISODate(e.dateOfJoining);
+    const levels = (await matrixOn(boardId, date, tx))?.levels as Record<string, number[]> | undefined;
+    const cells = levels?.[before.payLevel];
+    const toCell = cells && before.payCell < cells.length ? before.payCell + 1 : null;
+    const entry = h.serviceEntryId ? await tx.serviceBookEntry.findUnique({ where: { id: h.serviceEntryId } }) : null;
+    if (toCell === null || Number(date.slice(5, 7)) !== (e.incrementMonth ?? incrementMonthFor(lastChange)) || !qualifies(lastChange, date)) {
+      await tx.payHistory.delete({ where: { id: h.id } });
+      if (entry) await tx.serviceBookEntry.update({ where: { id: entry.id }, data: { status: "REJECTED", details: `${entry.details} — withdrawn after the ${why.en}`, detailsHi: entry.detailsHi ? `${entry.detailsHi} — ${why.hi} के बाद वापस` : null } });
+      live = live.filter((x) => x.id !== h.id);
+      changed++;
+      continue;
+    }
+    if (before.payLevel === h.payLevel && toCell === h.payCell) continue;
+    const fromBasic = basicFrom(levels, before.payLevel, before.payCell) ?? 0;
+    const toBasic = basicFrom(levels, before.payLevel, toCell) ?? 0;
+    await tx.payHistory.update({ where: { id: h.id }, data: { payLevel: before.payLevel, payCell: toCell } });
+    if (entry) {
+      await tx.serviceBookEntry.update({
+        where: { id: entry.id },
+        data: {
+          details: `Annual increment: Level ${before.payLevel}, cell ${before.payCell} → ${toCell} (${formatINR(fromBasic)} → ${formatINR(toBasic)}) — restated after the ${why.en}`,
+          detailsHi: `वार्षिक वेतन वृद्धि: लेवल ${before.payLevel}, सेल ${before.payCell} → ${toCell} (${formatINR(fromBasic)} → ${formatINR(toBasic)}) — ${why.hi} के बाद संशोधित`,
+          data: { fromLevel: before.payLevel, fromCell: before.payCell, toLevel: before.payLevel, toCell },
+        },
+      });
+    }
+    live = live.map((x) => (x.id === h.id ? { ...x, payLevel: before.payLevel, payCell: toCell } : x));
+    changed++;
+  }
+  const now = live.filter((x) => toISODate(x.effectiveFrom) <= todayIST()).at(-1);
+  if (now) await tx.employee.update({ where: { id: employeeId }, data: { payLevel: now.payLevel, payCell: now.payCell, ...(now.postId ? { postId: now.postId } : {}) } });
+  return changed;
+}
+
 /** The Checker verified the list: pay history, the record (once the date has come) and the service book. */
 export async function applyIncrements(tx: Tx, task: ApprovalTask, actor: Actor, p: IncrementPayload) {
   const today = todayIST();
@@ -196,5 +249,7 @@ export async function applyIncrements(tx: Tx, task: ApprovalTask, actor: Actor, 
     });
   }
   await applyDuePayChanges(tx, task.boardId, today);
+  // A list for a past date given after a later increment was recorded: the later ones move up a cell.
+  for (const r of p.rows) await restateLaterIncrements(tx, task.boardId, r.employeeId, p.dueDate, { en: `increment of ${formatDate(p.dueDate)} given later`, hi: `${formatDate(p.dueDate, "hi")} की वेतन वृद्धि बाद में दिए जाने` });
   await emit(tx, task.boardId, "increments.approved", { type: "IncrementBatch", id: p.dueDate }, { people: p.rows.length });
 }

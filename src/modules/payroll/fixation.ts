@@ -13,7 +13,7 @@ import { emit } from "@/lib/outbox";
 import { isoDateField } from "@/lib/validators";
 import { fullName } from "@/modules/employees/present";
 import { applyDuePayChanges, matrixOn, payAsOf } from "./compute";
-import { canPreparePay } from "./increments";
+import { canPreparePay, restateLaterIncrements } from "./increments";
 import { fixPay, incrementMonthFor, type Fixation } from "./pay-rules";
 
 /**
@@ -43,6 +43,8 @@ async function work(actor: Actor, raw: unknown) {
   const e = await db.employee.findFirst({ where: { id: input.employeeId, boardId: actor.boardId, status: "ACTIVE" }, include: { post: true, payHistory: { orderBy: { effectiveFrom: "desc" } } } });
   if (!e) throw notFound();
   if (e.id === actor.employeeId) throw forbidden("errors.ownPay");
+  // A promotion or MACP already recorded after this date would have been fixed on the wrong pay: correct that one first.
+  if (e.payHistory.some((h) => (h.reason === "PROMOTION" || h.reason === "MACP") && toISODate(h.effectiveFrom) > input.effectiveFrom)) throw badRequest("errors.validation", { effectiveFrom: "payroll.fixation.laterFixation" });
   const pay = (await payAsOf(db, [e], input.effectiveFrom)).get(e.id)!;
   const matrix = await matrixOn(actor.boardId, input.effectiveFrom, db);
   if (!matrix || !pay.payLevel || !pay.payCell) throw badRequest("payroll.fixation.noPay");
@@ -152,5 +154,10 @@ export async function applyFixation(tx: Tx, task: ApprovalTask, actor: Actor, p:
   }
   await tx.employee.update({ where: { id: input.employeeId }, data: { incrementMonth: fixation.incrementMonth } });
   await applyDuePayChanges(tx, task.boardId, todayIST());
+  // Back-dated: annual increments recorded after it are worked out again on the new pay (or withdrawn).
+  await restateLaterIncrements(tx, task.boardId, input.employeeId, input.effectiveFrom, {
+    en: `${input.kind === "PROMOTION" ? "promotion" : "MACP"} of ${formatDate(input.effectiveFrom)}`,
+    hi: `${formatDate(input.effectiveFrom, "hi")} की ${input.kind === "PROMOTION" ? "पदोन्नति" : "एमएसीपी"}`,
+  });
   await emit(tx, task.boardId, "pay.fixed", { type: "Employee", id: input.employeeId }, { kind: input.kind, steps: fixation.steps.length });
 }

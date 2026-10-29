@@ -2011,6 +2011,7 @@ export const en = {
       upcoming: "From a future date",
       noPay: "This person has no pay level and cell in the pay matrix.",
       lowerLevel: "The new level cannot be lower than the present one.",
+      laterFixation: "A promotion or MACP after this date is already recorded. Correct that one first (it was fixed on the pay before this change).",
     },
     supplementary: {
       byDays: "Paid by days: {parts}",

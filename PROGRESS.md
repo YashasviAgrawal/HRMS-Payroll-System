@@ -25,6 +25,20 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 
 ## Change log (newest first)
 
+### 2026-10-29 — Back-dated promotion, MACP or increment: later increments are worked out again ✅
+**Fixed**
+- A promotion, MACP or increment approved with an earlier date than an increment already recorded was overruled by
+  it: the later increment (worked out on the old pay) stayed the pay in force, so the new pay was lost from that date
+  and no arrears appeared. Found on the demo: Shalini Kapoor promoted from 15 March 2026 kept Level 2 from 1 July.
+- Now each increment recorded after a back-dated change is worked out again on the new pay — one cell up in the
+  pay then in force — or withdrawn when the person no longer gets it on that date (not their increment month, under
+  six months in the level, or the top of the level). Its service book entry says "restated" or "withdrawn" and why.
+  The employee record follows the pay in force today. A promotion or MACP dated before another promotion or MACP
+  already recorded is refused with a message (that one was fixed on the old pay and is put right first).
+**Verified** — typecheck, lint, integration test (MACP from 15 March: the July increment withdrawn; MACP from 20 December:
+the July increment a cell up in the new level; an earlier MACP refused), 404 tests, build, browser checks; on a demo
+copy the promotion from 15 March now gives Level 4 and arrears for the paid months (August, September: ₹13,116 net).
+
 ### 2026-10-29 — Vercel training copies get new demo data on every deploy ✅
 - A Vercel demo seeded before the client add-ons showed an empty "Suspensions and leaving service" page: applying
   the migrations creates tables, not the demo leaver. `vercel-build` now runs `db:demo-addons --training-build`
