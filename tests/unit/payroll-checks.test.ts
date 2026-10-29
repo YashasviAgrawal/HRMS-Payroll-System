@@ -27,6 +27,15 @@ describe("PR-10 pre-checks", () => {
     expect(changePct(1, 0)).toBeNull();
   });
 
+  it("asks to hold or explain the last pay of a person leaving this month with a loan still owed", () => {
+    expect(preChecks([slip({ leaving: { lastDay: "2026-10-15", loansLeft: 47176 } })], new Map([["h1", 1]]))).toEqual([
+      { employeeId: "e1", code: "LEAVING_WITH_LOAN", vars: { lastDay: "2026-10-15", amount: 47176 } },
+    ]);
+    // Nothing owed (no loan, or this month's instalment closes it): the last pay goes out as usual.
+    expect(codes(slip({ leaving: { lastDay: "2026-10-15", loansLeft: 0 } }))).toEqual([]);
+    expect(EXCEPTION_RULES.LEAVING_WITH_LOAN).toEqual({ severity: "BLOCK", resolutions: ["WITHHELD", "EXPLAINED"] });
+  });
+
   it("blocks everything except the net change, which is a remark for the Checker", () => {
     expect(Object.entries(EXCEPTION_RULES).filter(([, r]) => r.severity === "WARN").map(([c]) => c)).toEqual(["NET_CHANGE"]);
     expect(EXCEPTION_RULES.NO_BANK.resolutions).toEqual(["WITHHELD"]);

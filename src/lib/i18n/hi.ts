@@ -1821,6 +1821,7 @@ export const hi: DeepStrings<typeof en> = {
         ATTENDANCE_NOT_LOCKED: "पिछले माह की उपस्थिति लॉक नहीं",
         NET_CHANGE: "शुद्ध वेतन में 25% से अधिक बदलाव",
         LIFE_CERTIFICATE: "जीवन प्रमाण पत्र समय पर नहीं मिला",
+        LEAVING_WITH_LOAN: "ऋण बाकी रहते सेवा छोड़ना",
       },
       detail: {
         NO_BANK: "रिकॉर्ड में बैंक खाता या IFSC नहीं है।",
@@ -1832,6 +1833,7 @@ export const hi: DeepStrings<typeof en> = {
         ATTENDANCE_NOT_LOCKED: "{section}: {month} की उपस्थिति लॉक नहीं है ({people} लोग)।",
         NET_CHANGE: "पिछले माह ₹{lastNet} → अब ₹{net} ({pct}%)।",
         LIFE_CERTIFICATE: "पीपीओ {ppo}: जीवन प्रमाण पत्र {validTill} तक देना था। मिलने तक सिस्टम पेंशन रोकता है।",
+        LEAVING_WITH_LOAN: "सेवा का अंतिम दिन {lastDay}। इस माह की किस्त के बाद भी ऋण के ₹{amount} बाकी हैं।",
       },
       fix: {
         NO_BANK: "कर्मचारी रिकॉर्ड में बैंक खाता जोड़ें (जाँचकर्ता स्वीकृत करेगा), फिर वेतन फिर से बनाएँ।",
@@ -1843,6 +1845,7 @@ export const hi: DeepStrings<typeof en> = {
         ATTENDANCE_NOT_LOCKED: "अनुभाग से पिछला माह लॉक करवाएँ, फिर वेतन फिर से बनाएँ।",
         NET_CHANGE: "कारण देखें (बिना वेतन अवकाश, कार्यग्रहण, बकाया, नई कटौती) और लिखें।",
         LIFE_CERTIFICATE: "पेंशनभोगी के पृष्ठ पर जीवन प्रमाण पत्र दर्ज या सत्यापित करें, फिर बिल दोबारा बनाएँ — रोके गए माह अगले बिल में दिए जाते हैं।",
+        LEAVING_WITH_LOAN: "यह वेतन रोकें: पूर्ण एवं अंतिम निपटान इसे देय मानकर इसी से ऋण वसूल करेगा। या वेतन दें और कारण लिखें (जैसे ऋण चेक से लौटाया जाएगा)।",
       },
     },
     actions: {

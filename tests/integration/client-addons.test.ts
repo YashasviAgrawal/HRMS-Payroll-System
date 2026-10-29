@@ -9,6 +9,7 @@ import { uploadDocument, uploadServiceBooks } from "@/modules/employees/records"
 import { currentSeparation, getSeparation, proposeReinstatement, proposeSeparation } from "@/modules/employees/separation";
 import { listEmployees } from "@/modules/employees/service";
 import { withheldCandidates } from "@/modules/payroll/arrears";
+import { computeRun } from "@/modules/payroll/compute";
 import { loanPosition, loanTermsOf } from "@/modules/payroll/loan-rules";
 import { approveRun, checkRun, getRun, reopenRun, startSigning, submitRun } from "@/modules/payroll/run";
 import { duesOnRecord, makeSettlementBill, recordReceipt, saveSettlementInputs, settlementView, submitSettlement } from "@/modules/payroll/settlement";
@@ -294,6 +295,29 @@ describe.skipIf(!hasTestDb)("client add-ons — leaving service and the full and
     expect(v.statement.waitFor.map((w) => w.title)).toEqual(["Payroll July 2019 — Permanent – OPS"]);
     expect(v.canSubmit).toBe(false);
     await expect(submitSettlement(payroll, sep.id, {})).rejects.toMatchObject({ key: "payroll.settlement.errors.waitFor" });
+  });
+
+  it("asks Payroll to hold the last pay of a person leaving mid-month with a loan; the settlement recovers the loan from it", async () => {
+    const e = await person();
+    const l = await loan(e.id, { principal: 30000, instalment: 3000, start: "2019-06", paid: ["2019-06", "2019-07"] });
+    const quit = await person();
+    const closing = await person();
+    await loan(closing.id, { principal: 6000, instalment: 3000, start: "2019-07", paid: ["2019-07"] });
+    const sep = await leaves(e.id, "2019-08-14", "DISMISSAL");
+    await leaves(quit.id, "2019-08-20");
+    await leaves(closing.id, "2019-08-31");
+    const { found } = await computeRun(db, boardId, "OPS", "2019-08", { ignoreAttendance: true });
+    const leaving = found.filter((f) => f.code === "LEAVING_WITH_LOAN");
+    // ₹30,000 less June and July, less August's instalment. No loan, or August's instalment closing it: nothing to ask.
+    expect(leaving).toEqual([{ employeeId: e.id, code: "LEAVING_WITH_LOAN", vars: { lastDay: "2019-08-14", amount: 21000 } }]);
+
+    // Held: the settlement releases August's pay for the 14 days and takes the whole loan from it.
+    const held = await slip(e.id, "2019-08", { days: 14, dim: 31, withheld: "LEAVING_WITH_LOAN" });
+    const v = (await settlementView(payroll, sep.id))!;
+    expect(v.statement.withheld).toEqual([expect.objectContaining({ slipId: held.id, release: true, due: 35400 + 4248 - 3000 })]);
+    expect(v.statement.lines.find((x) => x.key === `loan:${l.id}`)?.amount).toBe(24000);
+    expect(v.statement.leave?.days ?? 0).toBe(0);
+    expect(v.statement.totals).toMatchObject({ payable: 36648 - 24000, toRecover: 0 });
   });
 
   it("suspends and reinstates through a Checker and an Admin; the loans on record are shown meanwhile", async () => {

@@ -15,6 +15,7 @@ import { professionalTaxFor } from "@/modules/statutory/tax-rules";
 import { headFlags, monthsStillToCome, partsOf, projectTds, taxContext } from "@/modules/statutory/tds-projection";
 import { computePensionRun } from "@/modules/pension/compute";
 import { computePay, TYPES_IN_GROUP, type HeadRule, type PayInput, type PayLine } from "./engine";
+import { fromPaise, toPaise } from "@/lib/money";
 import { loanPosition, loanTermsOf } from "./loan-rules";
 import { basicIn, seventhCpcMatrix, type MatrixLevels } from "./matrix-7cpc";
 
@@ -202,6 +203,19 @@ export async function loansDue(tx: DbLike, employeeIds: string[], month: string)
   return out;
 }
 
+/** For people leaving this month: what their loans still owe after this month's instalment (nothing owed: left out). */
+async function loansLeftAfter(tx: DbLike, employeeIds: string[], month: string) {
+  const paise = new Map<string, number>();
+  if (!employeeIds.length) return paise;
+  const loans = await tx.loan.findMany({ where: { employeeId: { in: employeeIds }, status: "RUNNING" }, include: { recoveries: true } });
+  for (const l of loans) {
+    const pos = loanPosition(loanTermsOf(l), l.recoveries.map((r) => ({ month: r.month, principal: num(r.principal), interest: num(r.interest) })), month);
+    const left = toPaise(pos.principalLeft) + toPaise(pos.interestLeft) - toPaise(pos.due.principal) - toPaise(pos.due.interest);
+    if (left > 0) paise.set(l.employeeId, (paise.get(l.employeeId) ?? 0) + left);
+  }
+  return new Map([...paise].map(([id, p]) => [id, fromPaise(p)]));
+}
+
 /**
  * Works out a pay group's month from the records as they stand: matrix and rates in force on the 1st, pay heads,
  * standing items, last month's locked attendance (D-17) and the bank details; then the worked-out deductions — loan
@@ -234,7 +248,11 @@ export async function computeRun(tx: DbLike, boardId: string, group: RunGroup, m
   ]);
   const ids = employees.map((e) => e.id);
   const flags = headFlags(headRows);
-  const [items, locks, attMonths, lastSlips, holders, pays, loans, gpfRefunds, settings, taxCtx] = await Promise.all([
+  const lastDayIn = (e: { exitDate: Date | null }) => {
+    const d = e.exitDate ? toISODate(e.exitDate) : null;
+    return d && d >= monthStart && d <= monthEnd ? d : null;
+  };
+  const [items, locks, attMonths, lastSlips, holders, pays, loans, gpfRefunds, settings, taxCtx, leavingLoans] = await Promise.all([
     itemsFor(boardId, month, ids, tx),
     tx.attendanceLock.findMany({ where: { boardId, month: last, unlockedAt: null }, select: { sectionId: true } }),
     tx.attendanceMonth.findMany({ where: { employeeId: { in: ids }, month: last } }),
@@ -246,6 +264,7 @@ export async function computeRun(tx: DbLike, boardId: string, group: RunGroup, m
     gpfRefundsDue(tx, ids, month),
     statutorySettings(tx, boardId),
     taxContext(tx, boardId, ids, month, flags),
+    loansLeftAfter(tx, employees.filter((e) => lastDayIn(e)).map((e) => e.id), month),
   ]);
   const postBy = new Map(posts.map((p) => [p.id, p]));
   if (!matrix && employees.some((e) => MATRIX_TYPES.includes(e.type))) throw badRequest("payroll.errors.noMatrix");
@@ -340,7 +359,8 @@ export async function computeRun(tx: DbLike, boardId: string, group: RunGroup, m
       changePct: pct,
       detail: { ...(loanLines.length ? { loans: loanLines } : {}), ...(refunds.length ? { gpfRefunds: refunds } : {}), tax },
     });
-    facts.push({ employeeId: e.id, net: result.net, lastNet, hasBank: Boolean(e.bankAccountHash && e.ifsc), bankHash: e.bankAccountHash, afterRetirement, noPayLevel, suspended: e.status === "SUSPENDED" });
+    const leavingOn = lastDayIn(e);
+    facts.push({ employeeId: e.id, net: result.net, lastNet, hasBank: Boolean(e.bankAccountHash && e.ifsc), bankHash: e.bankAccountHash, afterRetirement, noPayLevel, suspended: e.status === "SUSPENDED", leaving: leavingOn ? { lastDay: leavingOn, loansLeft: leavingLoans.get(e.id) ?? 0 } : null });
   }
   const found: Found[] = preChecks(facts, bankHolders);
   for (const [sectionId, people] of notLocked) {

@@ -13,7 +13,8 @@ export type ExceptionCode =
   | "SUSPENDED"
   | "ATTENDANCE_NOT_LOCKED"
   | "NET_CHANGE"
-  | "LIFE_CERTIFICATE";
+  | "LIFE_CERTIFICATE"
+  | "LEAVING_WITH_LOAN";
 
 export type Resolution = "EXPLAINED" | "WITHHELD" | "WAIVED";
 
@@ -30,6 +31,9 @@ export const EXCEPTION_RULES: Record<ExceptionCode, { severity: "BLOCK" | "WARN"
   NET_CHANGE: { severity: "WARN", resolutions: ["EXPLAINED"] },
   // PN-06: a pension is held once the life certificate is more than a month overdue (the system withholds it).
   LIFE_CERTIFICATE: { severity: "BLOCK", resolutions: ["WITHHELD"] },
+  // Client add-on: the last pay of a person leaving this month with a loan still owed — hold it, and the full and final
+  // settlement takes it as a due and recovers the loan from it; or pay it, with the reason recorded.
+  LEAVING_WITH_LOAN: { severity: "BLOCK", resolutions: ["WITHHELD", "EXPLAINED"] },
 };
 
 export const EXCEPTION_CODES = Object.keys(EXCEPTION_RULES) as ExceptionCode[];
@@ -52,6 +56,8 @@ export interface SlipFacts {
   afterRetirement: boolean;
   noPayLevel: boolean;
   suspended: boolean;
+  /** Leaves service this month: the last day and what the loans still owe after this month's instalment. */
+  leaving?: { lastDay: string; loansLeft: number } | null;
 }
 
 export interface Found {
@@ -78,6 +84,7 @@ export function preChecks(slips: SlipFacts[], bankHolders: Map<string, number>):
     if (s.net < 0) add("NEGATIVE_NET", { net: s.net });
     const pct = changePct(s.net, s.lastNet);
     if (pct !== null && Math.abs(pct) > NET_CHANGE_LIMIT_PCT) add("NET_CHANGE", { pct, lastNet: s.lastNet ?? 0, net: s.net });
+    if (s.leaving && s.leaving.loansLeft > 0) add("LEAVING_WITH_LOAN", { lastDay: s.leaving.lastDay, amount: s.leaving.loansLeft });
   }
   return out;
 }

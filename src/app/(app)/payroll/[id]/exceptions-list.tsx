@@ -52,11 +52,12 @@ export function ExceptionsList({ runId, items, canResolve }: { runId: string; it
 
   const vars = (x: ExceptionItem) => {
     const v: Record<string, string | number> = { ...x.vars };
-    for (const k of ["net", "lastNet"]) if (typeof v[k] === "number") v[k] = formatINR(v[k] as number, { symbol: false });
+    for (const k of ["net", "lastNet", "amount"]) if (typeof v[k] === "number") v[k] = formatINR(v[k] as number, { symbol: false });
     if (typeof v.pct === "number") v.pct = `${(v.pct as number) > 0 ? "+" : ""}${v.pct}`;
     if (locale === "hi" && v.sectionHi) v.section = v.sectionHi;
     if (typeof v.month === "string") v.month = formatMonth(v.month, locale);
     if (typeof v.validTill === "string") v.validTill = formatDate(v.validTill as ISODate, locale);
+    if (typeof v.lastDay === "string") v.lastDay = formatDate(v.lastDay as ISODate, locale);
     return v;
   };
 

@@ -25,6 +25,21 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 
 ## Change log (newest first)
 
+### 2026-10-29 — Client add-on: the last pay of a person leaving with a loan is held for the settlement ✅
+**Built**
+- A person who leaves in the middle of a month is paid for the days up to the last day by that month's regular
+  payroll, and the full and final settlement waits for that bill. Until now that last pay went out in full even when
+  a loan was still owed, so the settlement could only ask the person to pay the loan back.
+- New pre-check **"Leaving service with a loan still owed"** (blocks the run): it shows the last day and what the
+  loans still owe after this month's instalment. Payroll either **withholds** the pay (the settlement counts it as a
+  due and recovers the whole loan from it) or **explains** why it is paid (for example, the loan is paid back by
+  cheque). No loan, or this month's instalment closing it: no question, the pay goes out as usual.
+**Verified** — typecheck, lint, unit tests (the check and its choices), integration test (a dismissal on the 14th with a
+loan: the check asks for ₹21,000; no loan or a loan closing that month: nothing; the held pay comes back in the
+settlement and the loan is taken from it), build, browser checks; walked through on a demo copy (Arun Joshi dismissed
+on 15 October: the October run asked (₹45,176 still owed after October's instalment), his pay was held, and the
+settlement set his October pay of ₹74,203 against ₹47,176 for the computer advance — ₹27,027 net payable, statement PDF).
+
 ### 2026-10-29 — Client add-on: search a person and see everything, documents included ✅
 **Built**
 - **Search** (the top-bar box and the Employees page): a full name in any order ("Arun Joshi", "joshi arun"), part

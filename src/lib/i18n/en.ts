@@ -1819,6 +1819,7 @@ export const en = {
         ATTENDANCE_NOT_LOCKED: "Last month's attendance not locked",
         NET_CHANGE: "Net pay changed by more than 25%",
         LIFE_CERTIFICATE: "Life certificate overdue",
+        LEAVING_WITH_LOAN: "Leaving service with a loan still owed",
       },
       detail: {
         NO_BANK: "There is no bank account or IFSC on the record.",
@@ -1830,6 +1831,7 @@ export const en = {
         ATTENDANCE_NOT_LOCKED: "{section}: attendance for {month} is not locked ({people} people).",
         NET_CHANGE: "₹{lastNet} last month → ₹{net} now ({pct}%).",
         LIFE_CERTIFICATE: "PPO {ppo}: the life certificate was due by {validTill}. The system holds the pension until it is received.",
+        LEAVING_WITH_LOAN: "Last day of service {lastDay}. After this month's instalment the loans still owe ₹{amount}.",
       },
       fix: {
         NO_BANK: "Add the bank account on the employee record (a Checker approves it), then work the payroll out again.",
@@ -1841,6 +1843,7 @@ export const en = {
         ATTENDANCE_NOT_LOCKED: "Ask the section to lock last month, then work the payroll out again.",
         NET_CHANGE: "Check the reason (leave without pay, joining, an arrear, a new deduction) and write it down.",
         LIFE_CERTIFICATE: "Enter or verify the life certificate on the pensioner's page, then work the bill out again — held months are paid with the next bill.",
+        LEAVING_WITH_LOAN: "Withhold this pay: the full and final settlement then counts it as a due and recovers the loan from it. Or pay it and write why (for example, the loan is to be paid back by cheque).",
       },
     },
     actions: {
