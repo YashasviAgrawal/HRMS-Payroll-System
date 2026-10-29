@@ -7,6 +7,7 @@ import { addDays, todayIST } from "@/lib/dates";
 import { employeeOverview, leaveApplicationsOf, payslipsOf } from "@/modules/employees/overview";
 import { uploadDocument, uploadServiceBooks } from "@/modules/employees/records";
 import { currentSeparation, getSeparation, proposeReinstatement, proposeSeparation } from "@/modules/employees/separation";
+import { listEmployees } from "@/modules/employees/service";
 import { withheldCandidates } from "@/modules/payroll/arrears";
 import { loanPosition, loanTermsOf } from "@/modules/payroll/loan-rules";
 import { approveRun, checkRun, getRun, reopenRun, startSigning, submitRun } from "@/modules/payroll/run";
@@ -361,6 +362,20 @@ describe.skipIf(!hasTestDb)("client add-ons — leaving service and the full and
     expect(await payslipsOf(hr, e.id, "2019-20")).toBeNull();
     expect((await leaveApplicationsOf(hr, e.id, 2019))?.taken).toEqual([{ code: "CL", days: 2 }]);
     expect((await leaveApplicationsOf(hr, e.id, 2020))?.applications).toEqual([]);
+  });
+
+  it("finds a person by full name in any order, by part of the name or ID, and finds people who have left", async () => {
+    const e = await person();
+    const left = await person();
+    await db.employee.update({ where: { id: left.id }, data: { status: "RESIGNED", exitDate: new Date("2020-01-31T00:00:00Z") } });
+    const ids = async (q?: string) => (await listEmployees(hr, { q, pageSize: 200 })).rows.map((r) => r.id);
+    expect(await ids(`exit ${e.lastName!.toLowerCase()}`)).toEqual([e.id]);
+    expect(await ids(`${e.lastName} Exit`)).toEqual([e.id]);
+    expect(await ids(e.employeeCode!.slice(-4))).toContain(e.id);
+    expect(await ids(`Exit ${e.lastName} nobody`)).toEqual([]);
+    // Searching looks through everyone; the plain list shows current staff only.
+    expect(await ids(left.lastName!)).toEqual([left.id]);
+    expect(await ids()).not.toContain(left.id);
   });
 
   it("files scanned service books by the Employee ID that starts each file name", async () => {

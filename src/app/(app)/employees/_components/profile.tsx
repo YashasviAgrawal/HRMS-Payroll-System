@@ -9,7 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { StatTile } from "@/components/ui/stat-tile";
 import { LinkTabs } from "@/components/ui/tabs";
 import { Table, Td, Th, THead, Tr } from "@/components/ui/table";
-import { canAll } from "@/lib/auth/access";
+import { canAll, scopeFor } from "@/lib/auth/access";
 import type { Actor } from "@/lib/auth/session";
 import { formatDate, formatDateTime, formatMonth, todayIST } from "@/lib/dates";
 import { tDynamic, type TFunction } from "@/lib/i18n";
@@ -531,7 +531,7 @@ async function OverviewTab({ e, actor, t, locale, basePath, filters }: TabProps 
   const o = await employeeOverview(actor, e.id, chosen);
   const last = o.pay?.last;
   const bar = <PeriodBar basePath={basePath} period={chosen} doj={e.dateOfJoining} today={today} t={t} locale={locale} />;
-  if (chosen?.view === "year") return <YearView e={e} o={o} t={t} locale={locale} basePath={basePath} bar={bar} />;
+  if (chosen?.view === "year") return <YearView e={e} actor={actor} o={o} t={t} locale={locale} basePath={basePath} bar={bar} />;
   return (
     <div className="space-y-6">
       {bar}
@@ -742,6 +742,7 @@ async function OverviewTab({ e, actor, t, locale, basePath, filters }: TabProps 
           )}
         </div>
       )}
+      <DocumentsSummary e={e} actor={actor} t={t} locale={locale} basePath={basePath} />
     </div>
   );
 }
@@ -974,7 +975,7 @@ function PeriodBar({ basePath, period, doj, today, t, locale }: { basePath: stri
 
 /** A financial year at a glance: pay month by month (regular and supplementary bills) with attendance, the year's
  * deductions, and leave taken. */
-function YearView({ e, o, t, locale, basePath, bar }: { e: EmployeeView; o: Awaited<ReturnType<typeof employeeOverview>>; t: TFunction; locale: Locale; basePath: string; bar: React.ReactNode }) {
+function YearView({ e, actor, o, t, locale, basePath, bar }: { e: EmployeeView; actor: Actor; o: Awaited<ReturnType<typeof employeeOverview>>; t: TFunction; locale: Locale; basePath: string; bar: React.ReactNode }) {
   const y = o.pay?.year;
   return (
     <div className="space-y-6">
@@ -1097,6 +1098,74 @@ function YearView({ e, o, t, locale, basePath, bar }: { e: EmployeeView; o: Awai
           )}
         </Card>
       )}
+      <DocumentsSummary e={e} actor={actor} t={t} locale={locale} basePath={basePath} />
     </div>
+  );
+}
+
+/** The documents that matter most when looking a person up (shown on file or missing on the Overview). */
+const KEY_DOCS = ["APPOINTMENT_ORDER", "JOINING_REPORT", "ID_PROOF", "BANK_PROOF", "PHOTO", "SERVICE_BOOK"];
+
+/** The person's documents at a glance: the key ones on file or not, and the latest few to open. */
+async function DocumentsSummary({ e, actor, t, locale, basePath }: TabProps & { basePath: string }) {
+  const [docs, settings] = await Promise.all([listDocuments(actor, e.id), getSetting(actor.boardId, "documents")]);
+  const active = new Set(settings.types.filter((x) => x.active).map((x) => x.code));
+  const have = new Set(docs.map((d) => d.category));
+  const key = KEY_DOCS.filter((c) => active.has(c));
+  // Documents open for logins that see the whole Board's records (as the Documents tab and the download allow).
+  const canOpen = scopeFor(actor, "employee_master", "view") === "all" || actor.employeeId === e.id;
+  return (
+    <Card data-testid="overview-documents">
+      <CardHeader
+        title={t("employees.overview.documentsTitle", { count: docs.length })}
+        icon={<FileText className="size-4.5" aria-hidden="true" />}
+        actions={
+          <Link href={`${basePath}?tab=documents`} className="text-sm font-medium text-brand-700 hover:underline">
+            {t("employees.overview.allDocuments")}
+          </Link>
+        }
+      />
+      <CardBody className="space-y-4">
+        {key.length > 0 && (
+          <ul className="flex flex-wrap gap-2" aria-label={t("employees.overview.keyDocuments")}>
+            {key.map((c) => (
+              <li key={c}>
+                <Badge tone={have.has(c) ? "green" : "amber"} dot>
+                  {t(have.has(c) ? "employees.overview.docOnFile" : "employees.overview.docMissing", { name: docTypeName(settings.types, c, locale) })}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+        )}
+        {docs.length === 0 ? (
+          <p className="text-sm text-ink-500">{t("employees.documents.empty")}</p>
+        ) : (
+          <ul className="divide-y divide-ink-100">
+            {docs.slice(0, 6).map((d) => (
+              <li key={d.id} className="flex items-center gap-3 py-2.5">
+                <FileText className="size-4 shrink-0 text-brand-700" aria-hidden="true" />
+                <div className="min-w-0 flex-1">
+                  {canOpen ? (
+                    <a href={`/api/v1/documents/${d.id}?view=1`} target="_blank" rel="noopener" className="block truncate text-sm font-medium text-ink-900 hover:text-brand-700 hover:underline">
+                      {d.title}
+                    </a>
+                  ) : (
+                    <p className="truncate text-sm font-medium text-ink-900">{d.title}</p>
+                  )}
+                  <p className="text-xs text-ink-500">
+                    {docTypeName(settings.types, d.category, locale)} · {formatDate(d.createdAt.toISOString().slice(0, 10), locale)}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        {docs.length > 6 && (
+          <Link href={`${basePath}?tab=documents`} className="inline-block text-sm font-medium text-brand-700 hover:underline">
+            {t("employees.overview.moreDocuments", { count: docs.length - 6 })}
+          </Link>
+        )}
+      </CardBody>
+    </Card>
   );
 }

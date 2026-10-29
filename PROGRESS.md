@@ -25,6 +25,18 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 
 ## Change log (newest first)
 
+### 2026-10-29 — Client add-on: search a person and see everything, documents included ✅
+**Built**
+- **Search** (the top-bar box and the Employees page): a full name in any order ("Arun Joshi", "joshi arun"), part
+  of a name, the Employee ID or a mobile number — every word must match. Without a status filter the search also
+  finds people who have left or retired. When exactly one person matches, their profile opens straight away.
+- The profile's **Overview** (latest, a chosen month and a chosen year) ends with a **Documents** card: the key papers
+  (appointment order, joining report, identity proof, bank proof, photograph, scanned service book) marked "on file"
+  or "not on file", the latest six documents to open, and a link to all of them. Opening a file follows the same
+  rights as the Documents tab.
+**Verified** — typecheck, lint, tests (search by full name in any order, part of a name, ID, a leaver), build,
+browser checks (an Admin searches by ID and by full name, lands on the profile and sees the Documents card).
+
 ### 2026-10-28 — Demo copies: add new demo data safely (`npm run db:demo-addons`) ✅
 - A demo copy seeded before the client add-ons lacked their demo data (the DA history, the leaver to settle), and
   re-running the full seed there would rewrite the demo employees. `npm run db:demo-addons` adds only what is

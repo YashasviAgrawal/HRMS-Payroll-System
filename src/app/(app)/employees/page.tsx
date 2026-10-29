@@ -41,10 +41,9 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
     listEmployees(actor, { q: sp.q, sectionId: sp.sectionId, type: sp.type, payLevel: sp.payLevel, status: sp.status, page }),
     formOptions(actor.boardId),
   ]);
-  // An exact Employee ID opens that person's full profile straight away (client add-on: one employee, one view).
-  const exact = sp.q?.trim().toUpperCase();
-  const match = exact && data.rows.find((r) => r.employeeCode === exact);
-  if (match && data.total === 1) redirect(`/employees/${match.id}`);
+  // A search that finds one person — an exact Employee ID or a name — opens their full profile straight away
+  // (client add-on: search a person, see everything about them).
+  if (sp.q?.trim() && data.total === 1 && data.rows.length === 1) redirect(`/employees/${data.rows[0].id}`);
   // Logins that see pay (Admin, Payroll, Checker) also see what each person was last paid.
   const showPay = canAll(actor, "payroll", "view");
   const pays = showPay ? await lastNetPays(actor, data.rows.map((r) => r.id)) : new Map<string, { month: string; net: number }>();

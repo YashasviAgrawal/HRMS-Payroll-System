@@ -551,6 +551,12 @@ export const en = {
       },
     },
     overview: {
+      documentsTitle: "Documents ({count})",
+      allDocuments: "All documents",
+      keyDocuments: "Key documents",
+      docOnFile: "{name} — on file",
+      docMissing: "{name} — not on file",
+      moreDocuments: "{count} more documents",
       netFor: "Net pay, {month}",
       takenIn: "Leave in {period}",
       noLeaveTaken: "No leave in this period.",

@@ -147,22 +147,28 @@ export async function listEmployees(actor: Actor, f: EmployeeFilter = {}) {
   const pageSize = Math.min(f.pageSize ?? 25, 200);
   const page = Math.max(f.page ?? 1, 1);
   const q = f.q?.trim();
-  const status = f.status === "ALL" ? undefined : f.status === "LEFT" ? { in: ["RETIRED", "RESIGNED", "TRANSFERRED", "TERMINATED", "DECEASED"] } : f.status ? f.status : { in: ["ACTIVE", "SUSPENDED"] };
+  // Each word of a search must match the ID, a part of the name (English or Hindi) or the mobile: "Arun Joshi" finds
+  // Arun Joshi. A search looks through everyone, those who have left included, unless a status is chosen.
+  const words = q ? q.split(/\s+/).filter(Boolean).slice(0, 6) : [];
+  const status = f.status === "ALL" || (!f.status && words.length) ? undefined : f.status === "LEFT" ? { in: ["RETIRED", "RESIGNED", "TRANSFERRED", "TERMINATED", "DECEASED"] } : f.status ? f.status : { in: ["ACTIVE", "SUSPENDED"] };
   const where: Prisma.EmployeeWhereInput = {
     boardId: actor.boardId,
     ...(scope === "section" ? { sectionId: actor.sectionId ?? "__none__" } : f.sectionId ? { sectionId: f.sectionId } : {}),
     ...(f.type ? { type: f.type as Employee["type"] } : {}),
     ...(f.payLevel ? { payLevel: f.payLevel } : {}),
     ...(status ? { status: status as Prisma.EnumEmployeeStatusFilter } : {}),
-    ...(q
+    ...(words.length
       ? {
-          OR: [
-            { employeeCode: { contains: q.toUpperCase() } },
-            { firstName: { contains: q, mode: "insensitive" } },
-            { lastName: { contains: q, mode: "insensitive" } },
-            { nameHi: { contains: q } },
-            { mobile: { contains: q } },
-          ],
+          AND: words.map((w) => ({
+            OR: [
+              { employeeCode: { contains: w.toUpperCase() } },
+              { firstName: { contains: w, mode: "insensitive" as const } },
+              { middleName: { contains: w, mode: "insensitive" as const } },
+              { lastName: { contains: w, mode: "insensitive" as const } },
+              { nameHi: { contains: w } },
+              { mobile: { contains: w } },
+            ],
+          })),
         }
       : {}),
   };

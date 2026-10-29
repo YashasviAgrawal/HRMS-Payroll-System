@@ -553,6 +553,12 @@ export const hi: DeepStrings<typeof en> = {
       },
     },
     overview: {
+      documentsTitle: "दस्तावेज़ ({count})",
+      allDocuments: "सभी दस्तावेज़",
+      keyDocuments: "मुख्य दस्तावेज़",
+      docOnFile: "{name} — उपलब्ध",
+      docMissing: "{name} — उपलब्ध नहीं",
+      moreDocuments: "{count} और दस्तावेज़",
       netFor: "शुद्ध वेतन, {month}",
       takenIn: "{period} में अवकाश",
       noLeaveTaken: "इस अवधि में कोई अवकाश नहीं।",

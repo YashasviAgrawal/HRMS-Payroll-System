@@ -132,6 +132,12 @@ test("Client add-on — an Admin sees everyone's record and pay: the employee li
   await expect(page.getByRole("heading", { level: 1, name: /Arun Joshi/ })).toBeVisible();
   await expect(page.getByTestId("overview-salary")).toBeVisible();
   await expect(page.getByTestId("overview-leave")).toBeVisible();
+  // Documents on the same screen: the key ones on file or not, and the latest to open.
+  await expect(page.getByTestId("overview-documents")).toContainText("Appointment order");
+  // A name that finds one person opens their profile too.
+  await page.getByRole("searchbox", { name: "Find an employee — ID or name" }).fill("Arun Joshi");
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("heading", { level: 1, name: /Arun Joshi/ })).toBeVisible();
   // Seeing is not changing: no edit or leaving buttons for an Admin.
   await expect(page.getByRole("link", { name: "Edit" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Suspension or leaving" })).toHaveCount(0);
