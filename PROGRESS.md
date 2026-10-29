@@ -25,6 +25,13 @@ The module checklist with PRD IDs is in [PLAN.md](./PLAN.md).
 
 ## Change log (newest first)
 
+### 2026-10-29 — Vercel training copies get new demo data on every deploy ✅
+- A Vercel demo seeded before the client add-ons showed an empty "Suspensions and leaving service" page: applying
+  the migrations creates tables, not the demo leaver. `vercel-build` now runs `db:demo-addons --training-build`
+  after the migrations: on `APP_ENV=training` it adds what is missing (never changes what is there), anywhere else it
+  is skipped, and it never fails the build. A skipped leaver says why in the build log.
+**Verified** — on a copy without the leaver: added, then kept on a second run; skipped on a non-training copy.
+
 ### 2026-10-29 — Client add-on: the last pay of a person leaving with a loan is held for the settlement ✅
 **Built**
 - A person who leaves in the middle of a month is paid for the days up to the last day by that month's regular

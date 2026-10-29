@@ -4,6 +4,9 @@
  * final settlement. Run once after deploying, with the copy's database address:
  *   DATABASE_URL="<url>" npm run db:demo-addons
  * Refuses to run on a production copy (APP_ENV=production).
+ *
+ * `--training-build` (Vercel's build): runs only on a training copy (APP_ENV=training) and never fails the build —
+ * anything else is skipped with a line in the build log.
  */
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -11,7 +14,10 @@ import { PrismaClient } from "../src/generated/prisma/client";
 import { seedDemoLeaver } from "../prisma/seed-addons";
 import { seedPayrollRules } from "../prisma/seed-payroll";
 
+const inBuild = process.argv.includes("--training-build");
+
 async function main() {
+  if (inBuild && process.env.APP_ENV !== "training") return console.log("Demo data for new features: skipped (not a training copy).");
   if (process.env.APP_ENV === "production") throw new Error("This adds demo data; it never runs on a production copy.");
   const url = process.env.DIRECT_DATABASE_URL || process.env.DATABASE_URL;
   if (!url) throw new Error("Set DATABASE_URL to the demo copy's database.");
@@ -23,7 +29,8 @@ async function main() {
     await seedPayrollRules(db, board.id);
     const after = await db.payRate.count({ where: { boardId: board.id } });
     console.log(`Rates and pay heads: ${after - before} new rate rows (existing ones left as they were).`);
-    console.log(`Demo leaver (Vikas Malhotra, DCB10012): ${await seedDemoLeaver(db, board.id)}.`);
+    const leaver = await seedDemoLeaver(db, board.id);
+    console.log(`Demo leaver (Vikas Malhotra, DCB10012): ${leaver}${leaver === "skipped" ? " — not on the rolls, already has a suspension or leaving recorded, or the HR login DCB10003 is missing" : ""}.`);
   } finally {
     await db.$disconnect();
   }
@@ -31,5 +38,5 @@ async function main() {
 
 main().catch((err) => {
   console.error(err instanceof Error ? err.message : err);
-  process.exit(1);
+  if (!inBuild) process.exit(1);
 });

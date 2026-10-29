@@ -386,8 +386,10 @@ written there vanish between runs, and the data must stay on government cloud in
    it goes through a connection pooler (Neon host with `-pooler`, Supabase port 6543), also add
    `DIRECT_DATABASE_URL` with the direct address; migrations use it, the app keeps using `DATABASE_URL`.
    If the build stops at the migration step, its log names the problem; nothing is half-applied.
-6. **Demo data for new features**: a demo copy seeded before an update does not have that update's demo data. Add it
-   without touching anything already there (refuses on `APP_ENV=production`):
+6. **Demo data for new features**: a demo copy seeded before an update does not have that update's demo data. On a
+   copy with `APP_ENV=training`, `vercel-build` adds it on every deploy, after the migrations, without touching
+   anything already there (the build log shows a "Demo leaver …" line; any other copy is skipped). By hand
+   (refuses on `APP_ENV=production`):
    ```bash
    DATABASE_URL="<hosted url>" npm run db:demo-addons                 # macOS / Linux
    $env:DATABASE_URL="<hosted url>"; npm run db:demo-addons            # Windows PowerShell
